@@ -8,10 +8,13 @@ import (
 
 // WsConfig configuration for websocket
 type WsConfig struct {
-	Scheme  string
-	Host    string
-	Port    int
-	BaseURI string
+	Scheme             string
+	Host               string
+	Port               int
+	BaseURI            string
+	HeartbeatInterval  int
+	ReversHeartbeat    bool
+	HeartbeatFailCount int
 }
 
 // ChangeHost change configuration's host
@@ -38,22 +41,25 @@ func (c *WsConfig) ChangeHost(host string) error {
 }
 
 // GetURL to convert confiuration to URL instance
-func (c *WsConfig) GetURL() url.URL {
+func (c *WsConfig) GetURL() *url.URL {
 	remote := url.URL{
 		Scheme: c.Scheme,
 		Host:   c.Host,
 		Path:   c.BaseURI,
 	}
 
-	return remote
+	return &remote
 }
 
 // NewConfig to make a default new config
 func NewConfig() *WsConfig {
 	cfg := WsConfig{
-		Scheme:  "wss",
-		Host:    "www.btcmex.com",
-		BaseURI: "/realtime",
+		Scheme:             "wss",
+		Host:               "www.btcmex.com",
+		BaseURI:            "/realtime",
+		HeartbeatInterval:  15,
+		ReversHeartbeat:    false,
+		HeartbeatFailCount: 3,
 	}
 
 	return &cfg
