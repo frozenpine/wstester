@@ -12,18 +12,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/frozenpine/wstester/models"
 	"github.com/gorilla/websocket"
 	flag "github.com/spf13/pflag"
-
-	"github.com/frozenpine/ngerest"
 )
 
-type hbValue int8
-
 const (
-	ping hbValue = 1
-	pong hbValue = -1
-
 	defaultScheme = "wss"
 	defaultHost   = "www.btcmex.com"
 	defaultPort   = 443
@@ -34,74 +28,6 @@ const (
 
 	defaultDuration = time.Duration(-1)
 )
-
-type heartbeat struct {
-	value     hbValue
-	timestamp time.Time
-}
-
-// SubscribeRequest request to websocket
-type SubscribeRequest struct {
-	Operation string   `json:"op"`
-	Args      []string `json:"args"`
-}
-
-// InfoResponse welcome message
-type InfoResponse struct {
-	Info      string                 `json:"info"`
-	Version   string                 `json:"version"`
-	Timestamp ngerest.NGETime        `json:"timestamp"`
-	Docs      string                 `json:"docs"`
-	Limit     map[string]interface{} `json:"limit"`
-	FrontID   string                 `json:"frontId"`
-	SessionID string                 `json:"sessionId"`
-}
-
-// SubscribeResponse subscribe response
-type SubscribeResponse struct {
-	Success   bool             `json:"success"`
-	Subscribe string           `json:"subscribe"`
-	Request   SubscribeRequest `json:"request"`
-}
-
-// InstrumentResponse instrument response structure
-type InstrumentResponse struct {
-	Table  string               `json:"table"`
-	Action string               `json:"action"`
-	Data   []ngerest.Instrument `json:"data"`
-
-	Keys        []string          `json:"keys,omitempty"`
-	Types       map[string]string `json:"types,omitempty"`
-	ForeignKeys map[string]string `json:"foreignKeys,omitempty"`
-	Attributes  map[string]string `json:"attributes,omitempty"`
-	Filter      map[string]string `json:"filter,omitempty"`
-}
-
-// TradeResponse trade response structure
-type TradeResponse struct {
-	Table  string          `json:"table"`
-	Action string          `json:"action"`
-	Data   []ngerest.Trade `json:"data"`
-
-	Keys        []string          `json:"keys,omitempty"`
-	Types       map[string]string `json:"types,omitempty"`
-	ForeignKeys map[string]string `json:"foreignKeys,omitempty"`
-	Attributes  map[string]string `json:"attributes,omitempty"`
-	Filter      map[string]string `json:"filter,omitempty"`
-}
-
-// MBLResponse trade response structure
-type MBLResponse struct {
-	Table  string                `json:"table"`
-	Action string                `json:"action"`
-	Data   []ngerest.OrderBookL2 `json:"data"`
-
-	Keys        []string          `json:"keys,omitempty"`
-	Types       map[string]string `json:"types,omitempty"`
-	ForeignKeys map[string]string `json:"foreignKeys,omitempty"`
-	Attributes  map[string]string `json:"attributes,omitempty"`
-	Filter      map[string]string `json:"filter,omitempty"`
-}
 
 var (
 	running = true
@@ -130,17 +56,17 @@ var (
 	subMsg        = []byte(`"subscribe"`)
 )
 
-func infoHandler(info *InfoResponse) {
+func infoHandler(info *models.InfoResponse) {
 	data, _ := json.Marshal(info)
 	log.Println("Info:", string(data))
 }
 
-func subscribeHandler(sub *SubscribeResponse) {
+func subscribeHandler(sub *models.SubscribeResponse) {
 	rsp, _ := json.Marshal(sub)
 	log.Println("Subscribe:", string(rsp))
 }
 
-func instrumentHandler(rsp *InstrumentResponse) {
+func instrumentHandler(rsp *models.InstrumentResponse) {
 	// for _, data := range rsp.Data {
 	// 	if data.Symbol == "XBTUSD" && data.LastPrice <= 0 {
 	// 		ins, _ := json.Marshal(data)
@@ -150,7 +76,7 @@ func instrumentHandler(rsp *InstrumentResponse) {
 	// }
 }
 
-func tradeHandler(rsp *TradeResponse) {
+func tradeHandler(rsp *models.TradeResponse) {
 	// for _, data := range rsp.Data {
 	// 	td, _ := json.Marshal(data)
 
@@ -158,7 +84,7 @@ func tradeHandler(rsp *TradeResponse) {
 	// }
 }
 
-func mblHandler(rsp *MBLResponse) {
+func mblHandler(rsp *models.MBLResponse) {
 	// for _, data := range rsp.Data {
 	// 	mbl, _ := json.Marshal(data)
 
@@ -167,7 +93,7 @@ func mblHandler(rsp *MBLResponse) {
 }
 
 func wsMessageHandler(
-	done chan<- bool, hb chan<- heartbeat, ws *websocket.Conn) {
+	done chan<- bool, hb chan<- *models.Heartbeat, ws *websocket.Conn) {
 	defer close(done)
 
 	for running {
@@ -181,9 +107,9 @@ func wsMessageHandler(
 
 		switch {
 		case bytes.Contains(msg, pongMsg):
-			hb <- heartbeat{value: pong, timestamp: time.Now()}
+			hb <- models.NewPong()
 		case bytes.Contains(msg, infoMsg):
-			var info InfoResponse
+			var info models.InfoResponse
 
 			if err = json.Unmarshal(msg, &info); err != nil {
 				log.Println("Fail to parse info msg:", err, string(msg))
@@ -191,7 +117,7 @@ func wsMessageHandler(
 				infoHandler(&info)
 			}
 		case bytes.Contains(msg, subMsg):
-			var sub SubscribeResponse
+			var sub models.SubscribeResponse
 
 			if err = json.Unmarshal(msg, &sub); err != nil {
 				log.Println(
@@ -200,7 +126,7 @@ func wsMessageHandler(
 				subscribeHandler(&sub)
 			}
 		case bytes.Contains(msg, instrumentMsg):
-			var insRsp InstrumentResponse
+			var insRsp models.InstrumentResponse
 
 			if err = json.Unmarshal(msg, &insRsp); err != nil {
 				log.Println(
@@ -209,7 +135,7 @@ func wsMessageHandler(
 				instrumentHandler(&insRsp)
 			}
 		case bytes.Contains(msg, tradeMsg):
-			var tdRsp TradeResponse
+			var tdRsp models.TradeResponse
 
 			if err = json.Unmarshal(msg, &tdRsp); err != nil {
 				log.Println("Fail to parse trade response:", err, string(msg))
@@ -217,7 +143,7 @@ func wsMessageHandler(
 				tradeHandler(&tdRsp)
 			}
 		case bytes.Contains(msg, mblMsg):
-			var mblRsp MBLResponse
+			var mblRsp models.MBLResponse
 
 			if err = json.Unmarshal(msg, &mblRsp); err != nil {
 				log.Println("Fail to parse MBL response:", err, string(msg))
@@ -236,12 +162,12 @@ func wsMessageHandler(
 	}
 }
 
-func heartbeatHandler(hbChan <-chan heartbeat, ws *websocket.Conn) {
-	var heartbeatCounter hbValue
+func heartbeatHandler(hbChan <-chan *models.Heartbeat, ws *websocket.Conn) {
+	var heartbeatCounter int
 
 	for hb := range hbChan {
-		switch hb.value {
-		case ping:
+		switch hb.Type() {
+		case "Ping":
 			err := ws.WriteMessage(websocket.TextMessage, []byte("ping"))
 
 			if err != nil && running {
@@ -255,13 +181,13 @@ func heartbeatHandler(hbChan <-chan heartbeat, ws *websocket.Conn) {
 			// if dbgLevel > 0 {
 			log.Println(">  ", hb.timestamp, "ping")
 			// }
-		case pong:
+		case "Pong":
 			// if dbgLevel > 0 {
 			log.Println("  <", hb.timestamp, "pong")
 			// }
 		}
 
-		heartbeatCounter += hb.value
+		heartbeatCounter += hb.Value()
 
 		if int(heartbeatCounter) > hbFailCount || heartbeatCounter < 0 {
 			log.Println("Heartbeat miss-match:", heartbeatCounter)
@@ -317,7 +243,7 @@ func testRound(ctx context.Context, count int, deadline <-chan struct{}) error {
 	defer c.Close()
 
 	done := make(chan bool, 1)
-	hbChan := make(chan heartbeat)
+	hbChan := make(chan *models.Heartbeat)
 
 	go wsMessageHandler(done, hbChan, c)
 	go heartbeatHandler(hbChan, c)
@@ -339,7 +265,7 @@ func testRound(ctx context.Context, count int, deadline <-chan struct{}) error {
 
 			return nil
 		case <-ticker.C:
-			hbChan <- heartbeat{value: ping, timestamp: time.Now()}
+			hbChan <- models.NewPing()
 		case <-sigChan:
 			log.Println("Keyboard interupt, waiting for exit...")
 			running = false
