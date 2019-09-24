@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/frozenpine/wstester/models"
+	"./models"
 	"github.com/gorilla/websocket"
 	flag "github.com/spf13/pflag"
 )
@@ -179,11 +179,11 @@ func heartbeatHandler(hbChan <-chan *models.Heartbeat, ws *websocket.Conn) {
 			}
 
 			// if dbgLevel > 0 {
-			log.Println(">  ", hb.timestamp, "ping")
+			log.Println(">  ", hb.ToString())
 			// }
 		case "Pong":
 			// if dbgLevel > 0 {
-			log.Println("  <", hb.timestamp, "pong")
+			log.Println("  <", hb.ToString())
 			// }
 		}
 
