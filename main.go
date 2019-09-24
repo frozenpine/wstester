@@ -141,13 +141,13 @@ func subscribeHandler(sub *SubscribeResponse) {
 }
 
 func instrumentHandler(rsp *InstrumentResponse) {
-	for _, data := range rsp.Data {
-		if data.Symbol == "XBTUSD" && data.LastPrice <= 0 {
-			ins, _ := json.Marshal(data)
+	// for _, data := range rsp.Data {
+	// 	if data.Symbol == "XBTUSD" && data.LastPrice <= 0 {
+	// 		ins, _ := json.Marshal(data)
 
-			fmt.Println("Instrument", rsp.Action, string(ins))
-		}
-	}
+	// 		fmt.Println("Instrument", rsp.Action, string(ins))
+	// 	}
+	// }
 }
 
 func tradeHandler(rsp *TradeResponse) {
@@ -252,13 +252,13 @@ func heartbeatHandler(hbChan <-chan heartbeat, ws *websocket.Conn) {
 				return
 			}
 
-			if dbgLevel > 0 {
-				log.Println(">  ", hb.timestamp, "ping")
-			}
+			// if dbgLevel > 0 {
+			log.Println(">  ", hb.timestamp, "ping")
+			// }
 		case pong:
-			if dbgLevel > 0 {
-				log.Println("  <", hb.timestamp, "pong")
-			}
+			// if dbgLevel > 0 {
+			log.Println("  <", hb.timestamp, "pong")
+			// }
 		}
 
 		heartbeatCounter += hb.value
