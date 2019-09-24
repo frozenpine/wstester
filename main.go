@@ -94,7 +94,7 @@ func mblHandler(rsp *models.MBLResponse) {
 }
 
 func wsMessageHandler(
-	done chan<- bool, hb chan<- *models.Heartbeat, ws *websocket.Conn) {
+	done chan<- bool, hb chan<- *models.HeartBeat, ws *websocket.Conn) {
 	defer close(done)
 
 	for running {
@@ -163,7 +163,7 @@ func wsMessageHandler(
 	}
 }
 
-func heartbeatHandler(hbChan <-chan *models.Heartbeat, ws *websocket.Conn) {
+func heartbeatHandler(hbChan <-chan *models.HeartBeat, ws *websocket.Conn) {
 	var heartbeatCounter int
 
 	for hb := range hbChan {
@@ -244,7 +244,7 @@ func testRound(ctx context.Context, count int, deadline <-chan struct{}) error {
 	defer c.Close()
 
 	done := make(chan bool, 1)
-	hbChan := make(chan *models.Heartbeat)
+	hbChan := make(chan *models.HeartBeat)
 
 	go wsMessageHandler(done, hbChan, c)
 	go heartbeatHandler(hbChan, c)
