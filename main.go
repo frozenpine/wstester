@@ -12,7 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"./models"
+	"github.com/frozenpine/wstester/models"
+
 	"github.com/gorilla/websocket"
 	flag "github.com/spf13/pflag"
 )
