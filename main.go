@@ -26,7 +26,7 @@ const (
 	defaultHBFailCount = 3
 
 	defaultReconnectDelay = 3
-	defaultMaxConnFailed  = 5
+	defaultMaxDelayCount  = 5
 
 	defaultDuration = time.Duration(-1)
 )
@@ -80,7 +80,7 @@ func expectBackoff(failCount, i int, slot int) time.Duration {
 
 	N := 1<<uint(failCount) - 1
 
-	return time.Millisecond * time.Duration(int64(N)*int64(slot)*1000/2)
+	return time.Millisecond * time.Duration(int64(slot)*int64(N)*1000/2)
 }
 
 func init() {
@@ -137,7 +137,7 @@ func main() {
 
 	for running {
 		if failCount > 0 {
-			delay := expectBackoff(failCount, defaultMaxConnFailed, defaultReconnectDelay)
+			delay := expectBackoff(failCount, defaultMaxDelayCount, defaultReconnectDelay)
 			delay += time.Millisecond * time.Duration(rand.Intn(100))
 
 			log.Println("Reconnect after:", delay)
