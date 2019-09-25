@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -21,6 +22,8 @@ var (
 	tradePattern      = []byte(`"trade"`)
 	mblPattern        = []byte(`"orderBook`)
 	subPattern        = []byte(`"subscribe"`)
+
+	logLevel int
 )
 
 // Client client instance
@@ -35,11 +38,12 @@ type Client struct {
 	subHandler  func(*models.SubscribeResponse)
 
 	heartbeatChan  chan *models.HeartBeat
+	heartbeatTimer *time.Timer
 	instrumentChan []chan<- *models.InstrumentResponse
 	tradeChan      []chan<- *models.TradeResponse
 	mblChan        []chan<- *models.MBLResponse
 
-	Running bool
+	closed chan struct{}
 }
 
 // Host to get remote host string
@@ -56,30 +60,47 @@ func (c *Client) IsConnected() bool {
 func (c *Client) Connect(ctx context.Context, query string) error {
 	remote := c.cfg.GetURL()
 
+	var queryList []string
+
 	if !strings.Contains(query, "subscribe") {
-		query = strings.Join(
-			[]string{"subscribe=instrument:XBTUSD,orderBookL2:XBTUSD,trade:XBTUSD", query}, "&")
+		queryList = append(queryList, "subscribe=instrument:XBTUSD,orderBookL2:XBTUSD,trade:XBTUSD")
 	}
-	remote.RawQuery = query
+	if query != "" {
+		queryList = append(queryList, query)
+	}
 
-	log.Println("Connect to:", remote.String())
+	remote.RawQuery = strings.Join(queryList, "&")
 
+	log.Println("Connecting to:", remote.String())
+
+	c.ctx = ctx
 	conn, rsp, err := websocket.DefaultDialer.DialContext(
 		ctx, remote.String(), nil)
 
 	if err != nil {
-		log.Printf("Fail to connect[%s]: %v\n%s",
+		return fmt.Errorf("Fail to connect[%s]: %v\n%s",
 			remote.String(), err, rsp.Status)
-
-		return err
 	}
 
 	c.ws = conn
-
 	c.connected = true
+	c.ws.SetCloseHandler(c.closeHandler)
 
 	go c.messageHandler()
 	go c.heartbeatHandler()
+
+	return nil
+}
+
+// Closed websocket closed notification
+func (c *Client) Closed() <-chan struct{} {
+	return c.closed
+}
+
+func (c *Client) closeHandler(code int, msg string) error {
+	close(c.closed)
+
+	log.Printf("Websocket closed with code[%d]: %s\n", code, msg)
 
 	return nil
 }
@@ -139,9 +160,24 @@ func (c *Client) heartbeatHandler() {
 		go func() {
 			for {
 				select {
-				case <-time.NewTicker(time.Duration(time.Second * time.Duration(c.cfg.HeartbeatInterval))).C:
-					c.heartbeatChan <- models.NewPing()
 				case <-c.ctx.Done():
+					return
+				case <-time.NewTicker(time.Second * time.Duration(c.cfg.HeartbeatInterval)).C:
+					c.heartbeatChan <- models.NewPing()
+				}
+			}
+		}()
+	} else {
+		c.heartbeatTimer = time.NewTimer(time.Second * time.Duration(c.cfg.HeartbeatInterval*c.cfg.HeartbeatFailCount))
+
+		go func() {
+			for {
+				select {
+				case <-c.ctx.Done():
+					return
+				case <-c.heartbeatTimer.C:
+					c.closeHandler(-1, "Receive data timeout.")
+
 					return
 				}
 			}
@@ -154,12 +190,24 @@ func (c *Client) heartbeatHandler() {
 			if !c.cfg.ReversHeartbeat {
 				err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping"))
 				heartbeatCounter += hb.Value()
+
+				if logLevel > 0 {
+					log.Println("->", hb.ToString())
+				}
 			} else {
 				err = c.ws.WriteMessage(websocket.TextMessage, []byte("pong"))
+
+				if logLevel > 0 {
+					log.Println("<-", hb.ToString())
+					log.Println("->", models.NewPong().ToString())
+				}
 			}
 		case "Pong":
-			err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping"))
-			heartbeatCounter -= hb.Value()
+			heartbeatCounter += hb.Value()
+
+			if logLevel > 0 {
+				log.Println("<-", hb.ToString())
+			}
 		default:
 			log.Println("Invalid heartbeat type: ", hb.ToString())
 
@@ -167,17 +215,13 @@ func (c *Client) heartbeatHandler() {
 		}
 
 		if err != nil {
-			log.Println("Send heartbeat failed: ", hb.ToString())
-
-			c.ws.Close()
+			c.closeHandler(-1, "Send heartbeat failed: "+hb.ToString())
 
 			return
 		}
 
 		if heartbeatCounter > c.cfg.HeartbeatFailCount || heartbeatCounter < 0 {
-			log.Println("Heartbeat miss-match:", heartbeatCounter)
-
-			c.ws.Close()
+			c.closeHandler(-1, fmt.Sprint("Heartbeat miss-match:", heartbeatCounter))
 
 			return
 		}
@@ -193,9 +237,13 @@ func (c *Client) messageHandler() {
 			_, msg, err := c.ws.ReadMessage()
 
 			if err != nil {
-				log.Println("Error:", err)
+				c.closeHandler(-1, err.Error())
 
 				return
+			}
+
+			if c.heartbeatTimer != nil {
+				c.heartbeatTimer.Reset(time.Second * time.Duration(c.cfg.HeartbeatInterval*c.cfg.HeartbeatFailCount))
 			}
 
 			switch {
@@ -272,11 +320,22 @@ func (c *Client) messageHandler() {
 					log.Println("Unkonw table type:", string(msg))
 				}
 			}
-
 		}
 	}
 }
 
 // NewClient create a new mock client instance
-func NewClient(cfg *WsConfig) {
+func NewClient(cfg *WsConfig) *Client {
+	ins := Client{
+		cfg:           cfg,
+		heartbeatChan: make(chan *models.HeartBeat),
+		closed:        make(chan struct{}),
+	}
+
+	return &ins
+}
+
+// SetLogLevel set log level to display more detailed log info
+func SetLogLevel(lvl int) {
+	logLevel = lvl
 }
