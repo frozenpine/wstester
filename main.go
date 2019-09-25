@@ -73,6 +73,7 @@ func humanReadNum(num int) string {
 	}
 }
 
+// algorithm ref: https://en.wikipedia.org/wiki/Exponential_backoff
 func expectBackoff(failCount, i int, slot int) time.Duration {
 	if failCount > i {
 		failCount = i
