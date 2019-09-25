@@ -1,4 +1,4 @@
-package mock
+package modules
 
 import (
 	"bytes"
@@ -22,8 +22,6 @@ var (
 	tradePattern      = []byte(`"trade"`)
 	mblPattern        = []byte(`"orderBook`)
 	subPattern        = []byte(`"subscribe"`)
-
-	logLevel int
 )
 
 // Client client instance
@@ -44,7 +42,7 @@ type Client struct {
 	tradeChan      []chan<- *models.TradeResponse
 	mblChan        []chan<- *models.MBLResponse
 
-	closed chan struct{}
+	closeFlag chan struct{}
 }
 
 // Host to get remote host string
@@ -95,11 +93,11 @@ func (c *Client) Connect(ctx context.Context, query string) error {
 
 // Closed websocket closed notification
 func (c *Client) Closed() <-chan struct{} {
-	return c.closed
+	return c.closeFlag
 }
 
 func (c *Client) closeHandler(code int, msg string) error {
-	close(c.closed)
+	close(c.closeFlag)
 
 	log.Printf("Websocket closed with code[%d]: %s\n", code, msg)
 
@@ -345,13 +343,8 @@ func NewClient(cfg *WsConfig) *Client {
 	ins := Client{
 		cfg:           cfg,
 		heartbeatChan: make(chan *models.HeartBeat),
-		closed:        make(chan struct{}),
+		closeFlag:     make(chan struct{}),
 	}
 
 	return &ins
-}
-
-// SetLogLevel set log level to display more detailed log info
-func SetLogLevel(lvl int) {
-	logLevel = lvl
 }

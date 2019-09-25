@@ -1,9 +1,13 @@
-package mock
+package modules
 
 import (
 	"fmt"
 	"net/url"
 	"strings"
+)
+
+var (
+	logLevel int
 )
 
 // WsConfig configuration for websocket
@@ -63,4 +67,9 @@ func NewConfig() *WsConfig {
 	}
 
 	return &cfg
+}
+
+// SetLogLevel set log level to display more detailed log info
+func SetLogLevel(lvl int) {
+	logLevel = lvl
 }

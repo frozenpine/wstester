@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frozenpine/wstester/mock"
+	"github.com/frozenpine/wstester/modules"
 
 	flag "github.com/spf13/pflag"
 )
@@ -111,7 +111,7 @@ func main() {
 		flag.Parse()
 	}
 
-	mock.SetLogLevel(dbgLevel)
+	modules.SetLogLevel(dbgLevel)
 
 	roundCount := 1
 
@@ -123,7 +123,7 @@ func main() {
 	for running {
 		ctx, cancelFunc := getContext()
 
-		cfg := mock.NewConfig()
+		cfg := modules.NewConfig()
 		if err := cfg.ChangeHost(getURL()); err != nil {
 			log.Println(err)
 			return
@@ -131,7 +131,7 @@ func main() {
 		cfg.HeartbeatInterval = hbInterval
 		cfg.HeartbeatFailCount = hbFailCount
 
-		client := mock.NewClient(cfg)
+		client := modules.NewClient(cfg)
 
 		start := time.Now()
 		if err := client.Connect(ctx, ""); err != nil {
