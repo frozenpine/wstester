@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/frozenpine/wstester/mock"
@@ -45,12 +46,16 @@ var (
 	apiSecret string
 )
 
-func hostString() string {
+func getURL() string {
+	var hostString string
+
 	if port == 80 || port == 443 {
-		return host
+		hostString = host
+	} else {
+		hostString = fmt.Sprintf("%s:%d", host, port)
 	}
 
-	return fmt.Sprintf("%s:%d", host, port)
+	return scheme + "://" + strings.Join([]string{hostString, strings.TrimLeft(uri, "/")}, "/")
 }
 
 func humanReadNum(num int) string {
@@ -119,26 +124,30 @@ func main() {
 		ctx, cancelFunc := getContext()
 
 		cfg := mock.NewConfig()
-		cfg.ChangeHost(hostString())
+		if err := cfg.ChangeHost(getURL()); err != nil {
+			log.Println(err)
+			return
+		}
 
 		client := mock.NewClient(cfg)
 
 		start := time.Now()
 		if err := client.Connect(ctx, ""); err != nil {
 			log.Println(err)
-		} else {
-			select {
-			case <-ctx.Done():
-				log.Println(ctx.Err())
-				running = false
-			case <-client.Closed():
-				// gracefully quit heartbeatHandler and other goroutine
-				cancelFunc()
-				// TODO: 指数回退 + 随机延迟 以实现重连延时
-			case <-sigChan:
-				running = false
-				cancelFunc()
-			}
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			log.Println(ctx.Err())
+			running = false
+		case <-client.Closed():
+			// gracefully quit heartbeatHandler and other goroutine
+			cancelFunc()
+			// TODO: 指数回退 + 随机延迟 以实现重连延时
+		case <-sigChan:
+			running = false
+			cancelFunc()
 		}
 
 		log.Printf(
