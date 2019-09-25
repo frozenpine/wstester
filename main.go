@@ -28,8 +28,6 @@ const (
 )
 
 var (
-	running = true
-
 	scheme string
 	host   string
 	port   int
@@ -120,6 +118,8 @@ func main() {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt)
 
+	running := true
+
 	for running {
 		ctx, cancelFunc := getContext()
 
@@ -128,6 +128,8 @@ func main() {
 			log.Println(err)
 			return
 		}
+		cfg.HeartbeatInterval = hbInterval
+		cfg.HeartbeatFailCount = hbFailCount
 
 		client := mock.NewClient(cfg)
 

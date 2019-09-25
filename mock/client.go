@@ -39,6 +39,7 @@ type Client struct {
 
 	heartbeatChan  chan *models.HeartBeat
 	heartbeatTimer *time.Timer
+
 	instrumentChan []chan<- *models.InstrumentResponse
 	tradeChan      []chan<- *models.TradeResponse
 	mblChan        []chan<- *models.MBLResponse
