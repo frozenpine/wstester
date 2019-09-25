@@ -135,6 +135,17 @@ func main() {
 	running := true
 
 	for running {
+		if failCount > 0 {
+			delay := expectBackoff(failCount, defaultMaxConnFailed, defaultReconnectDelay)
+
+			log.Println("Reconnect after:", delay)
+
+			select {
+			case <-time.After(delay):
+			case <-sigChan:
+			}
+		}
+
 		ctx, cancelFunc := getContext(deadline)
 
 		cfg := modules.NewConfig()
@@ -150,26 +161,24 @@ func main() {
 		start := time.Now()
 		if err := client.Connect(ctx, ""); err != nil {
 			log.Println(err)
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			log.Println(ctx.Err())
-			running = false
-		case <-client.Closed():
-			// gracefully quit heartbeatHandler and other goroutine
-			cancelFunc()
 
 			failCount++
-			delay := expectBackoff(failCount, defaultMaxConnFailed, defaultReconnectDelay)
+		} else {
+			failCount = 0
 
-			log.Println("Reconnect after:", delay)
+			select {
+			case <-ctx.Done():
+				log.Println(ctx.Err())
+				running = false
+			case <-client.Closed():
+				// gracefully quit heartbeatHandler and other goroutine
+				cancelFunc()
 
-			<-time.After(delay)
-		case <-sigChan:
-			running = false
-			cancelFunc()
+				failCount++
+			case <-sigChan:
+				running = false
+				cancelFunc()
+			}
 		}
 
 		log.Printf(
