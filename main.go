@@ -132,7 +132,9 @@ func main() {
 				log.Println(ctx.Err())
 				running = false
 			case <-client.Closed():
+				// gracefully quit heartbeatHandler and other goroutine
 				cancelFunc()
+				// TODO: 指数回退 + 随机延迟 以实现重连延时
 			case <-sigChan:
 				running = false
 				cancelFunc()
