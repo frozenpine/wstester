@@ -24,6 +24,9 @@ const (
 	defaultHBInterval  = 15
 	defaultHBFailCount = 3
 
+	defaultReconnectDelay = 3
+	defaultMaxConnFailed  = 5
+
 	defaultDuration = time.Duration(-1)
 )
 
@@ -38,7 +41,7 @@ var (
 	hbInterval  int
 	hbFailCount int
 
-	duration time.Duration
+	deadline time.Duration
 
 	apiKey    string
 	apiSecret string
@@ -69,6 +72,16 @@ func humanReadNum(num int) string {
 	}
 }
 
+func expectBackoff(failCount, i int, slot int) time.Duration {
+	if failCount > i {
+		failCount = i
+	}
+
+	N := 1<<uint(failCount) - 1
+
+	return time.Millisecond * time.Duration(int64(N)*int64(slot)*1000/2)
+}
+
 func init() {
 	flag.StringVar(&scheme, "scheme", defaultScheme, "Websocket scheme.")
 	flag.StringVarP(
@@ -89,18 +102,18 @@ func init() {
 		"Heartbeat fail count.")
 
 	flag.DurationVarP(
-		&duration, "duration", "d", defaultDuration,
+		&deadline, "deadline", "d", defaultDuration,
 		"Deadline duration, -1 means infinity.")
 
 	flag.StringVar(&apiKey, "key", "", "API Key for order request.")
 	flag.StringVar(&apiSecret, "secret", "", "API Secret for order request.")
 }
 
-func getContext() (context.Context, context.CancelFunc) {
+func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
-	if duration > 0 {
-		ctx, cancelFunc = context.WithDeadline(ctx, time.Now().Add(duration))
+	if deadline > 0 {
+		ctx, cancelFunc = context.WithDeadline(ctx, time.Now().Add(deadline))
 	}
 
 	return ctx, cancelFunc
@@ -114,6 +127,7 @@ func main() {
 	modules.SetLogLevel(dbgLevel)
 
 	roundCount := 1
+	failCount := 0
 
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt)
@@ -121,7 +135,7 @@ func main() {
 	running := true
 
 	for running {
-		ctx, cancelFunc := getContext()
+		ctx, cancelFunc := getContext(deadline)
 
 		cfg := modules.NewConfig()
 		if err := cfg.ChangeHost(getURL()); err != nil {
@@ -146,7 +160,13 @@ func main() {
 		case <-client.Closed():
 			// gracefully quit heartbeatHandler and other goroutine
 			cancelFunc()
-			// TODO: 指数回退 + 随机延迟 以实现重连延时
+
+			failCount++
+			delay := expectBackoff(failCount, defaultMaxConnFailed, defaultReconnectDelay)
+
+			log.Println("Reconnect after:", delay)
+
+			<-time.After(delay)
 		case <-sigChan:
 			running = false
 			cancelFunc()
