@@ -143,6 +143,8 @@ func main() {
 			select {
 			case <-time.After(delay):
 			case <-sigChan:
+				running = false
+				return
 			}
 		}
 
@@ -163,22 +165,24 @@ func main() {
 			log.Println(err)
 
 			failCount++
-		} else {
-			failCount = 0
 
-			select {
-			case <-ctx.Done():
-				log.Println(ctx.Err())
-				running = false
-			case <-client.Closed():
-				// gracefully quit heartbeatHandler and other goroutine
-				cancelFunc()
+			continue
+		}
 
-				failCount++
-			case <-sigChan:
-				running = false
-				cancelFunc()
-			}
+		failCount = 0
+
+		select {
+		case <-ctx.Done():
+			log.Println(ctx.Err())
+			running = false
+		case <-client.Closed():
+			// gracefully quit heartbeatHandler and other goroutine
+			cancelFunc()
+
+			failCount++
+		case <-sigChan:
+			running = false
+			cancelFunc()
 		}
 
 		log.Printf(
