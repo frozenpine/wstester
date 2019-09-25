@@ -77,8 +77,8 @@ func (c *Client) Connect(ctx context.Context, query string) error {
 		ctx, remote.String(), nil)
 
 	if err != nil {
-		return fmt.Errorf("Fail to connect[%s]: %v\n%s",
-			remote.String(), err, rsp.Status)
+		return fmt.Errorf("Fail to connect[%s]: %v, %v",
+			remote.String(), err, rsp)
 	}
 
 	c.ws = conn
