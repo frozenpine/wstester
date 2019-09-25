@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
@@ -137,6 +138,7 @@ func main() {
 	for running {
 		if failCount > 0 {
 			delay := expectBackoff(failCount, defaultMaxConnFailed, defaultReconnectDelay)
+			delay += time.Millisecond * time.Duration(rand.Intn(100))
 
 			log.Println("Reconnect after:", delay)
 
