@@ -247,8 +247,7 @@ func (c *Client) messageHandler() {
 				c.heartbeatTimer.Reset(time.Second * time.Duration(c.cfg.HeartbeatInterval*c.cfg.HeartbeatFailCount))
 			}
 
-			switch {
-			case bytes.Contains(msg, pongPattern) || bytes.Contains(msg, pingPattern):
+			if bytes.Contains(msg, pongPattern) || bytes.Contains(msg, pingPattern) {
 				hbStr := string(msg)
 
 				var hb *models.HeartBeat
@@ -262,7 +261,10 @@ func (c *Client) messageHandler() {
 
 				c.heartbeatChan <- hb
 
-			case bytes.Contains(msg, infoPattern):
+				continue
+			}
+
+			if bytes.Contains(msg, infoPattern) {
 				var info models.InfoResponse
 
 				if err = json.Unmarshal(msg, &info); err != nil {
@@ -270,10 +272,13 @@ func (c *Client) messageHandler() {
 				} else if c.infoHandler != nil {
 					c.infoHandler(&info)
 				} else {
-					data, _ := json.Marshal(info)
-					log.Println("Info:", string(data))
+					log.Println("Info:", string(msg))
 				}
-			case bytes.Contains(msg, subPattern):
+
+				continue
+			}
+
+			if bytes.Contains(msg, subPattern) {
 				var sub models.SubscribeResponse
 
 				if err = json.Unmarshal(msg, &sub); err != nil {
@@ -282,44 +287,54 @@ func (c *Client) messageHandler() {
 				} else if c.subHandler != nil {
 					c.subHandler(&sub)
 				} else {
-					rsp, _ := json.Marshal(sub)
-					log.Println("Subscribe:", string(rsp))
+					log.Println("Subscribe:", string(msg))
 				}
+
+				continue
+			}
+
+			switch {
 			case bytes.Contains(msg, instrumentPattern):
 				var insRsp models.InstrumentResponse
 
 				if err = json.Unmarshal(msg, &insRsp); err != nil {
 					log.Println(
 						"Fail to parse instrument response:", err, string(msg))
-				} else {
-					for _, ch := range c.instrumentChan {
-						ch <- &insRsp
-					}
+					continue
+				}
+
+				for _, ch := range c.instrumentChan {
+					ch <- &insRsp
 				}
 			case bytes.Contains(msg, tradePattern):
 				var tdRsp models.TradeResponse
 
 				if err = json.Unmarshal(msg, &tdRsp); err != nil {
 					log.Println("Fail to parse trade response:", err, string(msg))
-				} else {
-					for _, ch := range c.tradeChan {
-						ch <- &tdRsp
-					}
+				}
+
+				for _, ch := range c.tradeChan {
+					ch <- &tdRsp
 				}
 			case bytes.Contains(msg, mblPattern):
 				var mblRsp models.MBLResponse
 
 				if err = json.Unmarshal(msg, &mblRsp); err != nil {
 					log.Println("Fail to parse MBL response:", err, string(msg))
-				} else {
-					for _, ch := range c.mblChan {
-						ch <- &mblRsp
-					}
+					continue
+				}
+
+				for _, ch := range c.mblChan {
+					ch <- &mblRsp
 				}
 			default:
 				if len(msg) > 0 {
 					log.Println("Unkonw table type:", string(msg))
 				}
+			}
+
+			if logLevel > 1 {
+				log.Println("<-", string(msg))
 			}
 		}
 	}
