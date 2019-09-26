@@ -26,8 +26,9 @@ const (
 	defaultHBFailCount = 3
 
 	// delay in second
-	defaultReconnectDelay = 3
-	defaultMaxDelayCount  = 5
+	defaultReconnectDelay    = 3
+	defaultMaxReconnectCount = -1
+	defaultMaxDelayCount     = 6
 
 	defaultDuration = time.Duration(-1)
 )
@@ -42,6 +43,10 @@ var (
 
 	hbInterval  int
 	hbFailCount int
+
+	reconnectDelay    int
+	maxReconnectCount int
+	maxDelayCount     int
 
 	deadline time.Duration
 
@@ -104,6 +109,16 @@ func init() {
 		&hbFailCount, "fail", defaultHBFailCount,
 		"Heartbeat fail count.")
 
+	flag.IntVar(
+		&reconnectDelay, "delay", defaultReconnectDelay,
+		"Binary expect backoff algorithm delay slot.")
+	flag.IntVar(
+		&maxReconnectCount, "max-retry", defaultMaxReconnectCount,
+		"Max reconnect count, -1 means infinity.")
+	flag.IntVar(
+		&maxDelayCount, "max-count", defaultMaxDelayCount,
+		"Max slot count in binary expect backoff algorithm.")
+
 	flag.DurationVarP(
 		&deadline, "deadline", "d", defaultDuration,
 		"Deadline duration, -1 means infinity.")
@@ -139,7 +154,12 @@ func main() {
 
 	for running {
 		if failCount > 0 {
-			delay := expectBackoff(failCount, defaultMaxDelayCount, defaultReconnectDelay)
+			if maxReconnectCount >= 0 && failCount > maxReconnectCount {
+				running = false
+				return
+			}
+
+			delay := expectBackoff(failCount, maxDelayCount, reconnectDelay)
 			delay += time.Millisecond * time.Duration(rand.Intn(100))
 
 			log.Println("Reconnect after:", delay)
