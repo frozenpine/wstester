@@ -111,7 +111,7 @@ func init() {
 
 	flag.IntVar(
 		&reconnectDelay, "delay", defaultReconnectDelay,
-		"Binary expect backoff algorithm delay slot.")
+		"Binary expect backoff algorithm's delay slot.")
 	flag.IntVar(
 		&maxReconnectCount, "max-retry", defaultMaxReconnectCount,
 		"Max reconnect count, -1 means infinity.")
