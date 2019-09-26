@@ -52,7 +52,7 @@ func (hb *HeartBeat) Type() string {
 
 // ToString to get heartbeat message in string format
 func (hb *HeartBeat) ToString() string {
-	return hb.Type() + ": " + hb.ts.Format(time.RFC1123)
+	return hb.Type() + ": " + hb.ts.Format(time.RFC3339Nano)
 }
 
 // NewPing create a heatbeat message in ping type
