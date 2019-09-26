@@ -271,6 +271,8 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
+				msg, _ = json.Marshal(info)
+
 				if c.infoHandler != nil {
 					c.infoHandler(&info)
 				} else {
@@ -290,6 +292,8 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
+				msg, _ = json.Marshal(sub)
+
 				if c.subHandler != nil {
 					c.subHandler(&sub)
 				} else {
@@ -301,10 +305,6 @@ func (c *Client) messageHandler() {
 
 			switch {
 			case bytes.Contains(msg, instrumentPattern):
-				if len(c.instrumentChan) < 1 {
-					break
-				}
-
 				var insRsp models.InstrumentResponse
 
 				if err = json.Unmarshal(msg, &insRsp); err != nil {
@@ -313,14 +313,12 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
+				msg, _ = json.Marshal(insRsp)
+
 				for _, ch := range c.instrumentChan {
 					ch <- &insRsp
 				}
 			case bytes.Contains(msg, tradePattern):
-				if len(c.tradeChan) < 1 {
-					break
-				}
-
 				var tdRsp models.TradeResponse
 
 				if err = json.Unmarshal(msg, &tdRsp); err != nil {
@@ -328,20 +326,20 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
+				msg, _ = json.Marshal(tdRsp)
+
 				for _, ch := range c.tradeChan {
 					ch <- &tdRsp
 				}
 			case bytes.Contains(msg, mblPattern):
-				if len(c.mblChan) < 1 {
-					break
-				}
-
 				var mblRsp models.MBLResponse
 
 				if err = json.Unmarshal(msg, &mblRsp); err != nil {
 					log.Println("Fail to parse MBL response:", err, string(msg))
 					continue
 				}
+
+				msg, _ = json.Marshal(mblRsp)
 
 				for _, ch := range c.mblChan {
 					ch <- &mblRsp
