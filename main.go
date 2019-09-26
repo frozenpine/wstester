@@ -25,6 +25,7 @@ const (
 	defaultHBInterval  = 15
 	defaultHBFailCount = 3
 
+	// delay in second
 	defaultReconnectDelay = 3
 	defaultMaxDelayCount  = 5
 

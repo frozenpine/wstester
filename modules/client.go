@@ -267,7 +267,11 @@ func (c *Client) messageHandler() {
 
 				if err = json.Unmarshal(msg, &info); err != nil {
 					log.Println("Fail to parse info msg:", err, string(msg))
-				} else if c.infoHandler != nil {
+
+					continue
+				}
+
+				if c.infoHandler != nil {
 					c.infoHandler(&info)
 				} else {
 					log.Println("Info:", string(msg))
@@ -282,7 +286,11 @@ func (c *Client) messageHandler() {
 				if err = json.Unmarshal(msg, &sub); err != nil {
 					log.Println(
 						"Fail to parse subscribe response:", err, string(msg))
-				} else if c.subHandler != nil {
+
+					continue
+				}
+
+				if c.subHandler != nil {
 					c.subHandler(&sub)
 				} else {
 					log.Println("Subscribe:", string(msg))
@@ -293,6 +301,10 @@ func (c *Client) messageHandler() {
 
 			switch {
 			case bytes.Contains(msg, instrumentPattern):
+				if len(c.instrumentChan) < 1 {
+					break
+				}
+
 				var insRsp models.InstrumentResponse
 
 				if err = json.Unmarshal(msg, &insRsp); err != nil {
@@ -305,16 +317,25 @@ func (c *Client) messageHandler() {
 					ch <- &insRsp
 				}
 			case bytes.Contains(msg, tradePattern):
+				if len(c.tradeChan) < 1 {
+					break
+				}
+
 				var tdRsp models.TradeResponse
 
 				if err = json.Unmarshal(msg, &tdRsp); err != nil {
 					log.Println("Fail to parse trade response:", err, string(msg))
+					continue
 				}
 
 				for _, ch := range c.tradeChan {
 					ch <- &tdRsp
 				}
 			case bytes.Contains(msg, mblPattern):
+				if len(c.mblChan) < 1 {
+					break
+				}
+
 				var mblRsp models.MBLResponse
 
 				if err = json.Unmarshal(msg, &mblRsp); err != nil {
@@ -326,9 +347,7 @@ func (c *Client) messageHandler() {
 					ch <- &mblRsp
 				}
 			default:
-				if len(msg) > 0 {
-					log.Println("Unkonw table type:", string(msg))
-				}
+				log.Println("Unkonw table type:", string(msg))
 			}
 
 			if logLevel > 1 {
