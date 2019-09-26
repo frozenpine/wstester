@@ -27,3 +27,14 @@ type SubscribeResponse struct {
 	Subscribe string           `json:"subscribe"`
 	Request   SubscribeRequest `json:"request"`
 }
+
+type tableResponse struct {
+	Table  string `json:"table"`
+	Action string `json:"action"`
+
+	Keys        []string          `json:"keys,omitempty"`
+	Types       map[string]string `json:"types,omitempty"`
+	ForeignKeys map[string]string `json:"foreignKeys,omitempty"`
+	Attributes  map[string]string `json:"attributes,omitempty"`
+	Filter      map[string]string `json:"filter,omitempty"`
+}
