@@ -28,6 +28,8 @@ var (
 	tradePattern      = []byte(`"trade"`)
 	mblPattern        = []byte(`"orderBook`)
 	subPattern        = []byte(`"subscribe"`)
+	authPattern1      = []byte(`"authKeyExpires"`)
+	authPattern2      = []byte(`"api-key"`)
 )
 
 // Client client instance
@@ -230,7 +232,6 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	c.ws = conn
 	c.connected = true
-	c.authencated = c.hasAuth()
 	c.ws.SetCloseHandler(c.closeHandler)
 
 	return nil
@@ -428,6 +429,24 @@ func (c *Client) handleInfoMsg(msg []byte) (*models.InfoResponse, error) {
 	return &info, nil
 }
 
+func (c *Client) handleAuthMsg(msg []byte) (*models.AuthResponse, error) {
+	var auth models.AuthResponse
+
+	if err := json.Unmarshal(msg, &auth); err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if auth.Success {
+			c.authencated = true
+		}
+
+		log.Println("Auth:", auth.ToString())
+	}()
+
+	return &auth, nil
+}
+
 func (c *Client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
 	var sub models.SubscribeResponse
 
@@ -558,6 +577,11 @@ func (c *Client) messageHandler() {
 			case bytes.Contains(msg, mblPattern):
 				if rsp, err = c.handleMblMsg(msg); err != nil {
 					log.Println("Fail to parse MBL response:", err, string(msg))
+					continue
+				}
+			case bytes.Contains(msg, authPattern1) || bytes.Contains(msg, authPattern2):
+				if rsp, err = c.handleAuthMsg(msg); err != nil {
+					log.Println("Fail to parse authentication response:", err, string(msg))
 					continue
 				}
 			default:

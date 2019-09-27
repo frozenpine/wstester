@@ -41,6 +41,24 @@ func (info *InfoResponse) Format(format string) string {
 	return info.ToString()
 }
 
+// AuthResponse authentication response
+type AuthResponse struct {
+	Success bool                   `json:"success"`
+	Request map[string]interface{} `json:"request"`
+}
+
+// ToString get structure's string format
+func (auth *AuthResponse) ToString() string {
+	result, _ := json.Marshal(auth)
+
+	return string(result)
+}
+
+// Format format ToString output
+func (auth *AuthResponse) Format(format string) string {
+	return auth.ToString()
+}
+
 // SubscribeResponse subscribe response
 type SubscribeResponse struct {
 	Success   bool             `json:"success"`
