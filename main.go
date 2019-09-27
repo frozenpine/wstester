@@ -133,8 +133,8 @@ func init() {
 		&deadline, "deadline", "d", defaultDuration,
 		"Deadline duration, -1 means infinity.")
 
-	flag.StringVar(&apiKey, "key", "", "API Key for order request.")
-	flag.StringVar(&apiSecret, "secret", "", "API Secret for order request.")
+	flag.StringVar(&apiKey, "key", "", "API Key for authentication request.")
+	flag.StringVar(&apiSecret, "secret", "", "API Secret for authentication request.")
 }
 
 func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
@@ -224,11 +224,10 @@ func main() {
 		case <-client.Closed():
 			// gracefully quit heartbeatHandler and other goroutine
 			cancelFunc()
-
 			failCount++
 		case <-sigChan:
-			running = false
 			cancelFunc()
+			running = false
 		}
 
 		log.Printf(

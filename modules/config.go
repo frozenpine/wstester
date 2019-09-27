@@ -14,7 +14,7 @@ var (
 	// ContextAPIKey takes an APIKeyAuth as authentication for websocket
 	ContextAPIKey = contextKey("apikey")
 
-	symbolSubs = []string{"instrument", "orderBookL2", "trade"}
+	symbolSubs = []string{"instrument", "orderBookL2", "trade", "order"}
 
 	// PublicTopics public topics for subscribe without authentication
 	PublicTopics = []string{"instrument", "orderBookL2", "trade", "quote"}

@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	pingPattern       = []byte("ping")
-	pongPattern       = []byte("pong")
+	pingPattern       = []byte(`ping`)
+	pongPattern       = []byte(`pong`)
 	infoPattern       = []byte(`"info"`)
 	instrumentPattern = []byte(`"instrument"`)
 	tradePattern      = []byte(`"trade"`)
