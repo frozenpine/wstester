@@ -262,6 +262,8 @@ func (c *Client) messageHandler() {
 				continue
 			}
 
+			var rsp models.Response
+
 			if bytes.Contains(msg, infoPattern) {
 				var info models.InfoResponse
 
@@ -271,12 +273,12 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
-				msg, _ = json.Marshal(info)
+				rsp = &info
 
 				if c.infoHandler != nil {
 					c.infoHandler(&info)
 				} else {
-					log.Println("Info:", string(msg))
+					log.Println("Info:", rsp.ToString())
 				}
 
 				continue
@@ -292,12 +294,12 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
-				msg, _ = json.Marshal(sub)
+				rsp = &sub
 
 				if c.subHandler != nil {
 					c.subHandler(&sub)
 				} else {
-					log.Println("Subscribe:", string(msg))
+					log.Println("Subscribe:", rsp.ToString())
 				}
 
 				continue
@@ -313,7 +315,7 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
-				msg, _ = json.Marshal(insRsp)
+				rsp = &insRsp
 
 				for _, ch := range c.instrumentChan {
 					ch <- &insRsp
@@ -326,7 +328,7 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
-				msg, _ = json.Marshal(tdRsp)
+				rsp = &tdRsp
 
 				for _, ch := range c.tradeChan {
 					ch <- &tdRsp
@@ -339,7 +341,7 @@ func (c *Client) messageHandler() {
 					continue
 				}
 
-				msg, _ = json.Marshal(mblRsp)
+				rsp = &mblRsp
 
 				for _, ch := range c.mblChan {
 					ch <- &mblRsp
@@ -349,7 +351,7 @@ func (c *Client) messageHandler() {
 			}
 
 			if logLevel > 1 {
-				log.Println("<-", string(msg))
+				log.Println("<-", rsp.ToString())
 			}
 		}
 	}

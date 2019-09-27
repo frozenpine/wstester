@@ -55,6 +55,11 @@ func (hb *HeartBeat) ToString() string {
 	return hb.Type() + ": " + hb.ts.Format(time.RFC3339Nano)
 }
 
+// Format format ToString output
+func (hb *HeartBeat) Format(format string) string {
+	return hb.ToString()
+}
+
 // NewPing create a heatbeat message in ping type
 func NewPing() *HeartBeat {
 	return &HeartBeat{value: ping, ts: time.Now()}

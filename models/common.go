@@ -1,8 +1,16 @@
 package models
 
 import (
+	"encoding/json"
+
 	"github.com/frozenpine/ngerest"
 )
+
+// Response common functions for response
+type Response interface {
+	ToString() string
+	Format(string) string
+}
 
 // SubscribeRequest request to websocket
 type SubscribeRequest struct {
@@ -21,11 +29,35 @@ type InfoResponse struct {
 	SessionID string                 `json:"sessionId"`
 }
 
+// ToString get structure's string format
+func (info *InfoResponse) ToString() string {
+	result, _ := json.Marshal(info)
+
+	return string(result)
+}
+
+// Format format ToString output
+func (info *InfoResponse) Format(format string) string {
+	return info.ToString()
+}
+
 // SubscribeResponse subscribe response
 type SubscribeResponse struct {
 	Success   bool             `json:"success"`
 	Subscribe string           `json:"subscribe"`
 	Request   SubscribeRequest `json:"request"`
+}
+
+// ToString get structure's string format
+func (sub *SubscribeResponse) ToString() string {
+	result, _ := json.Marshal(sub)
+
+	return string(result)
+}
+
+// Format format ToString output
+func (sub *SubscribeResponse) Format(format string) string {
+	return sub.ToString()
 }
 
 type tableResponse struct {

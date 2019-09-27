@@ -52,6 +52,9 @@ var (
 
 	apiKey    string
 	apiSecret string
+
+	format string
+	filter string
 )
 
 func getURL() string {
@@ -80,12 +83,12 @@ func humanReadNum(num int) string {
 }
 
 // algorithm ref: https://en.wikipedia.org/wiki/Exponential_backoff
-func expectBackoff(failCount, i int, slot int) time.Duration {
-	if failCount > i {
-		failCount = i
+func expectBackoff(c, i int, slot int) time.Duration {
+	if c > i {
+		c = i
 	}
 
-	N := 1<<uint(failCount) - 1
+	N := 1<<uint(c) - 1
 
 	return time.Millisecond * time.Duration(int64(slot)*int64(N)*1000/2)
 }
