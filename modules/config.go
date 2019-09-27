@@ -6,9 +6,20 @@ import (
 	"strings"
 )
 
+type contextKey string
+
 var (
 	logLevel int
+
+	// ContextAPIKey takes an APIKeyAuth as authentication for websocket
+	ContextAPIKey = contextKey("apikey")
 )
+
+// APIKeyAuth structure for api auth
+type APIKeyAuth struct {
+	Key    string
+	Secret string
+}
 
 // WsConfig configuration for websocket
 type WsConfig struct {

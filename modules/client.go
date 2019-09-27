@@ -3,9 +3,15 @@ package modules
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -55,6 +61,18 @@ func (c *Client) IsConnected() bool {
 	return c.connected && c.ws != nil
 }
 
+func (c *Client) getAuth() http.Header {
+	if c.ctx == nil {
+		return nil
+	}
+
+	// if auth, ok := c.ctx.Value(models.ContextAPIKey).(models.APIKeyAuth); ok {
+
+	// }
+
+	return nil
+}
+
 // Connect to remote host
 func (c *Client) Connect(ctx context.Context, query string) error {
 	remote := c.cfg.GetURL()
@@ -81,12 +99,14 @@ func (c *Client) Connect(ctx context.Context, query string) error {
 			remote.String(), err, rsp)
 	}
 
+	defer func() {
+		go c.messageHandler()
+		go c.heartbeatHandler()
+	}()
+
 	c.ws = conn
 	c.connected = true
 	c.ws.SetCloseHandler(c.closeHandler)
-
-	go c.messageHandler()
-	go c.heartbeatHandler()
 
 	return nil
 }
@@ -176,7 +196,6 @@ func (c *Client) heartbeatHandler() {
 					return
 				case <-c.heartbeatTimer.C:
 					c.closeHandler(-1, "Receive data timeout.")
-
 					return
 				}
 			}
@@ -190,13 +209,13 @@ func (c *Client) heartbeatHandler() {
 				err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping"))
 				heartbeatCounter += hb.Value()
 
-				if logLevel > 0 {
+				if logLevel >= 1 {
 					log.Println("->", hb.ToString())
 				}
 			} else {
 				err = c.ws.WriteMessage(websocket.TextMessage, []byte("pong"))
 
-				if logLevel > 0 {
+				if logLevel >= 1 {
 					log.Println("<-", hb.ToString())
 					log.Println("->", models.NewPong().ToString())
 				}
@@ -404,11 +423,37 @@ func (c *Client) messageHandler() {
 				log.Println("Unkonw table type:", string(msg))
 			}
 
-			if logLevel > 1 {
+			if logLevel >= 2 {
 				log.Println("<-", rsp.ToString())
 			}
 		}
 	}
+}
+
+func (c *Client) generateSignature(
+	secret, method string, url *url.URL, expires int, body *bytes.Buffer) string {
+	h := hmac.New(sha256.New, []byte(secret))
+
+	path := url.Path
+	if url.RawQuery != "" {
+		path = path + "?" + url.RawQuery
+	}
+
+	var bodyString string
+	if body != nil {
+		bodyString = strings.TrimRight(body.String(), "\r\n")
+	}
+
+	message := strings.ToUpper(method) + path + strconv.Itoa(expires) + bodyString
+
+	// log.Println("message:", message)
+
+	h.Write([]byte(message))
+
+	signature := hex.EncodeToString(h.Sum(nil))
+
+	// log.Println("signature:", signature)
+	return signature
 }
 
 // NewClient create a new mock client instance
