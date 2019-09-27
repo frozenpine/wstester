@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	defaultSymbol = "XBTUSD"
 	defaultScheme = "wss"
 	defaultHost   = "www.btcmex.com"
 	defaultPort   = 443
@@ -34,10 +35,12 @@ const (
 )
 
 var (
+	symbol string
 	scheme string
 	host   string
 	port   int
 	uri    string
+	topics []string
 
 	dbgLevel int
 
@@ -94,12 +97,16 @@ func expectBackoff(c, i int, slot int) time.Duration {
 }
 
 func init() {
+	flag.StringVar(&symbol, "symbol", defaultSymbol, "Symbol name.")
 	flag.StringVar(&scheme, "scheme", defaultScheme, "Websocket scheme.")
 	flag.StringVarP(
 		&host, "host", "H", defaultHost, "Host addreses to connect.")
 	flag.IntVarP(
 		&port, "port", "p", defaultPort, "Host port to connect.")
 	flag.StringVar(&uri, "uri", defaultURI, "URI for realtime push data.")
+	flag.StringSliceVar(
+		&topics, "topics", []string{"trade", "orderBookL2", "instrument"},
+		"Topic names for subscribe.")
 
 	flag.CountVarP(
 		&dbgLevel, "verbose", "v",
@@ -135,6 +142,16 @@ func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
 
 	if deadline > 0 {
 		ctx, cancelFunc = context.WithDeadline(ctx, time.Now().Add(deadline))
+	}
+
+	if apiKey != "" && apiSecret != "" {
+		ctx = context.WithValue(
+			ctx, modules.ContextAPIKey,
+			modules.APIKeyAuth{
+				Key:     apiKey,
+				Secret:  apiSecret,
+				AuthURI: "/api/v1/signature",
+			})
 	}
 
 	return ctx, cancelFunc
@@ -184,11 +201,13 @@ func main() {
 		}
 		cfg.HeartbeatInterval = hbInterval
 		cfg.HeartbeatFailCount = hbFailCount
+		cfg.Symbol = symbol
 
 		client := modules.NewClient(cfg)
 
+		client.Subscribe(topics...)
 		start := time.Now()
-		if err := client.Connect(ctx, ""); err != nil {
+		if err := client.Connect(ctx); err != nil {
 			log.Println(err)
 
 			failCount++

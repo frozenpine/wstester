@@ -32,11 +32,12 @@ var (
 
 // Client client instance
 type Client struct {
-	cfg       *WsConfig
-	ws        *websocket.Conn
-	connected bool
-	ctx       context.Context
-	lock      sync.Mutex
+	cfg         *WsConfig
+	ws          *websocket.Conn
+	connected   bool
+	authencated bool
+	ctx         context.Context
+	lock        sync.Mutex
 
 	infoHandler func(*models.InfoResponse)
 	subHandler  func(*models.SubscribeResponse)
@@ -49,6 +50,8 @@ type Client struct {
 	mblChan        []chan<- *models.MBLResponse
 
 	closeFlag chan struct{}
+
+	SubscribedTopics map[string]*models.SubscribeResponse
 }
 
 // Host to get remote host string
@@ -61,38 +64,159 @@ func (c *Client) IsConnected() bool {
 	return c.connected && c.ws != nil
 }
 
-func (c *Client) getAuth() http.Header {
+// IsAuthencated to specify if client is logged in to remote host
+func (c *Client) IsAuthencated() bool {
+	return c.authencated && c.ws != nil
+}
+
+func (c *Client) hasAuth() bool {
+	if c.ctx == nil {
+		return false
+	}
+
+	_, exist := c.ctx.Value(ContextAPIKey).(APIKeyAuth)
+
+	return exist
+}
+
+func (c *Client) getAuth() *APIKeyAuth {
 	if c.ctx == nil {
 		return nil
 	}
 
-	// if auth, ok := c.ctx.Value(models.ContextAPIKey).(models.APIKeyAuth); ok {
-
-	// }
+	if auth, ok := c.ctx.Value(ContextAPIKey).(APIKeyAuth); ok {
+		return &auth
+	}
 
 	return nil
 }
 
+func (c *Client) getHeader() http.Header {
+	if c.ctx == nil {
+		return nil
+	}
+
+	if auth := c.getAuth(); auth != nil {
+		header := make(http.Header)
+
+		header["api-key"] = []string{auth.Key}
+
+		remote := c.cfg.GetURL()
+		remote.Path = auth.AuthURI
+
+		nonce := int(time.Now().Unix() + 5)
+
+		header["api-signature"] = []string{c.generateSignature(
+			auth.Secret, "get", remote, nonce, nil)}
+
+		header["api-expires"] = []string{strconv.Itoa(nonce)}
+
+		return header
+	}
+
+	return nil
+}
+
+func (c *Client) isSubscribed(topic string) bool {
+	rsp, exist := c.SubscribedTopics[topic]
+
+	return exist && rsp != nil && rsp.Success
+}
+
+func (c *Client) normalizeTopic(topic string) string {
+	for _, name := range symbolSubs {
+		if strings.ToLower(name) == strings.ToLower(topic) {
+			return strings.Join([]string{name, c.cfg.Symbol}, ":")
+		}
+	}
+
+	for _, name := range append(PublicTopics, PrivateTopics...) {
+		if strings.ToLower(name) == strings.ToLower(topic) {
+			return name
+		}
+	}
+
+	return ""
+}
+
+// Subscribe subscribe topic
+func (c *Client) Subscribe(topics ...string) {
+	var subArgs []string
+
+	defer func() {
+		if c.connected {
+			sub := models.OperationRequest{
+				Operation: "subscribe",
+				Args:      subArgs,
+			}
+
+			c.SendJSONMessage(sub)
+		}
+	}()
+
+	for _, topic := range topics {
+		if !IsValidTopic(topic) {
+			log.Println("Invalid topic name:", topic)
+			continue
+		}
+
+		if c.isSubscribed(topic) {
+			log.Printf("Topic[%s] already subscirbed.\n", topic)
+			continue
+		}
+
+		c.SubscribedTopics[topic] = nil
+
+		subArgs = append(subArgs, c.normalizeTopic(topic))
+	}
+}
+
+// UnSubscribe unsubscribe topic
+func (c *Client) UnSubscribe(topics ...string) {
+	for _, topic := range topics {
+		if !IsValidTopic(topic) {
+			log.Println("Invalid topic name:", topic)
+			continue
+		}
+
+		if !c.isSubscribed(topic) {
+			log.Printf("Topic[%s] is not subscribed.\n", topic)
+			continue
+		}
+
+		c.SubscribedTopics[topic] = nil
+
+		// TODO: real unsubscribe action
+	}
+}
+
 // Connect to remote host
-func (c *Client) Connect(ctx context.Context, query string) error {
+func (c *Client) Connect(ctx context.Context) error {
 	remote := c.cfg.GetURL()
 
-	var queryList []string
+	var subList []string
 
-	if !strings.Contains(query, "subscribe") {
-		queryList = append(queryList, "subscribe=instrument:XBTUSD,orderBookL2:XBTUSD,trade:XBTUSD")
-	}
-	if query != "" {
-		queryList = append(queryList, query)
+	for topic := range c.SubscribedTopics {
+		if IsPublicTopic(topic) {
+			subList = append(subList, c.normalizeTopic(topic))
+
+			continue
+		}
+
+		if IsPrivateTopic(topic) && c.hasAuth() {
+			subList = append(subList, c.normalizeTopic(topic))
+		}
 	}
 
-	remote.RawQuery = strings.Join(queryList, "&")
+	if len(subList) > 0 {
+		remote.RawQuery = "subscribe=" + strings.Join(subList, ",")
+	}
 
 	log.Println("Connecting to:", remote.String())
 
 	c.ctx = ctx
 	conn, rsp, err := websocket.DefaultDialer.DialContext(
-		ctx, remote.String(), nil)
+		ctx, remote.String(), c.getHeader())
 
 	if err != nil {
 		return fmt.Errorf("Fail to connect[%s]: %v, %v",
@@ -106,6 +230,7 @@ func (c *Client) Connect(ctx context.Context, query string) error {
 
 	c.ws = conn
 	c.connected = true
+	c.authencated = c.hasAuth()
 	c.ws.SetCloseHandler(c.closeHandler)
 
 	return nil
@@ -119,9 +244,17 @@ func (c *Client) Closed() <-chan struct{} {
 func (c *Client) closeHandler(code int, msg string) error {
 	close(c.closeFlag)
 
+	c.connected = false
+	c.authencated = false
+
 	log.Printf("Websocket closed with code[%d]: %s\n", code, msg)
 
 	return nil
+}
+
+// SendJSONMessage send json message to remote
+func (c *Client) SendJSONMessage(msg interface{}) error {
+	return c.ws.WriteJSON(msg)
 }
 
 // SetInfoHandler set info response handler, must be setted before calling Connect
@@ -303,6 +436,14 @@ func (c *Client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
 	}
 
 	defer func() {
+		topic := strings.Split(sub.Subscribe, ":")[0]
+
+		if sub.Success {
+			c.SubscribedTopics[topic] = &sub
+		} else {
+			delete(c.SubscribedTopics, topic)
+		}
+
 		if c.subHandler != nil {
 			c.subHandler(&sub)
 		} else {
@@ -462,6 +603,8 @@ func NewClient(cfg *WsConfig) *Client {
 		cfg:           cfg,
 		heartbeatChan: make(chan *models.HeartBeat),
 		closeFlag:     make(chan struct{}),
+
+		SubscribedTopics: make(map[string]*models.SubscribeResponse),
 	}
 
 	return &ins

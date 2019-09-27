@@ -13,16 +13,25 @@ var (
 
 	// ContextAPIKey takes an APIKeyAuth as authentication for websocket
 	ContextAPIKey = contextKey("apikey")
+
+	symbolSubs = []string{"instrument", "orderBookL2", "trade"}
+
+	// PublicTopics public topics for subscribe without authentication
+	PublicTopics = []string{"instrument", "orderBookL2", "trade", "quote"}
+	// PrivateTopics private topics for subscribe must authenticated
+	PrivateTopics = []string{"order", "execution", "position"}
 )
 
 // APIKeyAuth structure for api auth
 type APIKeyAuth struct {
-	Key    string
-	Secret string
+	Key     string
+	Secret  string
+	AuthURI string
 }
 
 // WsConfig configuration for websocket
 type WsConfig struct {
+	Symbol             string
 	Scheme             string
 	Host               string
 	Port               int
@@ -69,6 +78,7 @@ func (c *WsConfig) GetURL() *url.URL {
 // NewConfig to make a default new config
 func NewConfig() *WsConfig {
 	cfg := WsConfig{
+		Symbol:             "XBTUSD",
 		Scheme:             "wss",
 		Host:               "www.btcmex.com",
 		BaseURI:            "/realtime",
@@ -83,4 +93,31 @@ func NewConfig() *WsConfig {
 // SetLogLevel set log level to display more detailed log info
 func SetLogLevel(lvl int) {
 	logLevel = lvl
+}
+
+// IsPublicTopic valid topic name in non case-sensitive
+func IsPublicTopic(topic string) bool {
+	for _, name := range PublicTopics {
+		if strings.ToLower(topic) == strings.ToLower(name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsPrivateTopic valid topic name in non case-sensitive
+func IsPrivateTopic(topic string) bool {
+	for _, name := range PrivateTopics {
+		if strings.ToLower(topic) == strings.ToLower(name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsValidTopic check topic name is valid in non case-sensitive
+func IsValidTopic(topic string) bool {
+	return IsPublicTopic(topic) || IsPrivateTopic(topic)
 }

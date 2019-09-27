@@ -12,8 +12,8 @@ type Response interface {
 	Format(string) string
 }
 
-// SubscribeRequest request to websocket
-type SubscribeRequest struct {
+// OperationRequest request to websocket
+type OperationRequest struct {
 	Operation string   `json:"op"`
 	Args      []string `json:"args"`
 }
@@ -45,7 +45,7 @@ func (info *InfoResponse) Format(format string) string {
 type SubscribeResponse struct {
 	Success   bool             `json:"success"`
 	Subscribe string           `json:"subscribe"`
-	Request   SubscribeRequest `json:"request"`
+	Request   OperationRequest `json:"request"`
 }
 
 // ToString get structure's string format
