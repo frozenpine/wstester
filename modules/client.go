@@ -355,20 +355,22 @@ func (c *Client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 }
 
 func (c *Client) messageHandler() {
+	var (
+		msg []byte
+		err error
+		rsp models.Response
+	)
+
 	for {
 		select {
 		case <-c.ctx.Done():
 			return
 		default:
-			msg, err := c.readMessage()
-
-			if err != nil {
+			if msg, err = c.readMessage(); err != nil {
 				c.closeHandler(-1, err.Error())
 
 				return
 			}
-
-			var rsp models.Response
 
 			switch {
 			case bytes.Contains(msg, infoPattern):
@@ -386,13 +388,11 @@ func (c *Client) messageHandler() {
 			case bytes.Contains(msg, instrumentPattern):
 				if rsp, err = c.handleInsMsg(msg); err != nil {
 					log.Println("Fail to parse instrument response:", err, string(msg))
-
 					continue
 				}
 			case bytes.Contains(msg, tradePattern):
 				if rsp, err = c.handleTdMsg(msg); err != nil {
 					log.Println("Fail to parse trade response:", err, string(msg))
-
 					continue
 				}
 			case bytes.Contains(msg, mblPattern):
