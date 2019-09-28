@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frozenpine/wstester/modules"
+	"github.com/frozenpine/wstester/client"
 
 	flag "github.com/spf13/pflag"
 )
@@ -146,8 +146,8 @@ func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
 
 	if apiKey != "" && apiSecret != "" {
 		ctx = context.WithValue(
-			ctx, modules.ContextAPIKey,
-			modules.APIKeyAuth{
+			ctx, client.ContextAPIKey,
+			client.APIKeyAuth{
 				Key:     apiKey,
 				Secret:  apiSecret,
 				AuthURI: "/api/v1/signature",
@@ -162,7 +162,7 @@ func main() {
 		flag.Parse()
 	}
 
-	modules.SetLogLevel(dbgLevel)
+	client.SetLogLevel(dbgLevel)
 
 	roundCount := 1
 	failCount := 0
@@ -194,7 +194,7 @@ func main() {
 
 		ctx, cancelFunc := getContext(deadline)
 
-		cfg := modules.NewConfig()
+		cfg := client.NewConfig()
 		if err := cfg.ChangeHost(getURL()); err != nil {
 			log.Println(err)
 			return
@@ -203,7 +203,7 @@ func main() {
 		cfg.HeartbeatFailCount = hbFailCount
 		cfg.Symbol = symbol
 
-		client := modules.NewClient(cfg)
+		client := client.NewClient(cfg)
 
 		client.Subscribe(topics...)
 		start := time.Now()
