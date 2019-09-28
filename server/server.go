@@ -15,7 +15,12 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// Server server instance
 type Server struct {
-	cfg *WsConfig,
-	
+	cfg      *WsConfig
+	upgrader *websocket.Upgrader
+}
+
+func (s *Server) statusHandler(w http.ResponseWriter, r *http.Request) {
+
 }
