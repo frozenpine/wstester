@@ -33,7 +33,23 @@ var (
 )
 
 // Client client instance
-type Client struct {
+type Client interface {
+	Host() string
+	Connect(ctx context.Context) error
+	Closed() <-chan bool
+	Subscribe(topics ...string)
+	UnSubscribe(topics ...string)
+	IsConnected() bool
+	IsAuthencated() bool
+	SendJSONMessage(msg interface{}) error
+	SetInfoHandler(func(*models.InfoResponse))
+	SetSubHandler(func(*models.SubscribeResponse))
+	GetTrade() <-chan *models.TradeResponse
+	GetMBL() <-chan *models.MBLResponse
+	GetInstrument() <-chan *models.InstrumentResponse
+}
+
+type client struct {
 	cfg         *WsConfig
 	ws          *websocket.Conn
 	connected   bool
@@ -51,27 +67,27 @@ type Client struct {
 	tradeChan      []chan<- *models.TradeResponse
 	mblChan        []chan<- *models.MBLResponse
 
-	closeFlag chan struct{}
+	closeFlag chan bool
 
 	SubscribedTopics map[string]*models.SubscribeResponse
 }
 
 // Host to get remote host string
-func (c *Client) Host() string {
+func (c *client) Host() string {
 	return c.cfg.GetURL().String()
 }
 
 // IsConnected to specify if client is connected to remote host
-func (c *Client) IsConnected() bool {
+func (c *client) IsConnected() bool {
 	return c.connected && c.ws != nil
 }
 
 // IsAuthencated to specify if client is logged in to remote host
-func (c *Client) IsAuthencated() bool {
+func (c *client) IsAuthencated() bool {
 	return c.authencated && c.ws != nil
 }
 
-func (c *Client) hasAuth() bool {
+func (c *client) hasAuth() bool {
 	if c.ctx == nil {
 		return false
 	}
@@ -81,7 +97,7 @@ func (c *Client) hasAuth() bool {
 	return exist
 }
 
-func (c *Client) getAuth() *APIKeyAuth {
+func (c *client) getAuth() *APIKeyAuth {
 	if c.ctx == nil {
 		return nil
 	}
@@ -93,7 +109,7 @@ func (c *Client) getAuth() *APIKeyAuth {
 	return nil
 }
 
-func (c *Client) getHeader() http.Header {
+func (c *client) getHeader() http.Header {
 	if c.ctx == nil {
 		return nil
 	}
@@ -119,13 +135,13 @@ func (c *Client) getHeader() http.Header {
 	return nil
 }
 
-func (c *Client) isSubscribed(topic string) bool {
+func (c *client) isSubscribed(topic string) bool {
 	rsp, exist := c.SubscribedTopics[topic]
 
 	return exist && rsp != nil && rsp.Success
 }
 
-func (c *Client) normalizeTopic(topic string) string {
+func (c *client) normalizeTopic(topic string) string {
 	for _, name := range symbolSubs {
 		if strings.ToLower(name) == strings.ToLower(topic) {
 			return strings.Join([]string{name, c.cfg.Symbol}, ":")
@@ -142,7 +158,7 @@ func (c *Client) normalizeTopic(topic string) string {
 }
 
 // Subscribe subscribe topic
-func (c *Client) Subscribe(topics ...string) {
+func (c *client) Subscribe(topics ...string) {
 	var subArgs []string
 
 	defer func() {
@@ -174,7 +190,7 @@ func (c *Client) Subscribe(topics ...string) {
 }
 
 // UnSubscribe unsubscribe topic
-func (c *Client) UnSubscribe(topics ...string) {
+func (c *client) UnSubscribe(topics ...string) {
 	for _, topic := range topics {
 		if !IsValidTopic(topic) {
 			log.Println("Invalid topic name:", topic)
@@ -193,7 +209,7 @@ func (c *Client) UnSubscribe(topics ...string) {
 }
 
 // Connect to remote host
-func (c *Client) Connect(ctx context.Context) error {
+func (c *client) Connect(ctx context.Context) error {
 	remote := c.cfg.GetURL()
 
 	var subList []string
@@ -238,11 +254,11 @@ func (c *Client) Connect(ctx context.Context) error {
 }
 
 // Closed websocket closed notification
-func (c *Client) Closed() <-chan struct{} {
+func (c *client) Closed() <-chan bool {
 	return c.closeFlag
 }
 
-func (c *Client) closeHandler(code int, msg string) error {
+func (c *client) closeHandler(code int, msg string) error {
 	close(c.closeFlag)
 
 	c.connected = false
@@ -254,26 +270,26 @@ func (c *Client) closeHandler(code int, msg string) error {
 }
 
 // SendJSONMessage send json message to remote
-func (c *Client) SendJSONMessage(msg interface{}) error {
+func (c *client) SendJSONMessage(msg interface{}) error {
 	return c.ws.WriteJSON(msg)
 }
 
 // SetInfoHandler set info response handler, must be setted before calling Connect
-func (c *Client) SetInfoHandler(fn func(*models.InfoResponse)) {
+func (c *client) SetInfoHandler(fn func(*models.InfoResponse)) {
 	if fn != nil {
 		c.infoHandler = fn
 	}
 }
 
 // SetSubHandler set subscribe response handler, must be setted before calling Connect & Subscribe
-func (c *Client) SetSubHandler(fn func(*models.SubscribeResponse)) {
+func (c *client) SetSubHandler(fn func(*models.SubscribeResponse)) {
 	if fn != nil {
 		c.subHandler = fn
 	}
 }
 
 // GetTrade to get trade data channel
-func (c *Client) GetTrade() <-chan *models.TradeResponse {
+func (c *client) GetTrade() <-chan *models.TradeResponse {
 	ch := make(chan *models.TradeResponse)
 
 	c.lock.Lock()
@@ -284,7 +300,7 @@ func (c *Client) GetTrade() <-chan *models.TradeResponse {
 }
 
 // GetMBL to get mbl data channel
-func (c *Client) GetMBL() <-chan *models.MBLResponse {
+func (c *client) GetMBL() <-chan *models.MBLResponse {
 	ch := make(chan *models.MBLResponse)
 
 	c.lock.Lock()
@@ -295,7 +311,7 @@ func (c *Client) GetMBL() <-chan *models.MBLResponse {
 }
 
 // GetInstrument to get mbl data channel
-func (c *Client) GetInstrument() <-chan *models.InstrumentResponse {
+func (c *client) GetInstrument() <-chan *models.InstrumentResponse {
 	ch := make(chan *models.InstrumentResponse)
 
 	c.lock.Lock()
@@ -305,7 +321,7 @@ func (c *Client) GetInstrument() <-chan *models.InstrumentResponse {
 	return ch
 }
 
-func (c *Client) heartbeatHandler() {
+func (c *client) heartbeatHandler() {
 	var heartbeatCounter int
 	var err error
 
@@ -380,7 +396,7 @@ func (c *Client) heartbeatHandler() {
 	}
 }
 
-func (c *Client) readMessage() ([]byte, error) {
+func (c *client) readMessage() ([]byte, error) {
 	var (
 		msg []byte
 		err error
@@ -411,7 +427,7 @@ HEARTBEAT:
 	return msg, err
 }
 
-func (c *Client) handleInfoMsg(msg []byte) (*models.InfoResponse, error) {
+func (c *client) handleInfoMsg(msg []byte) (*models.InfoResponse, error) {
 	var info models.InfoResponse
 
 	if err := json.Unmarshal(msg, &info); err != nil {
@@ -429,7 +445,7 @@ func (c *Client) handleInfoMsg(msg []byte) (*models.InfoResponse, error) {
 	return &info, nil
 }
 
-func (c *Client) handleAuthMsg(msg []byte) (*models.AuthResponse, error) {
+func (c *client) handleAuthMsg(msg []byte) (*models.AuthResponse, error) {
 	var auth models.AuthResponse
 
 	if err := json.Unmarshal(msg, &auth); err != nil {
@@ -447,7 +463,7 @@ func (c *Client) handleAuthMsg(msg []byte) (*models.AuthResponse, error) {
 	return &auth, nil
 }
 
-func (c *Client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
+func (c *client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
 	var sub models.SubscribeResponse
 
 	if err := json.Unmarshal(msg, &sub); err != nil {
@@ -473,7 +489,7 @@ func (c *Client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
 	return &sub, nil
 }
 
-func (c *Client) handleInsMsg(msg []byte) (*models.InstrumentResponse, error) {
+func (c *client) handleInsMsg(msg []byte) (*models.InstrumentResponse, error) {
 	var insRsp models.InstrumentResponse
 
 	if err := json.Unmarshal(msg, &insRsp); err != nil {
@@ -493,7 +509,7 @@ func (c *Client) handleInsMsg(msg []byte) (*models.InstrumentResponse, error) {
 	return &insRsp, nil
 }
 
-func (c *Client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
+func (c *client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
 	var tdRsp models.TradeResponse
 
 	if err := json.Unmarshal(msg, &tdRsp); err != nil {
@@ -513,7 +529,7 @@ func (c *Client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
 	return &tdRsp, nil
 }
 
-func (c *Client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
+func (c *client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 	var mblRsp models.MBLResponse
 
 	if err := json.Unmarshal(msg, &mblRsp); err != nil {
@@ -533,7 +549,7 @@ func (c *Client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 	return &mblRsp, nil
 }
 
-func (c *Client) messageHandler() {
+func (c *client) messageHandler() {
 	var (
 		msg []byte
 		err error
@@ -595,7 +611,7 @@ func (c *Client) messageHandler() {
 	}
 }
 
-func (c *Client) generateSignature(
+func (c *client) generateSignature(
 	secret, method string, url *url.URL, expires int, body *bytes.Buffer) string {
 	h := hmac.New(sha256.New, []byte(secret))
 
@@ -622,11 +638,11 @@ func (c *Client) generateSignature(
 }
 
 // NewClient create a new mock client instance
-func NewClient(cfg *WsConfig) *Client {
-	ins := Client{
+func NewClient(cfg *WsConfig) Client {
+	ins := client{
 		cfg:           cfg,
 		heartbeatChan: make(chan *models.HeartBeat),
-		closeFlag:     make(chan struct{}),
+		closeFlag:     make(chan bool, 0),
 
 		SubscribedTopics: make(map[string]*models.SubscribeResponse),
 	}
