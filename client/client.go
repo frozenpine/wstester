@@ -627,13 +627,10 @@ func (c *client) generateSignature(
 
 	message := strings.ToUpper(method) + path + strconv.Itoa(expires) + bodyString
 
-	// log.Println("message:", message)
-
 	h.Write([]byte(message))
 
 	signature := hex.EncodeToString(h.Sum(nil))
 
-	// log.Println("signature:", signature)
 	return signature
 }
 

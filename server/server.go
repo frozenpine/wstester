@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -15,14 +16,25 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// Status statics for running server
+type Status struct {
+	Clients int `json:"clients"`
+}
+
 // Server server instance
-type Server struct {
+type Server interface {
+	RunForever() error
+}
+
+type server struct {
 	cfg      *WsConfig
 	upgrader *websocket.Upgrader
+
+	status Status
 }
 
 // RunForever startup and serve forever
-func (s *Server) RunForever() error {
+func (s *server) RunForever() error {
 	http.HandleFunc("/status", s.statusHandler)
 	http.HandleFunc(s.cfg.BaseURI, s.wsHandler)
 
@@ -31,10 +43,17 @@ func (s *Server) RunForever() error {
 	return err
 }
 
-func (s *Server) wsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) wsHandler(w http.ResponseWriter, r *http.Request) {
+	_, err := upgrader.Upgrade(w, r, w.Header())
 
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+	}
 }
 
-func (s *Server) statusHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
+	status, _ := json.Marshal(s.status)
 
+	w.Header().Set("Content-type", "application/json")
+	w.Write(status)
 }
