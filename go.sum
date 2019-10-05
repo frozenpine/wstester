@@ -1,9 +1,11 @@
 github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6 h1:uZuxRZCz65cG1o6K/xUqImNcYKtmk9ylqaH0itMSvzA=
 github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6/go.mod h1:V8iCPQYkqmusNa815XgQio277wI47sdRh1dUOLdyC6Q=
-github.com/frozenpine/ngerest v0.0.0-20190917022435-f5b9dc22ce99 h1:72hYTZMn0h8l9XYGtdR7yB/c4dyyuW6K8EG2O17XAZA=
-github.com/frozenpine/ngerest v0.0.0-20190917022435-f5b9dc22ce99/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191005082402-84abca0383c1 h1:9ny1CdZMDUoS+JwR7Lm9ruyRcSJCmVXbDO+GEWZZtTs=
+github.com/frozenpine/ngerest v0.0.0-20191005082402-84abca0383c1/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47 h1:tWqgWN6j76sCw1oPdQ1BdHfR4YYEK0kgLNC89dx3bNY=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47/go.mod h1:2bwRXM6GR9VZwJ5m0aSFo/7HHMnJLuvCoUk2cEZTt54=
+github.com/frozenpine/pkcs8 v0.0.0-20190413084423-a8374dc8920d h1:FDLukDoNCbo/cLcJ2YumDWbs72gOZCS7MmkbpBVOxzM=
+github.com/frozenpine/pkcs8 v0.0.0-20190413084423-a8374dc8920d/go.mod h1:2bwRXM6GR9VZwJ5m0aSFo/7HHMnJLuvCoUk2cEZTt54=
 github.com/gorilla/websocket v1.4.1 h1:q7AeDBpnBk8AogcD4DSag/Ukw/KV+YhzLj2bP5HvKCM=
 github.com/gorilla/websocket v1.4.1/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=

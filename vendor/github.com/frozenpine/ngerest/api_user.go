@@ -2587,7 +2587,7 @@ func (a *UserAPIService) UserLogin(ctx context.Context, login map[string]string)
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 
-		localVarReturnValue = context.WithValue(ctx, ContextQuantToken, QuantToken{
+		localVarReturnValue = context.WithValue(ctx, ContextAccessToken, AuthToken{
 			Token:   strings.Join(localVarHTTPResponse.Header["X-Auth-Token"], ";"),
 			Cookies: localVarHTTPResponse.Cookies()})
 
@@ -2636,7 +2636,7 @@ func (a *UserAPIService) UserGetDefaultAPIKey(ctx context.Context, key pkcs8.Pri
 
 	if ctx != nil {
 		// API Key Authentication
-		if token, ok := ctx.Value(ContextQuantToken).(QuantToken); ok {
+		if token, ok := ctx.Value(ContextAccessToken).(AuthToken); ok {
 			localVarHeaderParams["x-auth-token"] = token.Token
 		}
 	}

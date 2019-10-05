@@ -26,9 +26,6 @@ var (
 
 	// ContextAPIKey takes an APIKey as authentication for the request
 	ContextAPIKey = contextKey("apikey")
-
-	// ContextQuantToken takes a quantToken string.
-	ContextQuantToken = contextKey("quantToken")
 )
 
 // BasicAuth provides basic http authentication to a request passed via context using ContextBasicAuth
@@ -44,8 +41,8 @@ type APIKey struct {
 	Secret string
 }
 
-// QuantToken quantdo token authentication
-type QuantToken struct {
+// AuthToken quantdo token authentication
+type AuthToken struct {
 	Token   string
 	Cookies []*http.Cookie
 }

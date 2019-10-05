@@ -81,8 +81,6 @@ func ParseFromPublicKeyString(keyString string, format PEMFormat) (PublicKey, er
 		return pub, err
 	}
 
-	println(key)
-
 	pub.keyString = keyString
 	pub.block = block
 	pub.Key = key.(*rsa.PublicKey)
