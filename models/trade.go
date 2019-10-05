@@ -13,14 +13,14 @@ type TradeResponse struct {
 	Data []ngerest.Trade `json:"data"`
 }
 
-// ToString get structure's string format
-func (td *TradeResponse) ToString() string {
+// String get structure's string format
+func (td *TradeResponse) String() string {
 	result, _ := json.Marshal(td)
 
 	return string(result)
 }
 
-// Format format ToString output
+// Format format String output
 func (td *TradeResponse) Format(format string) string {
-	return td.ToString()
+	return td.String()
 }

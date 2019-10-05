@@ -8,7 +8,7 @@ import (
 
 // Response common functions for response
 type Response interface {
-	ToString() string
+	String() string
 	Format(string) string
 }
 
@@ -29,16 +29,16 @@ type InfoResponse struct {
 	SessionID string                 `json:"sessionId"`
 }
 
-// ToString get structure's string format
-func (info *InfoResponse) ToString() string {
+// String get structure's string format
+func (info *InfoResponse) String() string {
 	result, _ := json.Marshal(info)
 
 	return string(result)
 }
 
-// Format format ToString output
+// Format format String output
 func (info *InfoResponse) Format(format string) string {
-	return info.ToString()
+	return info.String()
 }
 
 // AuthResponse authentication response
@@ -47,16 +47,16 @@ type AuthResponse struct {
 	Request map[string]interface{} `json:"request"`
 }
 
-// ToString get structure's string format
-func (auth *AuthResponse) ToString() string {
+// String get structure's string format
+func (auth *AuthResponse) String() string {
 	result, _ := json.Marshal(auth)
 
 	return string(result)
 }
 
-// Format format ToString output
+// Format format String output
 func (auth *AuthResponse) Format(format string) string {
-	return auth.ToString()
+	return auth.String()
 }
 
 // SubscribeResponse subscribe response
@@ -66,16 +66,16 @@ type SubscribeResponse struct {
 	Request   OperationRequest `json:"request"`
 }
 
-// ToString get structure's string format
-func (sub *SubscribeResponse) ToString() string {
+// String get structure's string format
+func (sub *SubscribeResponse) String() string {
 	result, _ := json.Marshal(sub)
 
 	return string(result)
 }
 
-// Format format ToString output
+// Format format String output
 func (sub *SubscribeResponse) Format(format string) string {
-	return sub.ToString()
+	return sub.String()
 }
 
 type tableResponse struct {
@@ -98,14 +98,14 @@ type ErrResponse struct {
 	Request OperationRequest       `json:"request,omitempty"`
 }
 
-// ToString get structure's string format
-func (err *ErrResponse) ToString() string {
+// String get structure's string format
+func (err *ErrResponse) String() string {
 	result, _ := json.Marshal(err)
 
 	return string(result)
 }
 
-// Format format ToString output
+// Format format String output
 func (err *ErrResponse) Format(format string) string {
-	return err.ToString()
+	return err.String()
 }

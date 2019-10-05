@@ -13,14 +13,14 @@ type InstrumentResponse struct {
 	Data []ngerest.Instrument `json:"data"`
 }
 
-// ToString get structure's string format
-func (ins *InstrumentResponse) ToString() string {
+// String get structure's string format
+func (ins *InstrumentResponse) String() string {
 	result, _ := json.Marshal(ins)
 
 	return string(result)
 }
 
-// Format format ToString output
+// Format format String output
 func (ins *InstrumentResponse) Format(format string) string {
-	return ins.ToString()
+	return ins.String()
 }

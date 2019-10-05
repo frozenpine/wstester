@@ -370,30 +370,30 @@ func (c *client) heartbeatHandler() {
 				heartbeatCounter += hb.Value()
 
 				if logLevel >= 1 {
-					log.Println("->", hb.ToString())
+					log.Println("->", hb.String())
 				}
 			} else {
 				err = c.ws.WriteMessage(websocket.TextMessage, []byte("pong"))
 
 				if logLevel >= 1 {
-					log.Println("<-", hb.ToString())
-					log.Println("->", models.NewPong().ToString())
+					log.Println("<-", hb.String())
+					log.Println("->", models.NewPong().String())
 				}
 			}
 		case "Pong":
 			heartbeatCounter += hb.Value()
 
 			if logLevel > 0 {
-				log.Println("<-", hb.ToString())
+				log.Println("<-", hb.String())
 			}
 		default:
-			log.Println("Invalid heartbeat type: ", hb.ToString())
+			log.Println("Invalid heartbeat type: ", hb.String())
 
 			continue
 		}
 
 		if err != nil {
-			c.closeHandler(-1, "Send heartbeat failed: "+hb.ToString())
+			c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
 
 			return
 		}
@@ -448,7 +448,7 @@ func (c *client) handleInfoMsg(msg []byte) (*models.InfoResponse, error) {
 		if c.infoHandler != nil {
 			c.infoHandler(&info)
 		} else {
-			log.Println("Info:", info.ToString())
+			log.Println("Info:", info.String())
 		}
 	}()
 
@@ -467,7 +467,7 @@ func (c *client) handleAuthMsg(msg []byte) (*models.AuthResponse, error) {
 			c.authencated = true
 		}
 
-		log.Println("Auth:", auth.ToString())
+		log.Println("Auth:", auth.String())
 	}()
 
 	return &auth, nil
@@ -492,7 +492,7 @@ func (c *client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
 		if c.subHandler != nil {
 			c.subHandler(&sub)
 		} else {
-			log.Println("Subscribe:", sub.ToString())
+			log.Println("Subscribe:", sub.String())
 		}
 	}()
 
@@ -570,7 +570,7 @@ func (c *client) handleErrMsg(msg []byte) (*models.ErrResponse, error) {
 		if c.errHandler != nil {
 			c.errHandler(&errRsp)
 		} else {
-			log.Println(errRsp.ToString())
+			log.Println(errRsp.String())
 		}
 	}()
 
@@ -639,7 +639,7 @@ func (c *client) messageHandler() {
 			}
 
 			if logLevel >= 2 {
-				log.Println("<-", rsp.ToString())
+				log.Println("<-", rsp.String())
 			}
 		}
 	}

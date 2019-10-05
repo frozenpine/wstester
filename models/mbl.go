@@ -13,14 +13,14 @@ type MBLResponse struct {
 	Data []ngerest.OrderBookL2 `json:"data"`
 }
 
-// ToString get structure's string format
-func (mbl *MBLResponse) ToString() string {
+// String get structure's string format
+func (mbl *MBLResponse) String() string {
 	result, _ := json.Marshal(mbl)
 
 	return string(result)
 }
 
-// Format format ToString output
+// Format format String output
 func (mbl *MBLResponse) Format(format string) string {
-	return mbl.ToString()
+	return mbl.String()
 }

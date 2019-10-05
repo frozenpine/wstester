@@ -50,14 +50,14 @@ func (hb *HeartBeat) Type() string {
 	return "Invalid type."
 }
 
-// ToString to get heartbeat message in string format
-func (hb *HeartBeat) ToString() string {
+// String to get heartbeat message in string format
+func (hb *HeartBeat) String() string {
 	return hb.Type() + ": " + hb.ts.Format(time.RFC3339Nano)
 }
 
-// Format format ToString output
+// Format format String output
 func (hb *HeartBeat) Format(format string) string {
-	return hb.ToString()
+	return hb.String()
 }
 
 // NewPing create a heatbeat message in ping type
