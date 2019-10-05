@@ -88,3 +88,24 @@ type tableResponse struct {
 	Attributes  map[string]string `json:"attributes,omitempty"`
 	Filter      map[string]string `json:"filter,omitempty"`
 }
+
+// ErrResponse error response
+type ErrResponse struct {
+	Error string `json:"error"`
+
+	Status  int                    `json:"status,omitempty"`
+	Meta    map[string]interface{} `json:"meta,omitempty"`
+	Request OperationRequest       `json:"request,omitempty"`
+}
+
+// ToString get structure's string format
+func (err *ErrResponse) ToString() string {
+	result, _ := json.Marshal(err)
+
+	return string(result)
+}
+
+// Format format ToString output
+func (err *ErrResponse) Format(format string) string {
+	return err.ToString()
+}

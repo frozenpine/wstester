@@ -30,6 +30,7 @@ var (
 	subPattern        = []byte(`"subscribe"`)
 	authPattern1      = []byte(`"authKeyExpires"`)
 	authPattern2      = []byte(`"api-key"`)
+	errPattern        = []byte(`"error"`)
 )
 
 // Client client instance
@@ -44,6 +45,7 @@ type Client interface {
 	SendJSONMessage(msg interface{}) error
 	SetInfoHandler(func(*models.InfoResponse))
 	SetSubHandler(func(*models.SubscribeResponse))
+	SetErrHandler(func(*models.ErrResponse))
 	GetTrade() <-chan *models.TradeResponse
 	GetMBL() <-chan *models.MBLResponse
 	GetInstrument() <-chan *models.InstrumentResponse
@@ -59,6 +61,7 @@ type client struct {
 
 	infoHandler func(*models.InfoResponse)
 	subHandler  func(*models.SubscribeResponse)
+	errHandler  func(*models.ErrResponse)
 
 	heartbeatChan  chan *models.HeartBeat
 	heartbeatTimer *time.Timer
@@ -278,6 +281,13 @@ func (c *client) SendJSONMessage(msg interface{}) error {
 func (c *client) SetInfoHandler(fn func(*models.InfoResponse)) {
 	if fn != nil {
 		c.infoHandler = fn
+	}
+}
+
+// SetErrHandler set error response handler, must be setted before calling Connect
+func (c *client) SetErrHandler(fn func(*models.ErrResponse)) {
+	if fn != nil {
+		c.errHandler = fn
 	}
 }
 
@@ -549,6 +559,24 @@ func (c *client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 	return &mblRsp, nil
 }
 
+func (c *client) handleErrMsg(msg []byte) (*models.ErrResponse, error) {
+	var errRsp models.ErrResponse
+
+	if err := json.Unmarshal(msg, &errRsp); err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if c.errHandler != nil {
+			c.errHandler(&errRsp)
+		} else {
+			log.Println(errRsp.ToString())
+		}
+	}()
+
+	return &errRsp, nil
+}
+
 func (c *client) messageHandler() {
 	var (
 		msg []byte
@@ -577,6 +605,12 @@ func (c *client) messageHandler() {
 			case bytes.Contains(msg, subPattern):
 				if rsp, err = c.handlSubMsg(msg); err != nil {
 					log.Println("Fail to parse subscribe response:", err, string(msg))
+				}
+
+				continue
+			case bytes.Contains(msg, errPattern):
+				if rsp, err = c.handleErrMsg(msg); err != nil {
+					log.Println("Fail to parse error response:", err, string(msg))
 				}
 
 				continue
