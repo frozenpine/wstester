@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -11,6 +12,12 @@ import (
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 	"github.com/gorilla/websocket"
+)
+
+var (
+	pingPattern = []byte(`ping`)
+	pongPattern = []byte(`pong`)
+	opPattern   = []byte(`"op"`)
 )
 
 type serverStatics struct {
@@ -32,6 +39,7 @@ type Server interface {
 
 type server struct {
 	cfg      *WsConfig
+	ctx      context.Context
 	upgrader *websocket.Upgrader
 
 	statics serverStatics
@@ -80,6 +88,59 @@ func (s *server) checkAuthHeader(r *http.Request) error {
 	return nil
 }
 
+func (s *server) WriteTextMessage(conn *websocket.Conn, msg string) error {
+	return conn.WriteMessage(websocket.TextMessage, []byte(msg))
+}
+
+func (s *server) heartbeatHandler(conn *websocket.Conn, hbChan chan *models.HeartBeat) {
+	var hbCounter int
+
+	for hb := range hbChan {
+		switch hb.Type() {
+		case "Ping":
+			if s.cfg.ReversHeartbeat {
+				s.WriteTextMessage(conn, "ping")
+				hbCounter += hb.Value()
+			} else {
+				s.WriteTextMessage(conn, "pong")
+			}
+		case "Pong":
+			hbCounter += hb.Value()
+		default:
+		}
+	}
+}
+
+func (s *server) readMessage(conn *websocket.Conn) ([]byte, error) {
+	var (
+		hbChan chan *models.HeartBeat
+		msg    []byte
+		err    error
+	)
+
+	go s.heartbeatHandler(conn, hbChan)
+
+HEARTBEAT:
+	for {
+		_, msg, err = conn.ReadMessage()
+
+		if err != nil {
+			return nil, err
+		}
+
+		switch {
+		case bytes.Contains(msg, pingPattern):
+			hbChan <- models.NewPing()
+		case bytes.Contains(msg, pongPattern):
+			hbChan <- models.NewPong()
+		default:
+			break HEARTBEAT
+		}
+	}
+
+	return msg, err
+}
+
 func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, w.Header())
 
@@ -88,33 +149,40 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.incClients(conn)
-
 	defer func() {
 		s.decClients(conn)
 	}()
 
 	info := models.InfoResponse{
-		Info:      "Welcom to NGE websocket service mock.",
+		Info:      s.cfg.WelcomMsg,
 		Version:   "Mock Server v1",
 		Timestamp: ngerest.NGETime(time.Now().UTC()),
-		Docs:      "https://docs.btcmex.com",
-		FrontID:   "0",
+		Docs:      s.cfg.DocsURI,
+		FrontID:   s.cfg.FrontID,
 		SessionID: "123456",
 	}
 
-	conn.WriteJSON(info)
+	conn.WriteJSON(&info)
 
-	// var (
-	// 	msg []byte
-	// )
+	var (
+		msg []byte
+	)
 
-	// for {
-	// 	_, msg, err = conn.ReadMessage()
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+			if msg, err = s.readMessage(conn); err != nil {
+				return
+			}
 
-	// 	if err != nil {
-	// 		return
-	// 	}
-	// }
+			switch {
+			case bytes.Contains(msg, opPattern):
+			default:
+			}
+		}
+	}
 }
 
 func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
