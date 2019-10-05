@@ -3,20 +3,17 @@ package client
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils"
 	"github.com/gorilla/websocket"
 )
 
@@ -71,6 +68,7 @@ type client struct {
 	mblChan        []chan<- *models.MBLResponse
 
 	closeFlag chan bool
+	closeOnce sync.Once
 
 	SubscribedTopics map[string]*models.SubscribeResponse
 }
@@ -127,7 +125,7 @@ func (c *client) getHeader() http.Header {
 
 		nonce := int(time.Now().Unix() + 5)
 
-		header["api-signature"] = []string{c.generateSignature(
+		header["api-signature"] = []string{utils.GenerateSignature(
 			auth.Secret, "get", remote, nonce, nil)}
 
 		header["api-expires"] = []string{strconv.Itoa(nonce)}
@@ -262,7 +260,9 @@ func (c *client) Closed() <-chan bool {
 }
 
 func (c *client) closeHandler(code int, msg string) error {
-	close(c.closeFlag)
+	c.closeOnce.Do(func() {
+		close(c.closeFlag)
+	})
 
 	c.connected = false
 	c.authencated = false
@@ -398,7 +398,7 @@ func (c *client) heartbeatHandler() {
 			return
 		}
 
-		if heartbeatCounter > c.cfg.HeartbeatFailCount || heartbeatCounter < 0 {
+		if heartbeatCounter >= c.cfg.HeartbeatFailCount || heartbeatCounter < 0 {
 			c.closeHandler(-1, fmt.Sprint("Heartbeat miss-match:", heartbeatCounter))
 
 			return
@@ -643,29 +643,6 @@ func (c *client) messageHandler() {
 			}
 		}
 	}
-}
-
-func (c *client) generateSignature(
-	secret, method string, url *url.URL, expires int, body *bytes.Buffer) string {
-	h := hmac.New(sha256.New, []byte(secret))
-
-	path := url.Path
-	if url.RawQuery != "" {
-		path = path + "?" + url.RawQuery
-	}
-
-	var bodyString string
-	if body != nil {
-		bodyString = strings.TrimRight(body.String(), "\r\n")
-	}
-
-	message := strings.ToUpper(method) + path + strconv.Itoa(expires) + bodyString
-
-	h.Write([]byte(message))
-
-	signature := hex.EncodeToString(h.Sum(nil))
-
-	return signature
 }
 
 // NewClient create a new mock client instance
