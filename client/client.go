@@ -211,6 +211,9 @@ func (c *client) UnSubscribe(topics ...string) {
 
 // Connect to remote host
 func (c *client) Connect(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	remote := c.cfg.GetURL()
 
 	var subList []string
@@ -366,14 +369,21 @@ func (c *client) heartbeatHandler() {
 		switch hb.Type() {
 		case "Ping":
 			if !c.cfg.ReversHeartbeat {
-				err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping"))
+				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping")); err != nil {
+					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
+					return
+				}
+
 				heartbeatCounter += hb.Value()
 
 				if logLevel >= 1 {
 					log.Println("->", hb.String())
 				}
 			} else {
-				err = c.ws.WriteMessage(websocket.TextMessage, []byte("pong"))
+				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("pong")); err != nil {
+					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
+					return
+				}
 
 				if logLevel >= 1 {
 					log.Println("<-", hb.String())
@@ -390,12 +400,6 @@ func (c *client) heartbeatHandler() {
 			log.Println("Invalid heartbeat type: ", hb.String())
 
 			continue
-		}
-
-		if err != nil {
-			c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
-
-			return
 		}
 
 		if heartbeatCounter >= c.cfg.HeartbeatFailCount || heartbeatCounter < 0 {
@@ -636,6 +640,7 @@ func (c *client) messageHandler() {
 				}
 			default:
 				log.Println("Unkonw table type:", string(msg))
+				continue
 			}
 
 			if logLevel >= 2 {
