@@ -15,11 +15,10 @@ import (
 )
 
 var (
+	version  = "wstester mock server v0.1"
 	logLevel int
 
-	pingPattern = []byte(`ping`)
-	pongPattern = []byte(`pong`)
-	opPattern   = []byte(`"op"`)
+	opPattern = []byte(`"op"`)
 )
 
 type serverStatics struct {
@@ -37,6 +36,7 @@ type Status struct {
 // Server server instance
 type Server interface {
 	RunForever(ctx context.Context) error
+	Reload(*WsConfig)
 }
 
 type server struct {
@@ -46,7 +46,13 @@ type server struct {
 
 	statics serverStatics
 
-	clients map[string]Session
+	clients       map[string]Session
+	channelMapper map[string]Channel
+}
+
+func (s *server) Reload(cfg *WsConfig) {
+	s.cfg = cfg
+
 }
 
 // RunForever startup and serve forever
@@ -99,6 +105,10 @@ func (s *server) decClients(session interface{}) {
 
 	delete(s.clients, client.GetID())
 	atomic.AddInt64(&s.statics.Clients, -1)
+}
+
+func (s *server) subscribe(topics ...string) {
+
 }
 
 func (s *server) checkAuthHeader(r *http.Request) error {

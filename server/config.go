@@ -59,7 +59,7 @@ func (c *WsConfig) GetListenAddr() string {
 
 // GetNS get server's namespace from listen addr
 func (c *WsConfig) GetNS() uuid.UUID {
-	nsString := fmt.Sprintf("%s:%s", c.FrontID, c.GetListenAddr())
+	nsString := fmt.Sprintf("%v:%s", c.FrontID, c.GetListenAddr())
 	nsHash := md5.Sum([]byte(nsString))
 
 	return uuid.Must(uuid.FromBytes(nsHash[:]))
@@ -73,7 +73,7 @@ func NewConfig() *WsConfig {
 		BaseURI:      "/realtime",
 		SignatureURI: "/api/v1/signature",
 
-		WelcomMsg: "Welcom to webosocket mock server.",
+		WelcomMsg: "Welcome to the BTCMEX Realtime API.",
 		DocsURI:   "https://docs.btcmex.com",
 		FrontID:   "0",
 

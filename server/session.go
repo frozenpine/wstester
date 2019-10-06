@@ -14,6 +14,11 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+var (
+	pingPattern = []byte(`ping`)
+	pongPattern = []byte(`pong`)
+)
+
 // Session interface interactive with client session
 type Session interface {
 	Welcome() error
@@ -48,11 +53,11 @@ func (s *clientSession) Welcome() error {
 	cfg := s.getSvrCfg()
 	info := models.InfoResponse{
 		Info:      cfg.WelcomMsg,
-		Version:   "Mock Server v1",
+		Version:   version,
 		Timestamp: ngerest.NGETime(time.Now().UTC()),
 		Docs:      cfg.DocsURI,
 		FrontID:   cfg.FrontID,
-		SessionID: "123456",
+		SessionID: s.GetID(),
 	}
 
 	return s.WriteJSONMessage(&info)
