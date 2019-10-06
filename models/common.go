@@ -12,10 +12,33 @@ type Response interface {
 	Format(string) string
 }
 
+// Request common functions for request
+type Request interface {
+	String() string
+	GetOperation() string
+	GetArgs() []string
+}
+
 // OperationRequest request to websocket
 type OperationRequest struct {
 	Operation string   `json:"op"`
 	Args      []string `json:"args"`
+}
+
+func (req *OperationRequest) String() string {
+	result, _ := json.Marshal(req)
+
+	return string(result)
+}
+
+// GetOperation get request's operation name
+func (req *OperationRequest) GetOperation() string {
+	return req.Operation
+}
+
+// GetArgs get request's args slice
+func (req *OperationRequest) GetArgs() []string {
+	return req.Args
 }
 
 // InfoResponse welcome message

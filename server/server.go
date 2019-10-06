@@ -4,17 +4,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"sync/atomic"
 	"time"
 
-	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 	"github.com/gorilla/websocket"
 )
 
 var (
+	logLevel int
+
 	pingPattern = []byte(`ping`)
 	pongPattern = []byte(`pong`)
 	opPattern   = []byte(`"op"`)
@@ -49,6 +51,11 @@ type server struct {
 
 // RunForever startup and serve forever
 func (s *server) RunForever(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.ctx = ctx
+
 	http.HandleFunc("/status", s.statusHandler)
 	http.HandleFunc(s.cfg.BaseURI, s.wsUpgrader)
 
@@ -59,17 +66,24 @@ func (s *server) RunForever(ctx context.Context) error {
 }
 
 func (s *server) incClients(conn *websocket.Conn) Session {
-	defer func() {
-		atomic.AddInt64(&s.statics.Clients, 1)
-	}()
+	session := NewSession(conn, s)
+	if err := session.Welcome(); err != nil {
+		log.Println(err)
 
-	session := NewSession(conn, s.cfg.GetNS())
+		return nil
+	}
+
 	s.clients[session.GetID()] = session
+	atomic.AddInt64(&s.statics.Clients, 1)
 
 	return session
 }
 
 func (s *server) decClients(session interface{}) {
+	if session == nil {
+		return
+	}
+
 	var client Session
 
 	switch session.(type) {
@@ -83,12 +97,8 @@ func (s *server) decClients(session interface{}) {
 		return
 	}
 
-	defer func() {
-		atomic.AddInt64(&s.statics.Clients, -1)
-	}()
-
-	client.Close()
 	delete(s.clients, client.GetID())
+	atomic.AddInt64(&s.statics.Clients, -1)
 }
 
 func (s *server) checkAuthHeader(r *http.Request) error {
@@ -113,59 +123,6 @@ func (s *server) checkAuthHeader(r *http.Request) error {
 	return nil
 }
 
-func (s *server) WriteTextMessage(conn *websocket.Conn, msg string) error {
-	return conn.WriteMessage(websocket.TextMessage, []byte(msg))
-}
-
-func (s *server) heartbeatHandler(conn *websocket.Conn, hbChan chan *models.HeartBeat) {
-	var hbCounter int
-
-	for hb := range hbChan {
-		switch hb.Type() {
-		case "Ping":
-			if s.cfg.ReversHeartbeat {
-				s.WriteTextMessage(conn, "ping")
-				hbCounter += hb.Value()
-			} else {
-				s.WriteTextMessage(conn, "pong")
-			}
-		case "Pong":
-			hbCounter += hb.Value()
-		default:
-		}
-	}
-}
-
-func (s *server) readMessage(conn *websocket.Conn) ([]byte, error) {
-	var (
-		hbChan chan *models.HeartBeat
-		msg    []byte
-		err    error
-	)
-
-	go s.heartbeatHandler(conn, hbChan)
-
-HEARTBEAT:
-	for {
-		_, msg, err = conn.ReadMessage()
-
-		if err != nil {
-			return nil, err
-		}
-
-		switch {
-		case bytes.Contains(msg, pingPattern):
-			hbChan <- models.NewPing()
-		case bytes.Contains(msg, pongPattern):
-			hbChan <- models.NewPong()
-		default:
-			break HEARTBEAT
-		}
-	}
-
-	return msg, err
-}
-
 func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, w.Header())
 
@@ -178,19 +135,9 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		s.decClients(clientSenssion)
 	}()
 
-	info := models.InfoResponse{
-		Info:      s.cfg.WelcomMsg,
-		Version:   "Mock Server v1",
-		Timestamp: ngerest.NGETime(time.Now().UTC()),
-		Docs:      s.cfg.DocsURI,
-		FrontID:   s.cfg.FrontID,
-		SessionID: "123456",
-	}
-
-	conn.WriteJSON(&info)
-
 	var (
 		msg []byte
+		req models.Request
 	)
 
 	for {
@@ -198,14 +145,21 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		case <-s.ctx.Done():
 			return
 		default:
-			if msg, err = s.readMessage(conn); err != nil {
+			if msg, err = clientSenssion.ReadMessage(); err != nil {
+				clientSenssion.Close(-1, err.Error())
 				return
 			}
 
 			switch {
 			case bytes.Contains(msg, opPattern):
 			default:
+				log.Println("Unknow request:", string(msg))
+				continue
 			}
+		}
+
+		if logLevel >= 2 {
+			log.Println("<-", req.String())
 		}
 	}
 }
@@ -234,6 +188,7 @@ func NewServer(cfg *WsConfig) Server {
 			},
 		},
 		statics: serverStatics{},
+		clients: make(map[string]Session),
 	}
 
 	return &svr
