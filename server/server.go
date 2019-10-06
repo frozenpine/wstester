@@ -43,6 +43,8 @@ type server struct {
 	upgrader *websocket.Upgrader
 
 	statics serverStatics
+
+	clients map[string]Session
 }
 
 // RunForever startup and serve forever
@@ -56,14 +58,37 @@ func (s *server) RunForever(ctx context.Context) error {
 	return err
 }
 
-func (s *server) incClients(conn *websocket.Conn) {
-	// remoteAddr := conn.UnderlyingConn().RemoteAddr().String()
+func (s *server) incClients(conn *websocket.Conn) Session {
+	defer func() {
+		atomic.AddInt64(&s.statics.Clients, 1)
+	}()
 
-	atomic.AddInt64(&s.statics.Clients, 1)
+	session := NewSession(conn, s.cfg.GetNS())
+	s.clients[session.GetID()] = session
+
+	return session
 }
 
-func (s *server) decClients(conn *websocket.Conn) {
-	atomic.AddInt64(&s.statics.Clients, -1)
+func (s *server) decClients(session interface{}) {
+	var client Session
+
+	switch session.(type) {
+	case string:
+		client = s.clients[session.(string)]
+	case Session:
+		client = session.(Session)
+	}
+
+	if client == nil {
+		return
+	}
+
+	defer func() {
+		atomic.AddInt64(&s.statics.Clients, -1)
+	}()
+
+	client.Close()
+	delete(s.clients, client.GetID())
 }
 
 func (s *server) checkAuthHeader(r *http.Request) error {
@@ -148,9 +173,9 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 	}
 
-	s.incClients(conn)
+	clientSenssion := s.incClients(conn)
 	defer func() {
-		s.decClients(conn)
+		s.decClients(clientSenssion)
 	}()
 
 	info := models.InfoResponse{
