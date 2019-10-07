@@ -1,6 +1,9 @@
 package utils
 
-import "sort"
+import (
+	"math"
+	"sort"
+)
 
 // RangeSlice trim elements specified by a index slice
 func RangeSlice(src []interface{}, sliced []int) []interface{} {
@@ -35,4 +38,30 @@ func Slice(src []interface{}, idx int) []interface{} {
 	}
 
 	return src
+}
+
+// MaxInt return max int num in args
+func MaxInt(numbers ...int) int {
+	var max int = 0
+
+	for _, num := range numbers {
+		if num > max {
+			max = num
+		}
+	}
+
+	return max
+}
+
+// MinInt return min int num in args
+func MinInt(numbers ...int) int {
+	var min int = math.MaxInt64
+
+	for _, num := range numbers {
+		if num < min {
+			min = num
+		}
+	}
+
+	return min
 }
