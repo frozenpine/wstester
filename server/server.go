@@ -35,8 +35,10 @@ type Status struct {
 
 // Server server instance
 type Server interface {
+	// RunForever startup and serve forever
 	RunForever(ctx context.Context) error
-	Reload(*WsConfig)
+	// ReloadCfg reload server config
+	ReloadCfg(*WsConfig)
 }
 
 type server struct {
@@ -46,16 +48,18 @@ type server struct {
 
 	statics serverStatics
 
-	clients       map[string]Session
-	channelMapper map[string]Channel
+	clients     map[string]Session
+	pubChannels map[string]Channel
 }
 
-func (s *server) Reload(cfg *WsConfig) {
+func (s *server) ReloadCfg(cfg *WsConfig) {
 	s.cfg = cfg
 
+	for _, client := range s.clients {
+		client.ReloadCfg()
+	}
 }
 
-// RunForever startup and serve forever
 func (s *server) RunForever(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -153,6 +157,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-s.ctx.Done():
+			clientSenssion.Close(0, "Server exit.")
 			return
 		default:
 			if msg, err = clientSenssion.ReadMessage(); err != nil {
@@ -197,9 +202,14 @@ func NewServer(cfg *WsConfig) Server {
 				return true
 			},
 		},
-		statics: serverStatics{},
-		clients: make(map[string]Session),
+		statics:     serverStatics{},
+		clients:     make(map[string]Session),
+		pubChannels: make(map[string]Channel),
 	}
+
+	svr.pubChannels["trade"] = NewTradeCache()
+	svr.pubChannels["instrument"] = NewInstrumentCache()
+	svr.pubChannels["orderBookL2"] = NewMBLCache()
 
 	return &svr
 }

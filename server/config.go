@@ -65,8 +65,8 @@ func (c *WsConfig) GetNS() uuid.UUID {
 	return uuid.Must(uuid.FromBytes(nsHash[:]))
 }
 
-// NewConfig create a new server config
-func NewConfig() *WsConfig {
+// NewWsConfig create a new server config
+func NewWsConfig() *WsConfig {
 	cfg := WsConfig{
 		Listen:       net.ParseIP("0.0.0.0"),
 		Port:         9988,

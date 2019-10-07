@@ -21,6 +21,7 @@ var (
 
 // Session interface interactive with client session
 type Session interface {
+	// Welcome send welcome message to client
 	Welcome() error
 	// GetID to get session's unique id
 	GetID() string
@@ -31,9 +32,15 @@ type Session interface {
 	// IsAuthorized to specify wether current session is authrozied
 	IsAuthorized() bool
 
+	// ReadMessage receive message from client session
 	ReadMessage() ([]byte, error)
+	// WriteTextMessage send text message to client
 	WriteTextMessage(string) error
+	// WriteJSONMessage send json object to client
 	WriteJSONMessage(interface{}) error
+
+	// ReloadCfg reload server configurations
+	ReloadCfg()
 }
 
 type clientSession struct {
@@ -202,6 +209,10 @@ func (s *clientSession) WriteTextMessage(msg string) error {
 
 func (s *clientSession) WriteJSONMessage(obj interface{}) error {
 	return s.conn.WriteJSON(obj)
+}
+
+func (s *clientSession) ReloadCfg() {
+	// TODO: 实现配置重载逻辑
 }
 
 // NewSession create client session from webosocket conn
