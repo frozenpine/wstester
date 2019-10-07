@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"sync"
+
+	"github.com/frozenpine/wstester/utils"
 )
 
 // Channel message channel
@@ -22,13 +24,15 @@ type Channel interface {
 }
 
 type channel struct {
-	source       chan interface{}
-	destinations []chan interface{}
-	subChannels  []Channel
-	tmpDest      sync.Pool
-	tmpSubChan   sync.Pool
+	source chan interface{}
 
-	dispatchLock sync.Mutex
+	destinations    []chan interface{}
+	newDestinations []chan interface{}
+	subChannels     []Channel
+	newSubChannels  []Channel
+
+	retriveLock sync.Mutex
+	connectLock sync.Mutex
 
 	isStarted bool
 	startOnce sync.Once
@@ -65,9 +69,9 @@ func (c *channel) RetriveData() <-chan interface{} {
 
 	ch := make(chan interface{})
 
-	c.dispatchLock.Lock()
-	c.destinations = append(c.destinations, ch)
-	c.dispatchLock.Unlock()
+	c.retriveLock.Lock()
+	c.newDestinations = append(c.newDestinations, ch)
+	c.retriveLock.Unlock()
 
 	return ch
 }
@@ -81,9 +85,9 @@ func (c *channel) Connect(child Channel) error {
 		c.Start()
 	}
 
-	c.dispatchLock.Lock()
-	c.subChannels = append(c.subChannels, child)
-	c.dispatchLock.Unlock()
+	c.connectLock.Lock()
+	c.newSubChannels = append(c.newSubChannels, child)
+	c.connectLock.Unlock()
 
 	child.Start()
 
@@ -103,9 +107,6 @@ func (c *channel) Start() error {
 		if c.source == nil {
 			c.source = make(chan interface{})
 		}
-
-		c.tmpDest.Put([]chan interface{}{})
-		c.tmpSubChan.Put([]Channel{})
 
 		c.isClosed = false
 
@@ -152,48 +153,89 @@ func (c *channel) Close() error {
 	return nil
 }
 
-func (c *channel) dispatchDistinations(data interface{}) {
-	normalDest := c.tmpDest.Get().([]chan interface{})
-
-	c.dispatchLock.Lock()
+func (c *channel) mergeNewDest() {
+	c.retriveLock.Lock()
 	defer func() {
-		c.dispatchLock.Unlock()
+		c.retriveLock.Unlock()
 	}()
 
-	for _, dest := range c.destinations {
+	if len(c.newDestinations) > 0 {
+		c.destinations = append(c.destinations, c.newDestinations...)
+
+		c.newDestinations = c.newDestinations[len(c.newDestinations):]
+	}
+}
+
+func (c *channel) dispatchDistinations(data interface{}) {
+	var invalidDest []int
+
+	c.mergeNewDest()
+
+	for idx, dest := range c.destinations {
 		if dest == nil {
+			invalidDest = append(invalidDest, idx)
 			continue
 		}
 
 		dest <- data
-		normalDest = append(normalDest, dest)
 	}
 
-	if len(normalDest) < len(c.destinations) {
-		c.destinations = make([]chan interface{}, len(normalDest))
-		copy(c.destinations, normalDest)
+	if len(invalidDest) > 0 {
+		tmpSlice := make([]interface{}, len(c.destinations))
+
+		for idx, ele := range c.destinations {
+			tmpSlice[idx] = ele
+		}
+
+		tmpSlice = utils.RangeSlice(tmpSlice, invalidDest)
+
+		c.destinations = make([]chan interface{}, len(tmpSlice))
+
+		for idx, ele := range tmpSlice {
+			c.destinations[idx] = ele.(chan interface{})
+		}
+	}
+}
+
+func (c *channel) mergeNewSubChannel() {
+	c.connectLock.Lock()
+	defer func() {
+		c.connectLock.Unlock()
+	}()
+
+	if len(c.newSubChannels) > 0 {
+		c.subChannels = append(c.subChannels, c.newSubChannels...)
+
+		c.newSubChannels = c.newSubChannels[len(c.newSubChannels):]
 	}
 }
 
 func (c *channel) dispatchSubChannels(data interface{}) {
-	normalChan := c.tmpSubChan.Get().([]Channel)
+	var invalidSub []int
 
-	c.dispatchLock.Lock()
-	defer func() {
-		c.dispatchLock.Unlock()
-	}()
-
-	for _, subChan := range c.subChannels {
+	for idx, subChan := range c.subChannels {
 		if err := subChan.PublishData(data); err != nil {
+			invalidSub = append(invalidSub, idx)
 			log.Println(err)
 			continue
 		}
 
-		normalChan = append(normalChan, subChan)
+		subChan.PublishData(data)
 	}
 
-	if len(normalChan) < len(c.subChannels) {
-		c.subChannels = make([]Channel, len(normalChan))
-		copy(c.subChannels, normalChan)
+	if len(invalidSub) > 0 {
+		tmpSlice := make([]interface{}, len(c.subChannels))
+
+		for idx, ele := range c.subChannels {
+			tmpSlice[idx] = ele
+		}
+
+		tmpSlice = utils.RangeSlice(tmpSlice, invalidSub)
+
+		c.subChannels = make([]Channel, len(tmpSlice))
+
+		for idx, ele := range tmpSlice {
+			c.subChannels[idx] = ele.(Channel)
+		}
 	}
 }
