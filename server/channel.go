@@ -8,6 +8,12 @@ import (
 	"github.com/frozenpine/wstester/utils"
 )
 
+// Message data wrapper for identify weather data is a snapshot
+type Message struct {
+	IsSnapshot bool
+	Data       interface{}
+}
+
 // Channel message channel
 type Channel interface {
 	// Start initialize channel and start a dispatch goroutine
@@ -18,16 +24,16 @@ type Channel interface {
 	Connect(Channel) error
 
 	// PublishData publish data to current channel
-	PublishData(interface{}) error
+	PublishData(*Message) error
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData() <-chan interface{}
+	RetriveData() <-chan *Message
 }
 
 type channel struct {
-	source chan interface{}
+	source chan *Message
 
-	destinations    []chan interface{}
-	newDestinations []chan interface{}
+	destinations    []chan *Message
+	newDestinations []chan *Message
 	subChannels     []Channel
 	newSubChannels  []Channel
 
@@ -41,7 +47,7 @@ type channel struct {
 	closeOnce sync.Once
 }
 
-func (c *channel) PublishData(data interface{}) error {
+func (c *channel) PublishData(data *Message) error {
 	if c.isClosed {
 		return fmt.Errorf("channel is already closed")
 	}
@@ -55,9 +61,9 @@ func (c *channel) PublishData(data interface{}) error {
 	return nil
 }
 
-func (c *channel) RetriveData() <-chan interface{} {
+func (c *channel) RetriveData() <-chan *Message {
 	if c.isClosed {
-		ch := make(chan interface{}, 0)
+		ch := make(chan *Message, 0)
 		close(ch)
 
 		return ch
@@ -67,7 +73,7 @@ func (c *channel) RetriveData() <-chan interface{} {
 		c.Start()
 	}
 
-	ch := make(chan interface{})
+	ch := make(chan *Message)
 
 	c.retriveLock.Lock()
 	c.newDestinations = append(c.newDestinations, ch)
@@ -105,7 +111,7 @@ func (c *channel) Start() error {
 
 	c.startOnce.Do(func() {
 		if c.source == nil {
-			c.source = make(chan interface{})
+			c.source = make(chan *Message)
 		}
 
 		c.isClosed = false
@@ -166,7 +172,7 @@ func (c *channel) mergeNewDest() {
 	}
 }
 
-func (c *channel) dispatchDistinations(data interface{}) {
+func (c *channel) dispatchDistinations(data *Message) {
 	var invalidDest []int
 
 	c.mergeNewDest()
@@ -189,10 +195,10 @@ func (c *channel) dispatchDistinations(data interface{}) {
 
 		tmpSlice = utils.RangeSlice(tmpSlice, invalidDest)
 
-		c.destinations = make([]chan interface{}, len(tmpSlice))
+		c.destinations = make([]chan *Message, len(tmpSlice))
 
 		for idx, ele := range tmpSlice {
-			c.destinations[idx] = ele.(chan interface{})
+			c.destinations[idx] = ele.(chan *Message)
 		}
 	}
 }
@@ -210,7 +216,7 @@ func (c *channel) mergeNewSubChannel() {
 	}
 }
 
-func (c *channel) dispatchSubChannels(data interface{}) {
+func (c *channel) dispatchSubChannels(data *Message) {
 	var invalidSub []int
 
 	for idx, subChan := range c.subChannels {
