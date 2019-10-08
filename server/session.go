@@ -212,7 +212,7 @@ func (s *clientSession) WriteJSONMessage(obj interface{}) error {
 }
 
 func (s *clientSession) ReloadCfg() {
-	// TODO: 实现配置重载逻辑
+	// TODO: session's configuration reload
 }
 
 // NewSession create client session from webosocket conn

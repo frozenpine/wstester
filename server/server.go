@@ -114,11 +114,7 @@ func (s *server) decClients(session interface{}) {
 	atomic.AddInt64(&s.statics.Clients, -1)
 }
 
-func (s *server) subscribe(topic ...string) {
-
-}
-
-func (s *server) checkAuthHeader(r *http.Request) error {
+func (s *server) getReqAuth(r *http.Request) error {
 	apiKey := r.Header.Get("api-key")
 	if apiKey == "" {
 
@@ -169,6 +165,10 @@ func (s *server) parseOperation(msg []byte) (*models.OperationRequest, error) {
 	return &req, nil
 }
 
+func (s *server) handleAuth(req models.Request, client Session) models.Response {
+	return nil
+}
+
 func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
 	var (
 		rspList    []models.Response
@@ -181,6 +181,8 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 		topicName := parsed[0]
 
 		waitRsp := make(chan bool, 0)
+
+		// TODO: private flow subscribe
 
 		if pubChannel, chanExist = s.pubChannels[topicName]; chanExist {
 			go func() {
@@ -213,7 +215,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		err  error
 	)
 
-	if err = s.checkAuthHeader(r); err != nil {
+	if err = s.getReqAuth(r); err != nil {
 		log.Println(err)
 		return
 	}
@@ -236,7 +238,11 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if headerSub := s.getReqSubscribe(r); headerSub != nil {
-		rspList = s.handleSubscribe(headerSub, clientSenssion)
+		if subRsp := s.handleSubscribe(headerSub, clientSenssion); subRsp != nil && logLevel >= 2 {
+			for _, rsp := range subRsp {
+				log.Println("->", clientSenssion.GetID(), rsp.String())
+			}
+		}
 	}
 
 	for {
@@ -263,8 +269,13 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 
 			switch req.GetOperation() {
 			case "subscribe":
-				rspList = s.handleSubscribe(req, clientSenssion)
+				if subRsp := s.handleSubscribe(req, clientSenssion); subRsp != nil {
+					rspList = append(rspList, subRsp...)
+				}
 			case "auth":
+				if authRsp := s.handleAuth(req, clientSenssion); authRsp != nil {
+					rspList = append(rspList, authRsp)
+				}
 			default:
 				log.Println("Unkown request operation:", req.String())
 				continue
@@ -272,10 +283,10 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if logLevel >= 2 {
-			log.Println("<-", req.String())
+			log.Println("<-", clientSenssion.GetID(), req.String())
 
 			for _, rsp := range rspList {
-				log.Println("->", rsp.String())
+				log.Println("->", clientSenssion.GetID(), rsp.String())
 			}
 		}
 	}
