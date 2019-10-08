@@ -2,7 +2,7 @@ package server
 
 // MBLCache retrive & store mbl data
 type MBLCache struct {
-	channel
+	rspChannel
 }
 
 // NewMBLCache make a new MBL cache.

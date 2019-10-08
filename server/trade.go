@@ -15,31 +15,40 @@ var (
 	defaultTradeLen int = 200
 )
 
+type tradeMessage struct {
+	doNotPublish   bool
+	breakPointFunc func() []ngerest.Trade
+	msg            *sarama.ConsumerMessage
+}
+
+func (msg *tradeMessage) IsBreakPoint() bool {
+	return msg.breakPointFunc != nil
+}
+
 // TradeCache retrive & store trade data
 type TradeCache struct {
-	channel
+	rspChannel
 
-	ready chan bool
-
-	ctx context.Context
-
-	maxLength int
-
-	pipeline chan interface{}
-
+	pipeline     chan tradeMessage
+	ready        chan bool
+	ctx          context.Context
+	maxLength    int
 	historyTrade []ngerest.Trade
 }
 
-// RecentTrade get recent trade data
-func (c *TradeCache) RecentTrade() []ngerest.Trade {
+// RecentTrade get recent trade data, goroutine safe
+func (c *TradeCache) RecentTrade(publish bool) []ngerest.Trade {
 	ch := make(chan []ngerest.Trade, 1)
 
-	c.pipeline <- func() []ngerest.Trade {
-		snap := c.snapshot()
+	c.pipeline <- tradeMessage{
+		doNotPublish: !publish,
+		breakPointFunc: func() []ngerest.Trade {
+			snap := c.snapshot()
 
-		ch <- snap
+			ch <- snap
 
-		return snap
+			return snap
+		},
 	}
 
 	return <-ch
@@ -47,49 +56,27 @@ func (c *TradeCache) RecentTrade() []ngerest.Trade {
 
 // Start start cache backgroud goroutine
 func (c *TradeCache) Start() (err error) {
-	// client, err := sarama.NewConsumerGroup()
-
 	go func() {
+		var rsp *models.TradeResponse
+
 		for obj := range c.pipeline {
-			switch obj.(type) {
-			case func() []ngerest.Trade:
-				breakPointFunc := obj.(func() []ngerest.Trade)
+			if obj.IsBreakPoint() {
+				rsp = models.NewTradePartial()
+				rsp.Data = obj.breakPointFunc()
+			} else {
+				rsp = c.parseData(obj.msg)
+				c.applyData(rsp)
+			}
 
-				partial := models.NewTradePartial()
-				partial.Data = breakPointFunc()
-
-				c.PublishData(&Message{
-					IsSnapshot: true,
-					Data:       partial,
-				})
-			case *sarama.ConsumerMessage:
-				msg := obj.(*sarama.ConsumerMessage)
-
-				c.PublishData(&Message{
-					IsSnapshot: false,
-					Data:       c.applyMessage(msg),
-				})
-			default:
-				log.Println("invalid pipeline object:", obj)
+			if !obj.doNotPublish {
+				c.PublishData(rsp)
 			}
 		}
 	}()
 
-	err = c.channel.Start()
+	err = c.rspChannel.Start()
 
 	return err
-
-	// c.consumer.ready = make(chan bool, 0)
-
-	// for {
-	// 	if err := client.Consume(c.ctx); err != nil {
-	// 		log.Panicln("Error from consumer:", err)
-	// 	}
-
-	// 	if c.ctx.Err() != nil {
-	// 		return
-	// 	}
-	// }
 }
 
 // Setup setup for consumer
@@ -106,7 +93,9 @@ func (c *TradeCache) Cleanup(sarama.ConsumerGroupSession) error {
 // ConsumeClaim consume message from claim
 func (c *TradeCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
-		c.pipeline <- message
+		c.pipeline <- tradeMessage{
+			msg: message,
+		}
 	}
 
 	return nil
@@ -121,26 +110,23 @@ func (c *TradeCache) snapshot() []ngerest.Trade {
 }
 
 func (c *TradeCache) parseData(msg *sarama.ConsumerMessage) *models.TradeResponse {
-	ob := models.TradeResponse{}
+	rsp := models.TradeResponse{}
 
-	log.Println(string(msg.Value))
-	json.Unmarshal(msg.Value, &ob)
+	parsed := make(map[string]interface{})
 
-	return &ob
+	json.Unmarshal(msg.Value, &parsed)
+
+	return &rsp
 }
 
-func (c *TradeCache) applyMessage(msg *sarama.ConsumerMessage) *models.TradeResponse {
-	ob := c.parseData(msg)
-
-	c.historyTrade = append(c.historyTrade, ob.Data...)
+func (c *TradeCache) applyData(data *models.TradeResponse) {
+	c.historyTrade = append(c.historyTrade, data.Data...)
 
 	if hisLen := len(c.historyTrade); hisLen > c.maxLength*3 {
 		trimLen := int(float64(c.maxLength) * 1.5)
 
 		c.historyTrade = c.historyTrade[hisLen-trimLen:]
 	}
-
-	return ob
 }
 
 // NewTradeCache make a new trade cache.

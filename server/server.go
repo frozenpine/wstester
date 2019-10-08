@@ -7,9 +7,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/Shopify/sarama"
 	"github.com/frozenpine/wstester/models"
 	"github.com/gorilla/websocket"
 )
@@ -49,6 +51,7 @@ type server struct {
 	statics serverStatics
 
 	clients     map[string]Session
+	subCaches   map[string]sarama.ConsumerGroupHandler
 	pubChannels map[string]Channel
 }
 
@@ -111,7 +114,7 @@ func (s *server) decClients(session interface{}) {
 	atomic.AddInt64(&s.statics.Clients, -1)
 }
 
-func (s *server) subscribe(topics ...string) {
+func (s *server) subscribe(topic ...string) {
 
 }
 
@@ -137,6 +140,33 @@ func (s *server) checkAuthHeader(r *http.Request) error {
 	return nil
 }
 
+func (s *server) parseOperation(msg []byte) (*models.OperationRequest, error) {
+	req := models.OperationRequest{}
+
+	if err := json.Unmarshal(msg, &req); err != nil {
+		return nil, err
+	}
+
+	return &req, nil
+}
+
+func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
+	var rsps []models.Response
+
+	for _, topicStr := range req.GetArgs() {
+		parsed := strings.Split(topicStr, ":")
+		topicName := parsed[0]
+
+		go func() {
+			for data := range s.pubChannels[topicName].RetriveData() {
+				client.WriteJSONMessage(data)
+			}
+		}()
+	}
+
+	return rsps
+}
+
 func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, w.Header())
 
@@ -150,8 +180,9 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	var (
-		msg []byte
-		req models.Request
+		msg  []byte
+		req  models.Request
+		rsps []models.Response
 	)
 
 	for {
@@ -167,14 +198,31 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 
 			switch {
 			case bytes.Contains(msg, opPattern):
+				if req, err = s.parseOperation(msg); err != nil {
+					log.Println("Fail to parse request operation:", err, string(msg))
+					continue
+				}
 			default:
 				log.Println("Unknow request:", string(msg))
+				continue
+			}
+
+			switch req.GetOperation() {
+			case "subscribe":
+				rsps = s.handleSubscribe(req, clientSenssion)
+			case "auth":
+			default:
+				log.Println("Unkown request operation:", req.String())
 				continue
 			}
 		}
 
 		if logLevel >= 2 {
 			log.Println("<-", req.String())
+
+			for _, rsp := range rsps {
+				log.Println("->", rsp.String())
+			}
 		}
 	}
 }
@@ -204,12 +252,21 @@ func NewServer(cfg *WsConfig) Server {
 		},
 		statics:     serverStatics{},
 		clients:     make(map[string]Session),
+		subCaches:   make(map[string]sarama.ConsumerGroupHandler),
 		pubChannels: make(map[string]Channel),
 	}
 
-	svr.pubChannels["trade"] = NewTradeCache()
-	svr.pubChannels["instrument"] = NewInstrumentCache()
-	svr.pubChannels["orderBookL2"] = NewMBLCache()
+	td := NewTradeCache()
+	ins := NewInstrumentCache()
+	mbl := NewMBLCache()
+
+	svr.pubChannels["trade"] = td
+	svr.pubChannels["instrument"] = ins
+	svr.pubChannels["orderBookL2"] = mbl
+
+	svr.subCaches["trade"] = td
+	// svr.subCaches["instrument"] = ins
+	// svr.subCaches["orderBookL2"] = mbl
 
 	return &svr
 }

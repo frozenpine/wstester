@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 )
 
@@ -24,16 +25,16 @@ type Channel interface {
 	Connect(Channel) error
 
 	// PublishData publish data to current channel
-	PublishData(*Message) error
+	PublishData(models.Response) error
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData() <-chan *Message
+	RetriveData() <-chan models.Response
 }
 
-type channel struct {
-	source chan *Message
+type rspChannel struct {
+	source chan models.Response
 
-	destinations    []chan *Message
-	newDestinations []chan *Message
+	destinations    []chan models.Response
+	newDestinations []chan models.Response
 	subChannels     []Channel
 	newSubChannels  []Channel
 
@@ -47,7 +48,7 @@ type channel struct {
 	closeOnce sync.Once
 }
 
-func (c *channel) PublishData(data *Message) error {
+func (c *rspChannel) PublishData(data models.Response) error {
 	if c.isClosed {
 		return fmt.Errorf("channel is already closed")
 	}
@@ -61,9 +62,9 @@ func (c *channel) PublishData(data *Message) error {
 	return nil
 }
 
-func (c *channel) RetriveData() <-chan *Message {
+func (c *rspChannel) RetriveData() <-chan models.Response {
 	if c.isClosed {
-		ch := make(chan *Message, 0)
+		ch := make(chan models.Response, 0)
 		close(ch)
 
 		return ch
@@ -73,7 +74,7 @@ func (c *channel) RetriveData() <-chan *Message {
 		c.Start()
 	}
 
-	ch := make(chan *Message)
+	ch := make(chan models.Response)
 
 	c.retriveLock.Lock()
 	c.newDestinations = append(c.newDestinations, ch)
@@ -82,7 +83,7 @@ func (c *channel) RetriveData() <-chan *Message {
 	return ch
 }
 
-func (c *channel) Connect(child Channel) error {
+func (c *rspChannel) Connect(child Channel) error {
 	if c.isClosed {
 		return fmt.Errorf("channel is already closed")
 	}
@@ -100,7 +101,7 @@ func (c *channel) Connect(child Channel) error {
 	return nil
 }
 
-func (c *channel) Start() error {
+func (c *rspChannel) Start() error {
 	if c.isStarted {
 		return fmt.Errorf("channel is already started")
 	}
@@ -111,7 +112,7 @@ func (c *channel) Start() error {
 
 	c.startOnce.Do(func() {
 		if c.source == nil {
-			c.source = make(chan *Message)
+			c.source = make(chan models.Response)
 		}
 
 		c.isClosed = false
@@ -139,7 +140,7 @@ func (c *channel) Start() error {
 	return nil
 }
 
-func (c *channel) Close() error {
+func (c *rspChannel) Close() error {
 	if !c.isStarted {
 		return fmt.Errorf("channel is not started")
 	}
@@ -159,7 +160,7 @@ func (c *channel) Close() error {
 	return nil
 }
 
-func (c *channel) mergeNewDest() {
+func (c *rspChannel) mergeNewDest() {
 	c.retriveLock.Lock()
 	defer func() {
 		c.retriveLock.Unlock()
@@ -172,7 +173,7 @@ func (c *channel) mergeNewDest() {
 	}
 }
 
-func (c *channel) dispatchDistinations(data *Message) {
+func (c *rspChannel) dispatchDistinations(data models.Response) {
 	var invalidDest []int
 
 	c.mergeNewDest()
@@ -195,15 +196,15 @@ func (c *channel) dispatchDistinations(data *Message) {
 
 		tmpSlice = utils.RangeSlice(tmpSlice, invalidDest)
 
-		c.destinations = make([]chan *Message, len(tmpSlice))
+		c.destinations = make([]chan models.Response, len(tmpSlice))
 
 		for idx, ele := range tmpSlice {
-			c.destinations[idx] = ele.(chan *Message)
+			c.destinations[idx] = ele.(chan models.Response)
 		}
 	}
 }
 
-func (c *channel) mergeNewSubChannel() {
+func (c *rspChannel) mergeNewSubChannel() {
 	c.connectLock.Lock()
 	defer func() {
 		c.connectLock.Unlock()
@@ -216,7 +217,7 @@ func (c *channel) mergeNewSubChannel() {
 	}
 }
 
-func (c *channel) dispatchSubChannels(data *Message) {
+func (c *rspChannel) dispatchSubChannels(data models.Response) {
 	var invalidSub []int
 
 	for idx, subChan := range c.subChannels {
