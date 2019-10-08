@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 
 	"github.com/Shopify/sarama"
 	"github.com/frozenpine/ngerest"
+	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 )
 
@@ -25,14 +27,14 @@ type TradeCache struct {
 
 	pipeline chan interface{}
 
-	historyTrade []*ngerest.OrderBookL2
+	historyTrade []ngerest.Trade
 }
 
 // RecentTrade get recent trade data
-func (c *TradeCache) RecentTrade() []*ngerest.OrderBookL2 {
-	ch := make(chan []*ngerest.OrderBookL2, 1)
+func (c *TradeCache) RecentTrade() []ngerest.Trade {
+	ch := make(chan []ngerest.Trade, 1)
 
-	c.pipeline <- func() []*ngerest.OrderBookL2 {
+	c.pipeline <- func() []ngerest.Trade {
 		snap := c.snapshot()
 
 		ch <- snap
@@ -50,12 +52,15 @@ func (c *TradeCache) Start() (err error) {
 	go func() {
 		for obj := range c.pipeline {
 			switch obj.(type) {
-			case func() []*ngerest.OrderBookL2:
-				breakPointFunc := obj.(func() []*ngerest.OrderBookL2)
+			case func() []ngerest.Trade:
+				breakPointFunc := obj.(func() []ngerest.Trade)
+
+				partial := models.NewTradePartial()
+				partial.Data = breakPointFunc()
 
 				c.PublishData(&Message{
 					IsSnapshot: true,
-					Data:       breakPointFunc(),
+					Data:       partial,
 				})
 			case *sarama.ConsumerMessage:
 				msg := obj.(*sarama.ConsumerMessage)
@@ -107,7 +112,7 @@ func (c *TradeCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sar
 	return nil
 }
 
-func (c *TradeCache) snapshot() []*ngerest.OrderBookL2 {
+func (c *TradeCache) snapshot() []ngerest.Trade {
 	hisLen := len(c.historyTrade)
 
 	idx := utils.MinInt(c.maxLength, hisLen)
@@ -115,18 +120,19 @@ func (c *TradeCache) snapshot() []*ngerest.OrderBookL2 {
 	return c.historyTrade[hisLen-idx:]
 }
 
-func (c *TradeCache) parseData(msg *sarama.ConsumerMessage) *ngerest.OrderBookL2 {
-	ob := ngerest.OrderBookL2{}
+func (c *TradeCache) parseData(msg *sarama.ConsumerMessage) *models.TradeResponse {
+	ob := models.TradeResponse{}
 
-	// TODO: parse consumed message to OrderBookL2 structure
+	log.Println(string(msg.Value))
+	json.Unmarshal(msg.Value, &ob)
 
 	return &ob
 }
 
-func (c *TradeCache) applyMessage(msg *sarama.ConsumerMessage) *ngerest.OrderBookL2 {
+func (c *TradeCache) applyMessage(msg *sarama.ConsumerMessage) *models.TradeResponse {
 	ob := c.parseData(msg)
 
-	c.historyTrade = append(c.historyTrade, ob)
+	c.historyTrade = append(c.historyTrade, ob.Data...)
 
 	if hisLen := len(c.historyTrade); hisLen > c.maxLength*3 {
 		trimLen := int(float64(c.maxLength) * 1.5)
