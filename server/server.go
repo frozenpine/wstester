@@ -140,6 +140,25 @@ func (s *server) checkAuthHeader(r *http.Request) error {
 	return nil
 }
 
+func (s *server) getReqSubscribe(r *http.Request) *models.OperationRequest {
+	query := r.URL.Query()
+
+	if topicStrList, exist := query["subscribe"]; exist {
+		op := models.OperationRequest{}
+		op.Operation = "subscribe"
+
+		for _, topicStr := range topicStrList {
+			op.Args = append(op.Args, strings.Split(topicStr, ",")...)
+		}
+
+		log.Println("Request subscirbe:", op.String())
+
+		return &op
+	}
+
+	return nil
+}
+
 func (s *server) parseOperation(msg []byte) (*models.OperationRequest, error) {
 	req := models.OperationRequest{}
 
@@ -151,24 +170,55 @@ func (s *server) parseOperation(msg []byte) (*models.OperationRequest, error) {
 }
 
 func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
-	var rsps []models.Response
+	var (
+		rspList    []models.Response
+		pubChannel Channel
+		chanExist  bool
+	)
 
 	for _, topicStr := range req.GetArgs() {
 		parsed := strings.Split(topicStr, ":")
 		topicName := parsed[0]
 
-		go func() {
-			for data := range s.pubChannels[topicName].RetriveData() {
-				client.WriteJSONMessage(data)
-			}
-		}()
+		waitRsp := make(chan bool, 0)
+
+		if pubChannel, chanExist = s.pubChannels[topicName]; chanExist {
+			go func() {
+				<-waitRsp
+
+				for data := range pubChannel.RetriveData() {
+					client.WriteJSONMessage(data)
+				}
+			}()
+		}
+
+		rsp := models.SubscribeResponse{
+			Success:   chanExist,
+			Subscribe: topicStr,
+			Request:   *req.(*models.OperationRequest),
+		}
+
+		rspList = append(rspList, &rsp)
+		client.WriteJSONMessage(&rsp)
+
+		close(waitRsp)
 	}
 
-	return rsps
+	return rspList
 }
 
 func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
-	conn, err := s.upgrader.Upgrade(w, r, w.Header())
+	var (
+		conn *websocket.Conn
+		err  error
+	)
+
+	if err = s.checkAuthHeader(r); err != nil {
+		log.Println(err)
+		return
+	}
+
+	conn, err = s.upgrader.Upgrade(w, r, w.Header())
 
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -180,10 +230,14 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	var (
-		msg  []byte
-		req  models.Request
-		rsps []models.Response
+		msg     []byte
+		req     models.Request
+		rspList []models.Response
 	)
+
+	if headerSub := s.getReqSubscribe(r); headerSub != nil {
+		rspList = s.handleSubscribe(headerSub, clientSenssion)
+	}
 
 	for {
 		select {
@@ -209,7 +263,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 
 			switch req.GetOperation() {
 			case "subscribe":
-				rsps = s.handleSubscribe(req, clientSenssion)
+				rspList = s.handleSubscribe(req, clientSenssion)
 			case "auth":
 			default:
 				log.Println("Unkown request operation:", req.String())
@@ -220,7 +274,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		if logLevel >= 2 {
 			log.Println("<-", req.String())
 
-			for _, rsp := range rsps {
+			for _, rsp := range rspList {
 				log.Println("->", rsp.String())
 			}
 		}

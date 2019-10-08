@@ -9,12 +9,6 @@ import (
 	"github.com/frozenpine/wstester/utils"
 )
 
-// Message data wrapper for identify weather data is a snapshot
-type Message struct {
-	IsSnapshot bool
-	Data       interface{}
-}
-
 // Channel message channel
 type Channel interface {
 	// Start initialize channel and start a dispatch goroutine
@@ -33,17 +27,15 @@ type Channel interface {
 type rspChannel struct {
 	source chan models.Response
 
-	destinations    []chan models.Response
-	newDestinations []chan models.Response
-	subChannels     []Channel
-	newSubChannels  []Channel
-
-	retriveLock sync.Mutex
-	connectLock sync.Mutex
+	destinations     []chan models.Response
+	newDestinations  []chan models.Response
+	childChannels    []Channel
+	newChildChannels []Channel
+	retriveLock      sync.Mutex
+	connectLock      sync.Mutex
 
 	isStarted bool
 	startOnce sync.Once
-
 	isClosed  bool
 	closeOnce sync.Once
 }
@@ -93,7 +85,7 @@ func (c *rspChannel) Connect(child Channel) error {
 	}
 
 	c.connectLock.Lock()
-	c.newSubChannels = append(c.newSubChannels, child)
+	c.newChildChannels = append(c.newChildChannels, child)
 	c.connectLock.Unlock()
 
 	child.Start()
@@ -123,7 +115,7 @@ func (c *rspChannel) Start() error {
 					close(ch)
 				}
 
-				for _, subChan := range c.subChannels {
+				for _, subChan := range c.childChannels {
 					subChan.Close()
 				}
 			}()
@@ -210,17 +202,17 @@ func (c *rspChannel) mergeNewSubChannel() {
 		c.connectLock.Unlock()
 	}()
 
-	if len(c.newSubChannels) > 0 {
-		c.subChannels = append(c.subChannels, c.newSubChannels...)
+	if len(c.newChildChannels) > 0 {
+		c.childChannels = append(c.childChannels, c.newChildChannels...)
 
-		c.newSubChannels = c.newSubChannels[len(c.newSubChannels):]
+		c.newChildChannels = c.newChildChannels[len(c.newChildChannels):]
 	}
 }
 
 func (c *rspChannel) dispatchSubChannels(data models.Response) {
 	var invalidSub []int
 
-	for idx, subChan := range c.subChannels {
+	for idx, subChan := range c.childChannels {
 		if err := subChan.PublishData(data); err != nil {
 			invalidSub = append(invalidSub, idx)
 			log.Println(err)
@@ -231,18 +223,18 @@ func (c *rspChannel) dispatchSubChannels(data models.Response) {
 	}
 
 	if len(invalidSub) > 0 {
-		tmpSlice := make([]interface{}, len(c.subChannels))
+		tmpSlice := make([]interface{}, len(c.childChannels))
 
-		for idx, ele := range c.subChannels {
+		for idx, ele := range c.childChannels {
 			tmpSlice[idx] = ele
 		}
 
 		tmpSlice = utils.RangeSlice(tmpSlice, invalidSub)
 
-		c.subChannels = make([]Channel, len(tmpSlice))
+		c.childChannels = make([]Channel, len(tmpSlice))
 
 		for idx, ele := range tmpSlice {
-			c.subChannels[idx] = ele.(Channel)
+			c.childChannels[idx] = ele.(Channel)
 		}
 	}
 }

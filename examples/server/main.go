@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	cfg := server.NewConfig()
+	cfg := server.NewWsConfig()
 	svr := server.NewServer(cfg)
 
 	svr.RunForever(context.Background())
