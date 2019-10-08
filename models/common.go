@@ -10,6 +10,8 @@ import (
 type Response interface {
 	String() string
 	Format(string) string
+	IsTableResponse() bool
+	IsPartialResponse() bool
 }
 
 // Request common functions for request
@@ -64,6 +66,16 @@ func (info *InfoResponse) Format(format string) string {
 	return info.String()
 }
 
+// IsTableResponse determinate wether response is a table data
+func (info *InfoResponse) IsTableResponse() bool {
+	return false
+}
+
+// IsPartialResponse determinate wether table response is partial data
+func (info *InfoResponse) IsPartialResponse() bool {
+	return false
+}
+
 // AuthResponse authentication response
 type AuthResponse struct {
 	Success bool                   `json:"success"`
@@ -80,6 +92,16 @@ func (auth *AuthResponse) String() string {
 // Format format String output
 func (auth *AuthResponse) Format(format string) string {
 	return auth.String()
+}
+
+// IsTableResponse determinate wether response is a table data
+func (auth *AuthResponse) IsTableResponse() bool {
+	return false
+}
+
+// IsPartialResponse determinate wether table response is partial data
+func (auth *AuthResponse) IsPartialResponse() bool {
+	return false
 }
 
 // SubscribeResponse subscribe response
@@ -101,15 +123,14 @@ func (sub *SubscribeResponse) Format(format string) string {
 	return sub.String()
 }
 
-type tableResponse struct {
-	Table  string `json:"table"`
-	Action string `json:"action"`
+// IsTableResponse determinate wether response is a table data
+func (sub *SubscribeResponse) IsTableResponse() bool {
+	return false
+}
 
-	Keys        []string          `json:"keys,omitempty"`
-	Types       map[string]string `json:"types,omitempty"`
-	ForeignKeys map[string]string `json:"foreignKeys,omitempty"`
-	Attributes  map[string]string `json:"attributes,omitempty"`
-	Filter      map[string]string `json:"filter,omitempty"`
+// IsPartialResponse determinate wether table response is partial data
+func (sub *SubscribeResponse) IsPartialResponse() bool {
+	return false
 }
 
 // ErrResponse error response
@@ -131,4 +152,47 @@ func (err *ErrResponse) String() string {
 // Format format String output
 func (err *ErrResponse) Format(format string) string {
 	return err.String()
+}
+
+// IsTableResponse determinate wether response is a table data
+func (err *ErrResponse) IsTableResponse() bool {
+	return false
+}
+
+// IsPartialResponse determinate wether table response is partial data
+func (err *ErrResponse) IsPartialResponse() bool {
+	return false
+}
+
+type tableResponse struct {
+	Table  string `json:"table"`
+	Action string `json:"action"`
+
+	Keys        []string          `json:"keys,omitempty"`
+	Types       map[string]string `json:"types,omitempty"`
+	ForeignKeys map[string]string `json:"foreignKeys,omitempty"`
+	Attributes  map[string]string `json:"attributes,omitempty"`
+	Filter      map[string]string `json:"filter,omitempty"`
+}
+
+// String get structure's string format
+func (tbl *tableResponse) String() string {
+	result, _ := json.Marshal(tbl)
+
+	return string(result)
+}
+
+// Format format String output
+func (tbl *tableResponse) Format(format string) string {
+	return tbl.String()
+}
+
+// IsTableResponse determinate wether response is a table data
+func (tbl *tableResponse) IsTableResponse() bool {
+	return true
+}
+
+// IsPartialResponse determinate wether table response is partial data
+func (tbl *tableResponse) IsPartialResponse() bool {
+	return tbl.Action == "partial"
 }
