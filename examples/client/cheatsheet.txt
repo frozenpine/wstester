@@ -1,5 +1,5 @@
-go run main.go --output instrument --format "symbol: {{.Symbol}}, markPrice: {{.MarkPrice}}, fairPrice: {{.FairPrice}}, bidPrice: {{.BidPrice}}, askPrice: {{.AskPrice}}, lastPrice: {{.LastPrice}}, highPrice: {{.HighPrice}}, lowPrice: {{.LowPrice}}, ts: {{.Timestamp}}"
+go run main.go filter.go format.go --output instrument --format "symbol: {{.Symbol}}, markPrice: {{.MarkPrice}}, fairPrice: {{.FairPrice}}, bidPrice: {{.BidPrice}}, askPrice: {{.AskPrice}}, lastPrice: {{.LastPrice}}, highPrice: {{.HighPrice}}, lowPrice: {{.LowPrice}}, ts: {{.Timestamp}}"
 
-go run main.go --output trade --format "symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}, tickDirection: {{.TickDirection}}, ts: {{.Timestamp}}"
+go run main.go filter.go format.go --output trade --format "symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}, tickDirection: {{.TickDirection}}, ts: {{.Timestamp}}"
 
-go run main.go --output orderBookL2 --format "symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}"
+go run main.go filter.go format.go --output orderBookL2 --format "symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}"
