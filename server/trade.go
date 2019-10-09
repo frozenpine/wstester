@@ -17,7 +17,7 @@ var (
 
 type tradeMessage struct {
 	doNotPublish   bool
-	breakPointFunc func() []ngerest.Trade
+	breakPointFunc func() []*ngerest.Trade
 	msg            *sarama.ConsumerMessage
 }
 
@@ -33,16 +33,19 @@ type TradeCache struct {
 	ready        chan bool
 	ctx          context.Context
 	maxLength    int
-	historyTrade []ngerest.Trade
+	historyTrade []*ngerest.Trade
 }
 
 // RecentTrade get recent trade data, goroutine safe
-func (c *TradeCache) RecentTrade(publish bool) []ngerest.Trade {
-	ch := make(chan []ngerest.Trade, 1)
+func (c *TradeCache) RecentTrade(publish bool) []*ngerest.Trade {
+	ch := make(chan []*ngerest.Trade, 1)
+	defer func() {
+		close(ch)
+	}()
 
 	c.pipeline <- tradeMessage{
 		doNotPublish: !publish,
-		breakPointFunc: func() []ngerest.Trade {
+		breakPointFunc: func() []*ngerest.Trade {
 			snap := c.snapshot()
 
 			ch <- snap
@@ -101,7 +104,7 @@ func (c *TradeCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sar
 	return nil
 }
 
-func (c *TradeCache) snapshot() []ngerest.Trade {
+func (c *TradeCache) snapshot() []*ngerest.Trade {
 	hisLen := len(c.historyTrade)
 
 	idx := utils.MinInt(c.maxLength, hisLen)

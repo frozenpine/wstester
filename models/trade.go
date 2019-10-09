@@ -8,7 +8,7 @@ import (
 type TradeResponse struct {
 	tableResponse
 
-	Data []ngerest.Trade `json:"data"`
+	Data []*ngerest.Trade `json:"data"`
 }
 
 // NewTradePartial make a new trade partial response

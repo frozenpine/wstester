@@ -8,5 +8,5 @@ import (
 type InstrumentResponse struct {
 	tableResponse
 
-	Data []ngerest.Instrument `json:"data"`
+	Data []*ngerest.Instrument `json:"data"`
 }

@@ -40,7 +40,7 @@ var (
 	host   string
 	port   int
 	uri    string
-	topics []string
+	topics []string = []string{"trade", "orderBookL2", "instrument"}
 
 	dbgLevel int
 
@@ -104,8 +104,9 @@ func init() {
 	flag.IntVarP(
 		&port, "port", "p", defaultPort, "Host port to connect.")
 	flag.StringVar(&uri, "uri", defaultURI, "URI for realtime push data.")
+
 	flag.StringSliceVar(
-		&topics, "topics", []string{"trade", "orderBookL2", "instrument"},
+		&topics, "topics", topics,
 		"Topic names for subscribe.")
 
 	flag.CountVarP(

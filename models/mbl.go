@@ -8,5 +8,5 @@ import (
 type MBLResponse struct {
 	tableResponse
 
-	Data []ngerest.OrderBookL2 `json:"data"`
+	Data []*ngerest.OrderBookL2 `json:"data"`
 }
