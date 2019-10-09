@@ -511,7 +511,7 @@ func (c *client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
 	}
 
 	defer func() {
-		if tdChans, exist := c.rspChannelMapper["trade"]; exist && len(tdChans) < 1 {
+		if tdChans, exist := c.rspChannelMapper["trade"]; exist && len(tdChans) > 0 {
 			for _, ch := range tdChans {
 				ch <- &tdRsp
 			}
@@ -529,7 +529,7 @@ func (c *client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 	}
 
 	defer func() {
-		if mblChans, exist := c.rspChannelMapper["orderBookL2"]; exist && len(mblChans) < 1 {
+		if mblChans, exist := c.rspChannelMapper["orderBookL2"]; exist && len(mblChans) > 0 {
 			for _, ch := range mblChans {
 				ch <- &mblRsp
 			}

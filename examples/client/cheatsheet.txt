@@ -1,0 +1,3 @@
+go run main.go --output instrument --format "symbol: {{.Symbol}}, markPrice: {{.MarkPrice}}, fairPrice: {{.FairPrice}}, bidPrice: {{.BidPrice}}, askPrice: {{.AskPrice}}, lastPrice: {{.LastPrice}}, highPrice: {{.HighPrice}}, lowPrice: {{.LowPrice}}"
+
+go run main.go --output trade --format "symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}, tickDirection: {{.TickDirection}}, ts: {{.Timestamp}}"

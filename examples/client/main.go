@@ -241,6 +241,7 @@ func main() {
 				go func() {
 					for rsp := range ch {
 						action := rsp.GetAction()
+
 						for _, data := range rsp.GetData() {
 							var result string
 							if tpl != nil {
