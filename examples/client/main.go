@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -11,11 +9,9 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/frozenpine/wstester/client"
-	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 
 	flag "github.com/spf13/pflag"
@@ -46,8 +42,10 @@ var (
 	port   int
 	uri    string
 
-	topics []string = []string{"trade", "orderBookL2", "instrument"}
-	tables []string
+	defaultTopics = []string{"trade", "orderBookL2", "instrument"}
+	topics        []string
+	tables        []string
+	appendTopics  bool
 
 	dbgLevel int
 
@@ -62,9 +60,6 @@ var (
 
 	apiKey    string
 	apiSecret string
-
-	format string
-	filter string
 )
 
 func getURL() string {
@@ -113,13 +108,13 @@ func init() {
 	flag.StringVar(&uri, "uri", defaultURI, "URI for realtime push data.")
 
 	flag.StringSliceVar(
-		&topics, "topics", topics,
+		&topics, "topics", defaultTopics,
 		"Topic names for subscribe.")
 	flag.StringSliceVar(
 		&tables, "output", []string{},
 		"Topic names for stdout print.")
-	flag.StringVar(&format, "format", "",
-		"Go template string for output.")
+	flag.BoolVar(&appendTopics, "append", false,
+		"Wether append topic list to default subscrib.")
 
 	flag.CountVarP(
 		&dbgLevel, "verbose", "v",
@@ -170,38 +165,15 @@ func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
 	return ctx, cancelFunc
 }
 
-func output(ctx context.Context, table string, tpl *template.Template, ch <-chan models.TableResponse) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case rsp := <-ch:
-			if rsp == nil {
-				return
-			}
-
-			action := rsp.GetAction()
-
-			for _, data := range rsp.GetData() {
-				var result string
-				if tpl != nil {
-					buf := bytes.Buffer{}
-
-					if err := tpl.Execute(&buf, data); err != nil {
-						panic(err)
-					}
-
-					result = buf.String()
-				} else {
-					d, _ := json.Marshal(data)
-
-					result = string(d)
-				}
-
-				log.Println(table, action, ":", result)
-			}
-		}
+func normalizeTopicTable() {
+	if appendTopics {
+		topics = append(topics, defaultTopics...)
 	}
+	topicSet := utils.NewStringSet(topics).(utils.Set)
+	tableSet := utils.NewStringSet(tables).(utils.Set).Join(topicSet)
+
+	topics = topicSet.(utils.StringSet).Values()
+	tables = tableSet.(utils.StringSet).Values()
 }
 
 func main() {
@@ -209,23 +181,9 @@ func main() {
 		flag.Parse()
 	}
 
-	topicSet := utils.NewStringSet(topics).(utils.Set)
-	tableSet := utils.NewStringSet(tables).(utils.Set).Join(topicSet)
+	normalizeTopicTable()
 
-	topics = topicSet.(utils.StringSet).Values()
-	tables = tableSet.(utils.StringSet).Values()
-
-	var (
-		tpl *template.Template
-		err error
-	)
-
-	if format != "" {
-		tpl, err = template.New("formater").Parse(format)
-		if err != nil {
-			panic(err)
-		}
-	}
+	tpl := formatTemplate()
 
 	client.SetLogLevel(dbgLevel)
 
