@@ -21,6 +21,10 @@ github.com/frozenpine/ngerest v0.0.0-20191005083655-bb8915c5c833 h1:vQLPKlK0n9Nb
 github.com/frozenpine/ngerest v0.0.0-20191005083655-bb8915c5c833/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
 github.com/frozenpine/ngerest v0.0.0-20191009060737-7ce766cfbb72 h1:b6NIakXHD0OvdSHgWvLclKsz78B3xlc+3PP4BPY6n8Y=
 github.com/frozenpine/ngerest v0.0.0-20191009060737-7ce766cfbb72/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191009061644-6019b6041d75 h1:vbKnRn3tPmuRm16CA5tqHj9BC+kKy03D2D0k5eyK0Sc=
+github.com/frozenpine/ngerest v0.0.0-20191009061644-6019b6041d75/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191009062827-bd74e41a13b0 h1:svV6piHIi//UpnvKUvWQ1Afi01W3YZFkyGMAiT5/Dvo=
+github.com/frozenpine/ngerest v0.0.0-20191009062827-bd74e41a13b0/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47 h1:tWqgWN6j76sCw1oPdQ1BdHfR4YYEK0kgLNC89dx3bNY=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47/go.mod h1:2bwRXM6GR9VZwJ5m0aSFo/7HHMnJLuvCoUk2cEZTt54=
 github.com/frozenpine/pkcs8 v0.0.0-20190413084423-a8374dc8920d h1:FDLukDoNCbo/cLcJ2YumDWbs72gOZCS7MmkbpBVOxzM=

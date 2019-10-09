@@ -53,7 +53,7 @@ func (t *NGETime) FromTimestamp(timestamp int64) {
 }
 
 func (t *NGETime) String() string {
-	return time.Time(*t).Format("2006-01-02T15:04:05.000Z")
+	return time.Time(*t).In(time.UTC).Format("2006-01-02T15:04:05.000Z")
 }
 
 // MarshalJSON marshal for json format
@@ -109,7 +109,7 @@ func (t *NGETime) UnmarshalJSON(data []byte) error {
 			"2006-01-02T15:04:05.000Z", dataStr, time.UTC)
 	}
 
-	*t = NGETime(tm.In(time.Local))
+	*t = NGETime(tm)
 
 	return err
 }
