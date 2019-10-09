@@ -12,19 +12,19 @@ import (
 )
 
 var (
-	format string
+	formatStr string
 )
 
 func init() {
-	flag.StringVar(&format, "format", "",
+	flag.StringVar(&formatStr, "format", "",
 		"Go template string for output.")
 }
 
-func formatTemplate() (tpl *template.Template) {
+func makeTemplate() (tpl *template.Template) {
 	var err error
 
-	if format != "" {
-		tpl, err = template.New("formater").Parse(format)
+	if formatStr != "" {
+		tpl, err = template.New("formater").Parse(formatStr)
 		if err != nil {
 			panic(err)
 		}
@@ -33,7 +33,7 @@ func formatTemplate() (tpl *template.Template) {
 	return
 }
 
-func output(ctx context.Context, table string, tpl *template.Template, ch <-chan models.TableResponse) {
+func format(ctx context.Context, table string, tpl *template.Template, ch <-chan models.TableResponse) {
 	for {
 		select {
 		case <-ctx.Done():

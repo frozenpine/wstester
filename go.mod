@@ -4,6 +4,8 @@ go 1.12
 
 require (
 	github.com/Shopify/sarama v1.23.1
+	github.com/ahmetb/go-linq v3.0.0+incompatible
+	github.com/ahmetb/go-linq/v3 v3.1.0 // indirect
 	github.com/frozenpine/ngerest v0.0.0-20191009062827-bd74e41a13b0
 	github.com/frozenpine/pkcs8 v0.0.0-20190413084423-a8374dc8920d // indirect
 	github.com/gorilla/websocket v1.4.1

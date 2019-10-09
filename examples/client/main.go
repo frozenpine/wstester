@@ -129,7 +129,7 @@ func init() {
 
 	flag.IntVar(
 		&reconnectDelay, "delay", defaultReconnectDelay,
-		"Binary expect backoff algorithm's delay slot.")
+		"Delay seconds per binary expect backoff algorithm's delay slot.")
 	flag.IntVar(
 		&maxReconnectCount, "max-retry", defaultMaxReconnectCount,
 		"Max reconnect count, -1 means infinity.")
@@ -183,7 +183,7 @@ func main() {
 
 	normalizeTopicTable()
 
-	tpl := formatTemplate()
+	tpl := makeTemplate()
 
 	client.SetLogLevel(dbgLevel)
 
@@ -231,7 +231,7 @@ func main() {
 		ins.Subscribe(topics...)
 		for _, table := range tables {
 			if ch := ins.GetResponse(table); ch != nil {
-				go output(ctx, table, tpl, ch)
+				go format(ctx, table, tpl, filter(ctx, table, ch))
 			}
 		}
 
