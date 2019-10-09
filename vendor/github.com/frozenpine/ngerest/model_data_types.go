@@ -45,11 +45,11 @@ func (f *StringFloat) UnmarshalJSON(data []byte) error {
 type NGETime time.Time
 
 // FromTimestamp convert from timestamp(ms)
-func (t NGETime) FromTimestamp(timestamp int64) {
+func (t *NGETime) FromTimestamp(timestamp int64) {
 	sec := int64(timestamp / 1000)
 	nsec := (int64(timestamp) - sec*1000) * 1000
 	tm := time.Unix(sec, nsec)
-	t = NGETime(tm)
+	*t = NGETime(tm)
 }
 
 func (t *NGETime) String() string {
@@ -66,9 +66,9 @@ func (t NGETime) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON convert time string or timestamp(ms)
-func (t NGETime) UnmarshalJSON(data []byte) error {
+func (t *NGETime) UnmarshalJSON(data []byte) error {
 	if data == nil || bytes.Contains(data, nullBytes) {
-		t = NGETime(time.Unix(0, 0))
+		*t = NGETime(time.Unix(0, 0))
 		return nil
 	}
 
@@ -76,7 +76,7 @@ func (t NGETime) UnmarshalJSON(data []byte) error {
 	dataStr = strings.Trim(dataStr, "\" ")
 
 	if dataStr == "" || dataStr == "null" {
-		t = NGETime(time.Unix(0, 0))
+		*t = NGETime(time.Unix(0, 0))
 		return nil
 	}
 
@@ -109,7 +109,7 @@ func (t NGETime) UnmarshalJSON(data []byte) error {
 			"2006-01-02T15:04:05.000Z", dataStr, time.UTC)
 	}
 
-	t = NGETime(tm.In(time.Local))
+	*t = NGETime(tm.In(time.Local))
 
 	return err
 }

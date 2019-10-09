@@ -2,8 +2,38 @@ package models
 
 import (
 	"encoding/json"
+	"regexp"
 
 	"github.com/frozenpine/ngerest"
+)
+
+var (
+	// PingPattern ping message pattern
+	PingPattern = regexp.MustCompile(`ping`)
+
+	// PongPattern pong message pattern
+	PongPattern = regexp.MustCompile(`pong`)
+
+	// InfoPattern info message pattern
+	InfoPattern = regexp.MustCompile(`"info"`)
+
+	// SubPattern subscribe message pattern
+	SubPattern = regexp.MustCompile(`"subscribe"`)
+
+	// AuthPattern auth message pattern
+	AuthPattern = regexp.MustCompile(`"authKeyExpires"|"api-key"`)
+
+	// InstrumentPattern instrument message pattern
+	InstrumentPattern = regexp.MustCompile(`"table": ?"instrument"`)
+
+	// MBLPattern mbl message pattern
+	MBLPattern = regexp.MustCompile(`"table": ?"orderBook`)
+
+	// TradePattern trade message pattern
+	TradePattern = regexp.MustCompile(`"table": ?"trade"`)
+
+	// ErrPattern error message pattern
+	ErrPattern = regexp.MustCompile(`"error"`)
 )
 
 // Response common functions for response

@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,19 +14,6 @@ import (
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 	"github.com/gorilla/websocket"
-)
-
-var (
-	pingPattern       = []byte(`ping`)
-	pongPattern       = []byte(`pong`)
-	infoPattern       = []byte(`"info"`)
-	instrumentPattern = []byte(`"instrument"`)
-	tradePattern      = []byte(`"trade"`)
-	mblPattern        = []byte(`"orderBook`)
-	subPattern        = []byte(`"subscribe"`)
-	authPattern1      = []byte(`"authKeyExpires"`)
-	authPattern2      = []byte(`"api-key"`)
-	errPattern        = []byte(`"error"`)
 )
 
 // Client client instance
@@ -411,9 +397,9 @@ HEARTBEAT:
 		}
 
 		switch {
-		case bytes.Contains(msg, pongPattern):
+		case models.PongPattern.Match(msg):
 			c.heartbeatChan <- models.NewPong()
-		case bytes.Contains(msg, pingPattern):
+		case models.PingPattern.Match(msg):
 			c.heartbeatChan <- models.NewPing()
 		default:
 			break HEARTBEAT
@@ -576,46 +562,46 @@ func (c *client) messageHandler() {
 			}
 
 			switch {
-			case bytes.Contains(msg, infoPattern):
+			case models.InfoPattern.Match(msg):
 				if rsp, err = c.handleInfoMsg(msg); err != nil {
 					log.Println("Fail to parse info msg:", err, string(msg))
 				}
 
 				continue
-			case bytes.Contains(msg, subPattern):
+			case models.SubPattern.Match(msg):
 				if rsp, err = c.handlSubMsg(msg); err != nil {
 					log.Println("Fail to parse subscribe response:", err, string(msg))
 				}
 
 				continue
-			case bytes.Contains(msg, errPattern):
+			case models.ErrPattern.Match(msg):
 				if rsp, err = c.handleErrMsg(msg); err != nil {
 					log.Println("Fail to parse error response:", err, string(msg))
 				}
 
 				continue
-			case bytes.Contains(msg, instrumentPattern):
-				if rsp, err = c.handleInsMsg(msg); err != nil {
-					log.Println("Fail to parse instrument response:", err, string(msg))
-					continue
-				}
-			case bytes.Contains(msg, tradePattern):
-				if rsp, err = c.handleTdMsg(msg); err != nil {
-					log.Println("Fail to parse trade response:", err, string(msg))
-					continue
-				}
-			case bytes.Contains(msg, mblPattern):
-				if rsp, err = c.handleMblMsg(msg); err != nil {
-					log.Println("Fail to parse MBL response:", err, string(msg))
-					continue
-				}
-			case bytes.Contains(msg, authPattern1) || bytes.Contains(msg, authPattern2):
+			case models.AuthPattern.Match(msg):
 				if rsp, err = c.handleAuthMsg(msg); err != nil {
 					log.Println("Fail to parse authentication response:", err, string(msg))
 					continue
 				}
+			case models.InstrumentPattern.Match(msg):
+				if rsp, err = c.handleInsMsg(msg); err != nil {
+					log.Println("Fail to parse instrument response:", err, string(msg))
+					continue
+				}
+			case models.MBLPattern.Match(msg):
+				if rsp, err = c.handleMblMsg(msg); err != nil {
+					log.Println("Fail to parse MBL response:", err, string(msg))
+					continue
+				}
+			case models.TradePattern.Match(msg):
+				if rsp, err = c.handleTdMsg(msg); err != nil {
+					log.Println("Fail to parse trade response:", err, string(msg))
+					continue
+				}
 			default:
-				log.Println("Unkonw table type:", string(msg))
+				log.Println("Unkonw response type:", string(msg))
 				continue
 			}
 
