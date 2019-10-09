@@ -47,13 +47,13 @@ type NGETime time.Time
 // FromTimestamp convert from timestamp(ms)
 func (t *NGETime) FromTimestamp(timestamp int64) {
 	sec := int64(timestamp / 1000)
-	nsec := (int64(timestamp) - sec*1000) * 1000
+	nsec := (timestamp - sec*1000) * 1e6
 	tm := time.Unix(sec, nsec)
 	*t = NGETime(tm)
 }
 
 func (t *NGETime) String() string {
-	return time.Time(*t).In(time.UTC).Format("2006-01-02T15:04:05.000") + "Z"
+	return time.Time(*t).In(time.UTC).Format("2006-01-02T15:04:05.000Z")
 }
 
 // MarshalJSON marshal for json format
