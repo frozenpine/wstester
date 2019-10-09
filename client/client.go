@@ -43,7 +43,7 @@ type Client interface {
 	SetInfoHandler(func(*models.InfoResponse))
 	SetSubHandler(func(*models.SubscribeResponse))
 	SetErrHandler(func(*models.ErrResponse))
-	GetResponse(string) <-chan models.Response
+	GetResponse(string) <-chan models.TableResponse
 }
 
 type client struct {
@@ -65,7 +65,7 @@ type client struct {
 	// tradeChan      []chan<- models.Response
 	// mblChan        []chan<- models.Response
 
-	rspChannelMapper map[string][]chan models.Response
+	rspChannelMapper map[string][]chan models.TableResponse
 
 	closeFlag chan bool
 	closeOnce sync.Once
@@ -301,13 +301,13 @@ func (c *client) SetSubHandler(fn func(*models.SubscribeResponse)) {
 	}
 }
 
-func (c *client) GetResponse(topic string) <-chan models.Response {
+func (c *client) GetResponse(topic string) <-chan models.TableResponse {
 	if _, exist := c.SubscribedTopics[topic]; !exist {
 		log.Printf("Topic[%s] not subscribed.\n", topic)
 		return nil
 	}
 
-	ch := make(chan models.Response)
+	ch := make(chan models.TableResponse)
 
 	c.lock.Lock()
 	c.rspChannelMapper[topic] = append(c.rspChannelMapper[topic], ch)
@@ -634,7 +634,7 @@ func NewClient(cfg *WsConfig) Client {
 		closeFlag:     make(chan bool, 0),
 
 		SubscribedTopics: make(map[string]*models.SubscribeResponse),
-		rspChannelMapper: make(map[string][]chan models.Response),
+		rspChannelMapper: make(map[string][]chan models.TableResponse),
 	}
 
 	return &ins

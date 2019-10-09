@@ -24,3 +24,19 @@ func (mbl *MBLResponse) String() string {
 func (mbl *MBLResponse) Format(format string) string {
 	return mbl.String()
 }
+
+// GetAction get action for response
+func (mbl *MBLResponse) GetAction() string {
+	return mbl.Action
+}
+
+// GetData get data for reponse
+func (mbl *MBLResponse) GetData() []interface{} {
+	var data []interface{}
+
+	for _, d := range mbl.Data {
+		data = append(data, d)
+	}
+
+	return data
+}

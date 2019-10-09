@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -9,6 +11,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/frozenpine/wstester/client"
@@ -114,6 +117,8 @@ func init() {
 	flag.StringSliceVar(
 		&output, "output", []string{},
 		"Topic names for stdout print.")
+	flag.StringVar(&format, "format", "",
+		"Go template string for output.")
 
 	flag.CountVarP(
 		&dbgLevel, "verbose", "v",
@@ -175,6 +180,18 @@ func main() {
 	topics = topicSet.(utils.StringSet).Values()
 	output = outputSet.(utils.StringSet).Values()
 
+	var (
+		tpl *template.Template
+		err error
+	)
+
+	if format != "" {
+		tpl, err = template.New("formater").Parse(format)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	client.SetLogLevel(dbgLevel)
 
 	roundCount := 1
@@ -222,8 +239,26 @@ func main() {
 		for _, out := range output {
 			if ch := ins.GetResponse(out); ch != nil {
 				go func() {
-					for msg := range ch {
-						log.Println(out, "<-", msg.String())
+					for rsp := range ch {
+						action := rsp.GetAction()
+						for _, data := range rsp.GetData() {
+							var result string
+							if tpl != nil {
+								buf := bytes.Buffer{}
+
+								if err := tpl.Execute(&buf, data); err != nil {
+									panic(err)
+								}
+
+								result = buf.String()
+							} else {
+								d, _ := json.Marshal(data)
+
+								result = string(d)
+							}
+
+							log.Println(out, action, ":", result)
+						}
 					}
 				}()
 			}

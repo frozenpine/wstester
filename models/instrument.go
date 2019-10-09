@@ -1,7 +1,9 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
+	"text/template"
 
 	"github.com/frozenpine/ngerest"
 )
@@ -22,5 +24,36 @@ func (ins *InstrumentResponse) String() string {
 
 // Format format String output
 func (ins *InstrumentResponse) Format(format string) string {
-	return ins.String()
+	if format == "" {
+		return ins.String()
+	}
+
+	tpl, err := template.New("insRsp").Parse(format)
+	if err != nil {
+		panic(err)
+	}
+
+	buf := bytes.Buffer{}
+
+	if err := tpl.Execute(&buf, ins); err != nil {
+		panic(err)
+	}
+
+	return buf.String()
+}
+
+// GetAction get action for response
+func (ins *InstrumentResponse) GetAction() string {
+	return ins.Action
+}
+
+// GetData get data for reponse
+func (ins *InstrumentResponse) GetData() []interface{} {
+	var data []interface{}
+
+	for _, d := range ins.Data {
+		data = append(data, d)
+	}
+
+	return data
 }

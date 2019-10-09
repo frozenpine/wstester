@@ -14,6 +14,14 @@ type Response interface {
 	IsPartialResponse() bool
 }
 
+// TableResponse table data response
+type TableResponse interface {
+	Response
+
+	GetAction() string
+	GetData() []interface{}
+}
+
 // Request common functions for request
 type Request interface {
 	String() string

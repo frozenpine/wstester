@@ -38,3 +38,19 @@ func (td *TradeResponse) String() string {
 func (td *TradeResponse) Format(format string) string {
 	return td.String()
 }
+
+// GetAction get action for response
+func (td *TradeResponse) GetAction() string {
+	return td.Action
+}
+
+// GetData get data for reponse
+func (td *TradeResponse) GetData() []interface{} {
+	var data []interface{}
+
+	for _, d := range td.Data {
+		data = append(data, d)
+	}
+
+	return data
+}
