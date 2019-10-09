@@ -33,12 +33,28 @@ func filter(ctx context.Context, table string, ch <-chan models.TableResponse) <
 		filterFunc = func(rsp models.TableResponse) models.TableResponse {
 			insRsp := rsp.(*models.InstrumentResponse)
 
-			linq.From(insRsp.Data).WhereT(func(c *ngerest.Instrument) bool {
-				return c.MarkPrice > 0 || c.FairPrice > 0
-			}).ToSlice(&insRsp.Data)
+			var filted []*ngerest.Instrument
 
-			if len(insRsp.Data) > 0 {
-				return rsp
+			linq.From(insRsp.Data).WhereT(func(c *ngerest.Instrument) bool {
+				return c.MarkPrice > 0 && c.FairPrice > 0
+			}).ToSlice(&filted)
+
+			if len(filted) > 0 {
+				if len(filted) == len(insRsp.Data) {
+					return rsp
+				}
+
+				newRsp := models.InstrumentResponse{}
+
+				newRsp.Table = insRsp.Table
+				newRsp.Action = insRsp.Action
+				newRsp.Keys = insRsp.Keys
+				newRsp.Types = insRsp.Types
+				newRsp.ForeignKeys = insRsp.ForeignKeys
+				newRsp.Attributes = insRsp.Attributes
+				newRsp.Data = filted
+
+				return &newRsp
 			}
 
 			return nil
