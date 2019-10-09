@@ -1,6 +1,8 @@
 package models
 
 import (
+	"encoding/json"
+
 	"github.com/frozenpine/ngerest"
 )
 
@@ -23,4 +25,16 @@ func NewTradePartial() *TradeResponse {
 	partial.Filter = make(map[string]string)
 
 	return &partial
+}
+
+// String get structure's string format
+func (td *TradeResponse) String() string {
+	result, _ := json.Marshal(td)
+
+	return string(result)
+}
+
+// Format format String output
+func (td *TradeResponse) Format(format string) string {
+	return td.String()
 }

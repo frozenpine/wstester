@@ -43,9 +43,7 @@ type Client interface {
 	SetInfoHandler(func(*models.InfoResponse))
 	SetSubHandler(func(*models.SubscribeResponse))
 	SetErrHandler(func(*models.ErrResponse))
-	GetTrade() <-chan *models.TradeResponse
-	GetMBL() <-chan *models.MBLResponse
-	GetInstrument() <-chan *models.InstrumentResponse
+	GetResponse(string) <-chan models.Response
 }
 
 type client struct {
@@ -63,9 +61,11 @@ type client struct {
 	heartbeatChan  chan *models.HeartBeat
 	heartbeatTimer *time.Timer
 
-	instrumentChan []chan<- *models.InstrumentResponse
-	tradeChan      []chan<- *models.TradeResponse
-	mblChan        []chan<- *models.MBLResponse
+	// instrumentChan []chan<- models.Response
+	// tradeChan      []chan<- models.Response
+	// mblChan        []chan<- models.Response
+
+	rspChannelMapper map[string][]chan models.Response
 
 	closeFlag chan bool
 	closeOnce sync.Once
@@ -301,34 +301,16 @@ func (c *client) SetSubHandler(fn func(*models.SubscribeResponse)) {
 	}
 }
 
-// GetTrade to get trade data channel
-func (c *client) GetTrade() <-chan *models.TradeResponse {
-	ch := make(chan *models.TradeResponse)
+func (c *client) GetResponse(topic string) <-chan models.Response {
+	if _, exist := c.SubscribedTopics[topic]; !exist {
+		log.Printf("Topic[%s] not subscribed.\n", topic)
+		return nil
+	}
+
+	ch := make(chan models.Response)
 
 	c.lock.Lock()
-	c.tradeChan = append(c.tradeChan, ch)
-	c.lock.Unlock()
-
-	return ch
-}
-
-// GetMBL to get mbl data channel
-func (c *client) GetMBL() <-chan *models.MBLResponse {
-	ch := make(chan *models.MBLResponse)
-
-	c.lock.Lock()
-	c.mblChan = append(c.mblChan, ch)
-	c.lock.Unlock()
-
-	return ch
-}
-
-// GetInstrument to get mbl data channel
-func (c *client) GetInstrument() <-chan *models.InstrumentResponse {
-	ch := make(chan *models.InstrumentResponse)
-
-	c.lock.Lock()
-	c.instrumentChan = append(c.instrumentChan, ch)
+	c.rspChannelMapper[topic] = append(c.rspChannelMapper[topic], ch)
 	c.lock.Unlock()
 
 	return ch
@@ -511,12 +493,10 @@ func (c *client) handleInsMsg(msg []byte) (*models.InstrumentResponse, error) {
 	}
 
 	defer func() {
-		if len(c.instrumentChan) < 1 {
-			return
-		}
-
-		for _, ch := range c.instrumentChan {
-			ch <- &insRsp
+		if insChans, exist := c.rspChannelMapper["instrument"]; exist && len(insChans) > 0 {
+			for _, ch := range insChans {
+				ch <- &insRsp
+			}
 		}
 	}()
 
@@ -531,12 +511,10 @@ func (c *client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
 	}
 
 	defer func() {
-		if len(c.tradeChan) < 1 {
-			return
-		}
-
-		for _, ch := range c.tradeChan {
-			ch <- &tdRsp
+		if tdChans, exist := c.rspChannelMapper["trade"]; exist && len(tdChans) < 1 {
+			for _, ch := range tdChans {
+				ch <- &tdRsp
+			}
 		}
 	}()
 
@@ -551,12 +529,10 @@ func (c *client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 	}
 
 	defer func() {
-		if len(c.mblChan) < 1 {
-			return
-		}
-
-		for _, ch := range c.mblChan {
-			ch <- &mblRsp
+		if mblChans, exist := c.rspChannelMapper["orderBookL2"]; exist && len(mblChans) < 1 {
+			for _, ch := range mblChans {
+				ch <- &mblRsp
+			}
 		}
 	}()
 
@@ -658,6 +634,7 @@ func NewClient(cfg *WsConfig) Client {
 		closeFlag:     make(chan bool, 0),
 
 		SubscribedTopics: make(map[string]*models.SubscribeResponse),
+		rspChannelMapper: make(map[string][]chan models.Response),
 	}
 
 	return &ins

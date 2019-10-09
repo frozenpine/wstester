@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/frozenpine/wstester/client"
+	"github.com/frozenpine/wstester/utils"
 
 	flag "github.com/spf13/pflag"
 )
@@ -40,7 +41,9 @@ var (
 	host   string
 	port   int
 	uri    string
+
 	topics []string = []string{"trade", "orderBookL2", "instrument"}
+	output []string
 
 	dbgLevel int
 
@@ -108,6 +111,9 @@ func init() {
 	flag.StringSliceVar(
 		&topics, "topics", topics,
 		"Topic names for subscribe.")
+	flag.StringSliceVar(
+		&output, "output", []string{},
+		"Topic names for stdout print.")
 
 	flag.CountVarP(
 		&dbgLevel, "verbose", "v",
@@ -163,6 +169,12 @@ func main() {
 		flag.Parse()
 	}
 
+	topicSet := utils.NewStringSet(topics).(utils.Set)
+	outputSet := utils.NewStringSet(output).(utils.Set).Join(topicSet)
+
+	topics = topicSet.(utils.StringSet).Values()
+	output = outputSet.(utils.StringSet).Values()
+
 	client.SetLogLevel(dbgLevel)
 
 	roundCount := 1
@@ -204,11 +216,21 @@ func main() {
 		cfg.HeartbeatFailCount = hbFailCount
 		cfg.Symbol = symbol
 
-		client := client.NewClient(cfg)
+		ins := client.NewClient(cfg)
 
-		client.Subscribe(topics...)
+		ins.Subscribe(topics...)
+		for _, out := range output {
+			if ch := ins.GetResponse(out); ch != nil {
+				go func() {
+					for msg := range ch {
+						log.Println(out, "<-", msg.String())
+					}
+				}()
+			}
+		}
+
 		start := time.Now()
-		if err := client.Connect(ctx); err != nil {
+		if err := ins.Connect(ctx); err != nil {
 			log.Println(err)
 
 			failCount++
@@ -222,7 +244,7 @@ func main() {
 		case <-ctx.Done():
 			log.Println(ctx.Err())
 			running = false
-		case <-client.Closed():
+		case <-ins.Closed():
 			// gracefully quit heartbeatHandler and other goroutine
 			cancelFunc()
 			failCount++

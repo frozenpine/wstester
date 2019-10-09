@@ -175,18 +175,6 @@ type tableResponse struct {
 	Filter      map[string]string `json:"filter,omitempty"`
 }
 
-// String get structure's string format
-func (tbl *tableResponse) String() string {
-	result, _ := json.Marshal(tbl)
-
-	return string(result)
-}
-
-// Format format String output
-func (tbl *tableResponse) Format(format string) string {
-	return tbl.String()
-}
-
 // IsTableResponse determinate wether response is a table data
 func (tbl *tableResponse) IsTableResponse() bool {
 	return true
