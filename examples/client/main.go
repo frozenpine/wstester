@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/frozenpine/wstester/client"
+	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 
 	flag "github.com/spf13/pflag"
@@ -46,7 +47,7 @@ var (
 	uri    string
 
 	topics []string = []string{"trade", "orderBookL2", "instrument"}
-	output []string
+	tables []string
 
 	dbgLevel int
 
@@ -115,7 +116,7 @@ func init() {
 		&topics, "topics", topics,
 		"Topic names for subscribe.")
 	flag.StringSliceVar(
-		&output, "output", []string{},
+		&tables, "output", []string{},
 		"Topic names for stdout print.")
 	flag.StringVar(&format, "format", "",
 		"Go template string for output.")
@@ -169,16 +170,50 @@ func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
 	return ctx, cancelFunc
 }
 
+func output(ctx context.Context, table string, tpl *template.Template, ch <-chan models.TableResponse) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case rsp := <-ch:
+			if rsp == nil {
+				return
+			}
+
+			action := rsp.GetAction()
+
+			for _, data := range rsp.GetData() {
+				var result string
+				if tpl != nil {
+					buf := bytes.Buffer{}
+
+					if err := tpl.Execute(&buf, data); err != nil {
+						panic(err)
+					}
+
+					result = buf.String()
+				} else {
+					d, _ := json.Marshal(data)
+
+					result = string(d)
+				}
+
+				log.Println(table, action, ":", result)
+			}
+		}
+	}
+}
+
 func main() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
 	topicSet := utils.NewStringSet(topics).(utils.Set)
-	outputSet := utils.NewStringSet(output).(utils.Set).Join(topicSet)
+	tableSet := utils.NewStringSet(tables).(utils.Set).Join(topicSet)
 
 	topics = topicSet.(utils.StringSet).Values()
-	output = outputSet.(utils.StringSet).Values()
+	tables = tableSet.(utils.StringSet).Values()
 
 	var (
 		tpl *template.Template
@@ -236,32 +271,9 @@ func main() {
 		ins := client.NewClient(cfg)
 
 		ins.Subscribe(topics...)
-		for _, out := range output {
-			if ch := ins.GetResponse(out); ch != nil {
-				go func() {
-					for rsp := range ch {
-						action := rsp.GetAction()
-
-						for _, data := range rsp.GetData() {
-							var result string
-							if tpl != nil {
-								buf := bytes.Buffer{}
-
-								if err := tpl.Execute(&buf, data); err != nil {
-									panic(err)
-								}
-
-								result = buf.String()
-							} else {
-								d, _ := json.Marshal(data)
-
-								result = string(d)
-							}
-
-							log.Println(out, action, ":", result)
-						}
-					}
-				}()
+		for _, table := range tables {
+			if ch := ins.GetResponse(table); ch != nil {
+				go output(ctx, table, tpl, ch)
 			}
 		}
 
