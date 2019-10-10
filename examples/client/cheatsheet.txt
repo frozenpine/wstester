@@ -11,9 +11,9 @@ go run main.go filter.go format.go --output trade,instrument --format '"symbol: 
 single-filter:
 go run main.go filter.go format.go --output instrument --format '"symbol: {{.Symbol}}, markPrice: {{.MarkPrice}}, fairPrice: {{.FairPrice}}, bidPrice: {{.BidPrice}}, askPrice: {{.AskPrice}}, lastPrice: {{.LastPrice}}, highPrice: {{.HighPrice}}, lowPrice: {{.LowPrice}}, ts: {{.Timestamp}}"' --filter "{{ if (and  (gt .MarkPrice 0.0) (gt .FairPrice 0.0)) }}true{{ end }}"
 
-go run main.go filter.go format.go --output trade --format '"symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}, tickDirection: {{.TickDirection}}, ts: {{.Timestamp}}"' --filter "{{ if (eq .Side \`Buy\`) }}true{{ end }}"
+go run main.go filter.go format.go --output trade --format '"symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}, tickDirection: {{.TickDirection}}, ts: {{.Timestamp}}"' --filter "{{ if (gt .Size 200.0) }}true{{ end }}"
 
-go run main.go filter.go format.go --output orderBookL2 --format '"symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}"' --filter "{{ if (lt .Price 8560.0) }}true{{ end }}"
+go run main.go filter.go format.go --output orderBookL2 --format '"symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}"' --filter "{{ if (eq .Side \`Buy\`) }}true{{ end }}"
 
 multi-filter:
 go run main.go filter.go format.go --output trade,orderBookL2 --format '"symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}","symbol: {{.Symbol}}, side: {{.Side}}, size: {{.Size}}, price: {{.Price}}"' --filter '"{{ if (eq .Side `Sell`) }}true{{ end }}","{{ if (lt .Price 8560.0) }}true{{ end }}"'
