@@ -183,8 +183,6 @@ func main() {
 
 	normalizeTopicTable()
 
-	templates := makeTemplates()
-
 	client.SetLogLevel(dbgLevel)
 
 	roundCount := 1
@@ -231,7 +229,7 @@ func main() {
 		ins.Subscribe(topics...)
 		for _, table := range tables {
 			if ch := ins.GetResponse(table); ch != nil {
-				go format(ctx, table, templates, filter(ctx, table, ch))
+				output(ctx, table, filter(ctx, table, ch))
 			}
 		}
 
