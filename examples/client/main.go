@@ -183,7 +183,7 @@ func main() {
 
 	normalizeTopicTable()
 
-	tpl := makeTemplate()
+	templates := makeTemplates()
 
 	client.SetLogLevel(dbgLevel)
 
@@ -231,7 +231,7 @@ func main() {
 		ins.Subscribe(topics...)
 		for _, table := range tables {
 			if ch := ins.GetResponse(table); ch != nil {
-				go format(ctx, table, tpl, filter(ctx, table, ch))
+				go format(ctx, table, templates, filter(ctx, table, ch))
 			}
 		}
 
