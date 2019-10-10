@@ -44,7 +44,6 @@ var (
 
 	defaultTopics = []string{"trade", "orderBookL2", "instrument"}
 	topics        []string
-	tables        []string
 	appendTopics  bool
 
 	dbgLevel int
@@ -110,9 +109,6 @@ func init() {
 	flag.StringSliceVar(
 		&topics, "topics", defaultTopics,
 		"Topic names for subscribe.")
-	flag.StringSliceVar(
-		&tables, "output", []string{},
-		"Topic names for stdout print.")
 	flag.BoolVar(&appendTopics, "append", false,
 		"Wether append topic list to default subscrib.")
 

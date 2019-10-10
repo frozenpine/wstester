@@ -12,10 +12,15 @@ import (
 )
 
 var (
+	tables     []string
 	formatList []string
 )
 
 func init() {
+	flag.StringSliceVar(
+		&tables, "output", []string{},
+		"Topic names for stdout print.")
+
 	flag.StringSliceVar(&formatList, "format", []string{},
 		"Go template string for output, mutiple format must have same order with --output.")
 }
