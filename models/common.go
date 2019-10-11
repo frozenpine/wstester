@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"regexp"
+	"strings"
 
 	"github.com/frozenpine/ngerest"
 )
@@ -59,10 +60,35 @@ type Request interface {
 	GetArgs() []string
 }
 
+// Args args type for OperationRequest
+type Args []string
+
+var stringPattern = regexp.MustCompile(`^".*"$`)
+
+// UnmarshalJSON unmarshal from json
+func (args *Args) UnmarshalJSON(data []byte) error {
+	var (
+		parsed []string
+		err    error
+	)
+
+	if stringPattern.Match(data) {
+		parsed = strings.Split(strings.Trim(string(data), `"`), ",")
+	} else {
+		err = json.Unmarshal(data, &parsed)
+	}
+
+	if err == nil {
+		*args = Args(parsed)
+	}
+
+	return err
+}
+
 // OperationRequest request to websocket
 type OperationRequest struct {
-	Operation string   `json:"op"`
-	Args      []string `json:"args"`
+	Operation string `json:"op"`
+	Args      Args   `json:"args"`
 }
 
 func (req *OperationRequest) String() string {
