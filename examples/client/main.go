@@ -139,6 +139,8 @@ func init() {
 
 	flag.StringVar(&apiKey, "key", "", "API Key for authentication request.")
 	flag.StringVar(&apiSecret, "secret", "", "API Secret for authentication request.")
+
+	log.SetFlags(log.Lmicroseconds | log.Ldate)
 }
 
 func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
