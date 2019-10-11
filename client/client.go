@@ -47,10 +47,6 @@ type client struct {
 	heartbeatChan  chan *models.HeartBeat
 	heartbeatTimer *time.Timer
 
-	// instrumentChan []chan<- models.Response
-	// tradeChan      []chan<- models.Response
-	// mblChan        []chan<- models.Response
-
 	rspChannelMapper map[string][]chan models.TableResponse
 
 	closeFlag chan bool
@@ -336,7 +332,17 @@ func (c *client) heartbeatHandler() {
 	for hb := range c.heartbeatChan {
 		switch hb.Type() {
 		case "Ping":
-			if !c.cfg.ReversHeartbeat {
+			if c.cfg.ReversHeartbeat {
+				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("pong")); err != nil {
+					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
+					return
+				}
+
+				if logLevel >= 1 {
+					log.Println("<-", hb.String())
+					log.Println("->", models.NewPong().String())
+				}
+			} else {
 				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping")); err != nil {
 					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
 					return
@@ -346,16 +352,6 @@ func (c *client) heartbeatHandler() {
 
 				if logLevel >= 1 {
 					log.Println("->", hb.String())
-				}
-			} else {
-				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("pong")); err != nil {
-					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
-					return
-				}
-
-				if logLevel >= 1 {
-					log.Println("<-", hb.String())
-					log.Println("->", models.NewPong().String())
 				}
 			}
 		case "Pong":
