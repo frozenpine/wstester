@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"log"
 	"reflect"
 	"strings"
 
@@ -17,7 +18,18 @@ var (
 
 // GetFieldValue get property value in struct
 func GetFieldValue(data interface{}, property string) interface{} {
-	return reflect.ValueOf(data).FieldByName(property).Interface()
+	return reflect.Indirect(reflect.ValueOf(data)).FieldByName(property).Interface()
+}
+
+// GetFieldType get property type in struct
+func GetFieldType(data interface{}, property string) *reflect.StructField {
+	t := reflect.TypeOf(data)
+
+	if typ, exist := t.FieldByName(property); exist {
+		return &typ
+	}
+
+	return nil
 }
 
 // GetFields get properties value in struct
@@ -41,18 +53,33 @@ func GetFields(data interface{}, properties ...string) map[string]interface{} {
 	return result
 }
 
-func parseTables(stmt *sqlparser.Select) map[string]*sqlparser.AliasedTableExpr {
+// GetFieldTypes get properties type in struct
+func GetFieldTypes(data interface{}, properties ...string) map[string]*reflect.StructField {
+	result := make(map[string]*reflect.StructField)
+
+	t := reflect.TypeOf(data)
+
+	for _, prop := range properties {
+		if typ, exist := t.FieldByName(prop); exist {
+			result[prop] = &typ
+		}
+	}
+
+	return result
+}
+
+func parseTables(stmt *sqlparser.Select) (map[string]*sqlparser.AliasedTableExpr, error) {
 	tableDefine := make(map[string]*sqlparser.AliasedTableExpr)
 
 	for _, table := range stmt.From {
 		table, ok := table.(*sqlparser.AliasedTableExpr)
 		if !ok {
-			panic("invalid table type")
+			return nil, errors.New("invalid table type")
 		}
 
 		tableName, ok := table.Expr.(sqlparser.TableName)
 		if !ok {
-			panic("invalid table type")
+			return nil, errors.New("invalid table type")
 		}
 
 		nameStr := tableName.Name.String()
@@ -65,7 +92,7 @@ func parseTables(stmt *sqlparser.Select) map[string]*sqlparser.AliasedTableExpr 
 		case "orderBookL2":
 			tableMapper[nameStr] = new(models.MBLResponse)
 		default:
-			panic("unsupported table: " + nameStr)
+			return nil, errors.New("Unsupported table: " + nameStr)
 		}
 
 		if !table.As.IsEmpty() {
@@ -74,16 +101,16 @@ func parseTables(stmt *sqlparser.Select) map[string]*sqlparser.AliasedTableExpr 
 		tableDefine[nameStr] = table
 	}
 
-	return tableDefine
+	return tableDefine, nil
 }
 
-func parseColumns(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser.Select) map[string][]string {
+func parseColumns(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser.Select) (map[string][]string, error) {
 	columeDefine := make(map[string][]string)
 
 	for _, column := range stmt.SelectExprs {
 		column, ok := column.(*sqlparser.AliasedExpr)
 		if !ok {
-			panic("invalid column statement.")
+			return nil, errors.New("invalid column statement")
 		}
 
 		columnName, ok := column.Expr.(*sqlparser.ColName)
@@ -94,7 +121,7 @@ func parseColumns(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser
 
 		if columnName.Qualifier.IsEmpty() {
 			if len(tables) != 1 {
-				panic("columns has invalid table qualifier.")
+				log.Fatal("columns has invalid table qualifier.")
 			}
 
 			for tblName = range tables {
@@ -111,13 +138,17 @@ func parseColumns(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser
 		}
 	}
 
-	return columeDefine
+	return columeDefine, nil
 }
 
-func parseCondition(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser.Select) map[string]func(interface{}) bool {
+func parseCondition(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser.Select) (map[string]func(interface{}) bool, error) {
 	condition := make(map[string]func(interface{}) bool)
 
-	return condition
+	// for _, condition := range stmt.Where {
+
+	// }
+
+	return condition, nil
 }
 
 // ParseSQL parse table, column & conditions from SQL
@@ -132,30 +163,12 @@ func ParseSQL(sql string) (map[string]func(models.Response) map[string]interface
 
 	switch stmt := stmt.(type) {
 	case *sqlparser.Select:
-		tableDefine := parseTables(stmt)
+		tableDefine, err := parseTables(stmt)
+		if err != nil {
+			return nil, err
+		}
 
 		parseColumns(tableDefine, stmt)
-
-		// tableColumn := make(map[string][]string)
-
-		// for _, column := range stmt.SelectExprs {
-		// 	column := column.(*sqlparser.AliasedExpr)
-		// 	columnName := column.Expr.(*sqlparser.ColName)
-		// 	columnAs := column.As
-
-		// 	if columnName.Qualifier.IsEmpty() {
-		// 		tableColumn[columnName]
-		// 	}
-
-		// 	switch columnName.Qualifier.IsEmpty() {
-		// 	case condition:
-
-		// 	}
-		// }
-
-		// for _, condition := range stmt.Where {
-
-		// }
 	default:
 		return nil, errors.New("sql statement must be SELECT")
 	}
