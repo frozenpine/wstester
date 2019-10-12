@@ -48,7 +48,7 @@ func TestParse(t *testing.T) {
 		if sel.Where != nil {
 			t.Log(sqlparser.String(sel.Where.Expr))
 
-			conditionFn, err := conditionParser(sel.Where.Expr)
+			conditionFn, err := parseCondition(sel.Where.Expr)
 			if err != nil {
 				t.Fatal(err)
 			}

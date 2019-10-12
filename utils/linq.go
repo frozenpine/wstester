@@ -87,6 +87,25 @@ func GetFieldTypes(data interface{}, properties ...string) map[string]*reflect.S
 	return result
 }
 
+func parseUnion(stmt sqlparser.Statement) []*sqlparser.Select {
+	var result []*sqlparser.Select
+
+	switch stmt := stmt.(type) {
+	case *sqlparser.Select:
+		result = append(result, stmt)
+	case *sqlparser.Union:
+		if rightSelect := parseUnion(stmt.Right); rightSelect != nil {
+			result = append(result, rightSelect...)
+		}
+
+		if leftSelect := parseUnion(stmt.Left); leftSelect != nil {
+			result = append(result, leftSelect...)
+		}
+	}
+
+	return result
+}
+
 func parseTables(stmt *sqlparser.Select) (map[string]*sqlparser.AliasedTableExpr, error) {
 	tableDefine := make(map[string]*sqlparser.AliasedTableExpr)
 
@@ -275,18 +294,18 @@ func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool,
 	}, nil
 }
 
-func conditionParser(expr sqlparser.Expr) (func(v interface{}) bool, error) {
+func parseCondition(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 	switch condition := expr.(type) {
 	case *sqlparser.ComparisonExpr:
 		// 条件比较的最小单元
 		return parseComparison(condition)
 	case *sqlparser.AndExpr:
-		leftFn, err := conditionParser(condition.Left)
+		leftFn, err := parseCondition(condition.Left)
 		if err != nil {
 			return nil, err
 		}
 
-		rightFn, err := conditionParser(condition.Right)
+		rightFn, err := parseCondition(condition.Right)
 		if err != nil {
 			return nil, err
 		}
@@ -294,12 +313,12 @@ func conditionParser(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 			return leftFn(v) && rightFn(v)
 		}, nil
 	case *sqlparser.OrExpr:
-		leftFn, err := conditionParser(condition.Left)
+		leftFn, err := parseCondition(condition.Left)
 		if err != nil {
 			return nil, err
 		}
 
-		rightFn, err := conditionParser(condition.Right)
+		rightFn, err := parseCondition(condition.Right)
 		if err != nil {
 			return nil, err
 		}
@@ -308,29 +327,10 @@ func conditionParser(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 			return leftFn(v) || rightFn(v)
 		}, nil
 	case *sqlparser.ParenExpr:
-		return conditionParser(condition.Expr)
+		return parseCondition(condition.Expr)
 	default:
 		return nil, errors.New("unsupported condition: " + sqlparser.String(condition))
 	}
-}
-
-func parseUnion(stmt sqlparser.Statement) []*sqlparser.Select {
-	var result []*sqlparser.Select
-
-	switch stmt := stmt.(type) {
-	case *sqlparser.Select:
-		result = append(result, stmt)
-	case *sqlparser.Union:
-		if rightSelect := parseUnion(stmt.Right); rightSelect != nil {
-			result = append(result, rightSelect...)
-		}
-
-		if leftSelect := parseUnion(stmt.Left); leftSelect != nil {
-			result = append(result, leftSelect...)
-		}
-	}
-
-	return result
 }
 
 // ParseSQL parse table, column & conditions from SQL
