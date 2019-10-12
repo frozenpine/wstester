@@ -2,17 +2,38 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 
+	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 	"github.com/xwb1989/sqlparser"
 )
 
 var (
-	tableMapper = make(map[string]interface{})
+	tableModels map[string]interface{}
 )
+
+func init() {
+	RegTableModel("trade", new(ngerest.Trade))
+	RegTableModel("instrument", new(ngerest.Instrument))
+	RegTableModel("orderBookL2", new(ngerest.OrderBookL2))
+}
+
+// RegTableModel register table module for linq query
+func RegTableModel(name string, tbl interface{}) error {
+	if tableModels == nil {
+		tableModels = make(map[string]interface{})
+	} else if _, exist := tableModels[name]; exist {
+		return fmt.Errorf("model for %s is already exist", name)
+	}
+
+	tableModels[name] = tbl
+
+	return nil
+}
 
 // GetFieldValue get property value in struct
 func GetFieldValue(data interface{}, property string) interface{} {
@@ -84,20 +105,14 @@ func parseTables(stmt *sqlparser.Select) (map[string]*sqlparser.AliasedTableExpr
 
 		nameStr := tableName.Name.String()
 
-		switch nameStr {
-		case "trade":
-			tableMapper[nameStr] = new(models.TradeResponse)
-		case "instrument":
-			tableMapper[nameStr] = new(models.InstrumentResponse)
-		case "orderBookL2":
-			tableMapper[nameStr] = new(models.MBLResponse)
-		default:
-			return nil, errors.New("Unsupported table: " + nameStr)
+		if _, exist := tableModels[nameStr]; !exist {
+			return nil, errTableType
 		}
 
 		if !table.As.IsEmpty() {
 			nameStr = table.As.String()
 		}
+
 		tableDefine[nameStr] = table
 	}
 
