@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -70,15 +69,17 @@ func GetFieldTypes(data interface{}, properties ...string) map[string]*reflect.S
 func parseTables(stmt *sqlparser.Select) (map[string]*sqlparser.AliasedTableExpr, error) {
 	tableDefine := make(map[string]*sqlparser.AliasedTableExpr)
 
+	errTableType := errors.New("invalid table type")
+
 	for _, table := range stmt.From {
 		table, ok := table.(*sqlparser.AliasedTableExpr)
 		if !ok {
-			return nil, errors.New("invalid table type")
+			return nil, errTableType
 		}
 
 		tableName, ok := table.Expr.(sqlparser.TableName)
 		if !ok {
-			return nil, errors.New("invalid table type")
+			return nil, errTableType
 		}
 
 		nameStr := tableName.Name.String()
@@ -107,33 +108,35 @@ func parseColumns(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser
 	columeDefine := make(map[string][]string)
 
 	for _, column := range stmt.SelectExprs {
-		column, ok := column.(*sqlparser.AliasedExpr)
-		if !ok {
-			return nil, errors.New("invalid column statement")
-		}
+		switch column := column.(type) {
+		case *sqlparser.AliasedExpr:
+			columnName, _ := column.Expr.(*sqlparser.ColName)
 
-		columnName, ok := column.Expr.(*sqlparser.ColName)
+			var (
+				tblName string
+			)
 
-		var (
-			tblName string
-		)
+			if columnName.Qualifier.IsEmpty() {
+				if len(tables) != 1 {
+					return nil, errors.New("columns has invalid table qualifier")
+				}
 
-		if columnName.Qualifier.IsEmpty() {
-			if len(tables) != 1 {
-				log.Fatal("columns has invalid table qualifier.")
+				for tblName = range tables {
+					break
+				}
+			} else {
+				tblName = columnName.Qualifier.Name.String()
 			}
 
-			for tblName = range tables {
-				break
+			if _, exist := tables[tblName]; !exist {
+				return nil, errors.New("columns has no table")
 			}
-		} else {
-			tblName = columnName.Qualifier.Name.String()
-		}
 
-		if _, exist := tables[tblName]; !exist {
-			panic("columns has no table.")
-		} else {
 			columeDefine[tblName] = append(columeDefine[tblName], columnName.Name.String())
+		case *sqlparser.StarExpr:
+
+		default:
+			return nil, errors.New("invalid column statement")
 		}
 	}
 
@@ -294,6 +297,25 @@ func conditionParser(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 	default:
 		return nil, errors.New("unsupported condition: " + sqlparser.String(condition))
 	}
+}
+
+func parseUnion(stmt sqlparser.Statement) []*sqlparser.Select {
+	var result []*sqlparser.Select
+
+	switch stmt := stmt.(type) {
+	case *sqlparser.Select:
+		result = append(result, stmt)
+	case *sqlparser.Union:
+		if rightSelect := parseUnion(stmt.Right); rightSelect != nil {
+			result = append(result, rightSelect...)
+		}
+
+		if leftSelect := parseUnion(stmt.Left); leftSelect != nil {
+			result = append(result, leftSelect...)
+		}
+	}
+
+	return result
 }
 
 // ParseSQL parse table, column & conditions from SQL
