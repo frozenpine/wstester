@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/frozenpine/wstester/models"
@@ -141,14 +142,121 @@ func parseColumns(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser
 	return columeDefine, nil
 }
 
-func parseCondition(tables map[string]*sqlparser.AliasedTableExpr, stmt *sqlparser.Select) (map[string]func(interface{}) bool, error) {
-	condition := make(map[string]func(interface{}) bool)
+func parseComparison(compare *sqlparser.ComparisonExpr) func(interface{}) bool {
+	left, ok := compare.Left.(*sqlparser.ColName)
+	if !ok {
+		panic("")
+	}
 
-	// for _, condition := range stmt.Where {
+	right, ok := compare.Right.(*sqlparser.SQLVal)
+	if !ok {
+		panic("")
+	}
 
-	// }
+	return func(v interface{}) bool {
+		switch compare.Operator {
+		case sqlparser.EqualStr:
+			switch right.Type {
+			case sqlparser.IntVal:
+				rightValue, _ := strconv.Atoi(string(right.Val))
+				return GetFieldValue(v, left.Name.String()).(int) == rightValue
+			case sqlparser.FloatVal:
+				rightValue, _ := strconv.ParseFloat(string(right.Val), 64)
+				return GetFieldValue(v, left.Name.String()).(float64) == rightValue
+			case sqlparser.StrVal:
+				return GetFieldValue(v, left.Name.String()).(string) == string(right.Val)
+			default:
+				panic("")
+			}
+		case sqlparser.LessThanStr:
+			switch right.Type {
+			case sqlparser.IntVal:
+				rightValue, _ := strconv.Atoi(string(right.Val))
+				return GetFieldValue(v, left.Name.String()).(int) < rightValue
+			case sqlparser.FloatVal:
+				rightValue, _ := strconv.ParseFloat(string(right.Val), 64)
+				return GetFieldValue(v, left.Name.String()).(float64) < rightValue
+			case sqlparser.StrVal:
+				return GetFieldValue(v, left.Name.String()).(string) < string(right.Val)
+			default:
+				panic("")
+			}
+		case sqlparser.GreaterThanStr:
+			switch right.Type {
+			case sqlparser.IntVal:
+				rightValue, _ := strconv.Atoi(string(right.Val))
+				return GetFieldValue(v, left.Name.String()).(int) > rightValue
+			case sqlparser.FloatVal:
+				rightValue, _ := strconv.ParseFloat(string(right.Val), 64)
+				return GetFieldValue(v, left.Name.String()).(float64) > rightValue
+			case sqlparser.StrVal:
+				return GetFieldValue(v, left.Name.String()).(string) > string(right.Val)
+			default:
+				panic("")
+			}
+		case sqlparser.LessEqualStr:
+			switch right.Type {
+			case sqlparser.IntVal:
+				rightValue, _ := strconv.Atoi(string(right.Val))
+				return GetFieldValue(v, left.Name.String()).(int) <= rightValue
+			case sqlparser.FloatVal:
+				rightValue, _ := strconv.ParseFloat(string(right.Val), 64)
+				return GetFieldValue(v, left.Name.String()).(float64) <= rightValue
+			case sqlparser.StrVal:
+				return GetFieldValue(v, left.Name.String()).(string) <= string(right.Val)
+			default:
+				panic("")
+			}
+		case sqlparser.GreaterEqualStr:
+			switch right.Type {
+			case sqlparser.IntVal:
+				rightValue, _ := strconv.Atoi(string(right.Val))
+				return GetFieldValue(v, left.Name.String()).(int) >= rightValue
+			case sqlparser.FloatVal:
+				rightValue, _ := strconv.ParseFloat(string(right.Val), 64)
+				return GetFieldValue(v, left.Name.String()).(float64) >= rightValue
+			case sqlparser.StrVal:
+				return GetFieldValue(v, left.Name.String()).(string) >= string(right.Val)
+			default:
+				panic("")
+			}
+		case sqlparser.NotEqualStr:
+			switch right.Type {
+			case sqlparser.IntVal:
+				rightValue, _ := strconv.Atoi(string(right.Val))
+				return GetFieldValue(v, left.Name.String()).(int) != rightValue
+			case sqlparser.FloatVal:
+				rightValue, _ := strconv.ParseFloat(string(right.Val), 64)
+				return GetFieldValue(v, left.Name.String()).(float64) != rightValue
+			case sqlparser.StrVal:
+				return GetFieldValue(v, left.Name.String()).(string) != string(right.Val)
+			default:
+				panic("")
+			}
+		default:
+			panic("unsupported operator: " + compare.Operator)
+		}
+	}
+}
 
-	return condition, nil
+func conditionParser(expr sqlparser.Expr) func(v interface{}) bool {
+	switch condition := expr.(type) {
+	case *sqlparser.ComparisonExpr:
+		// 条件比较的最小单元
+		return parseComparison(condition)
+	case *sqlparser.AndExpr:
+		return func(v interface{}) bool {
+			return conditionParser(condition.Left)(v) && conditionParser(condition.Right)(v)
+		}
+	case *sqlparser.OrExpr:
+		return func(v interface{}) bool {
+			return conditionParser(condition.Left)(v) || conditionParser(condition.Right)(v)
+		}
+	case *sqlparser.ParenExpr:
+		return conditionParser(condition.Expr)
+	default:
+		panic("unsupported condition: " + sqlparser.String(condition))
+	}
 }
 
 // ParseSQL parse table, column & conditions from SQL
