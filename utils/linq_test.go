@@ -20,7 +20,7 @@ func TestGetField(t *testing.T) {
 
 func TestParse(t *testing.T) {
 	// sql := "select a.Symbol, b.Price from trade a, instrument b where a.Size > 100 and (b.MarkPrice > 0 or b.FairPrice > 0)"
-	sql := "select Symbol, Price from trade where Price > 0.0"
+	sql := `select Symbol, Price from trade where Price > 1.0 or Symbol = 'XBTUSD'`
 
 	td := ngerest.Trade{
 		Symbol: "XBTUSD",
@@ -48,9 +48,12 @@ func TestParse(t *testing.T) {
 
 		t.Log(sqlparser.String(stmt.Where.Expr))
 
-		if conditionParser(stmt.Where.Expr)(&td) {
-			t.Fatal("failed.")
+		conditionFn, err := conditionParser(stmt.Where.Expr)
+		if err != nil {
+			t.Fatal(err)
 		}
+
+		t.Log(conditionFn(&td))
 	default:
 		t.Fatal("unsupported statement: " + sqlparser.String(stmt))
 	}

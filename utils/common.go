@@ -42,7 +42,7 @@ func Slice(src []interface{}, idx int) []interface{} {
 
 // MaxInt return max int num in args
 func MaxInt(numbers ...int) int {
-	var max int = 0
+	max := 0
 
 	for _, num := range numbers {
 		if num > max {
@@ -55,7 +55,7 @@ func MaxInt(numbers ...int) int {
 
 // MinInt return min int num in args
 func MinInt(numbers ...int) int {
-	var min int = math.MaxInt64
+	min := math.MaxInt64
 
 	for _, num := range numbers {
 		if num < min {

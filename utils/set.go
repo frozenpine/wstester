@@ -102,7 +102,7 @@ func (ss stringSet) Sub(b Set) Set {
 }
 
 func (ss stringSet) Contain(b Set) bool {
-	var contain bool = true
+	contain := true
 
 	if other := checkStringSet(b); other != nil {
 		for k := range other.values {
