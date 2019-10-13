@@ -26,36 +26,8 @@ func TestParse(t *testing.T) {
 		Price:  0,
 	}
 
-	// stmt, err := sqlparser.Parse(sql)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-
-	// for _, sel := range parseUnion(stmt) {
-	// 	// tblDefine, err := parseTables(sel)
-	// 	// if err != nil {
-	// 	// 	t.Fatal(err)
-	// 	// }
-	// 	// t.Log(tblDefine)
-
-	// 	// colDefine, err := parseColumns(tblDefine, sel)
-	// 	// if err != nil {
-	// 	// 	t.Fatal(err)
-	// 	// }
-	// 	// t.Log(colDefine)
-
-	// 	if sel.Where != nil {
-	// 		t.Log(sqlparser.String(sel.Where.Expr))
-
-	// 		conditionFn, err := parseCondition(sel.Where.Expr)
-	// 		if err != nil {
-	// 			t.Fatal(err)
-	// 		}
-
-	// 		t.Log(conditionFn(&td))
-	// 	}
-	// }
 	fn, err := ParseSQL(sql)
+
 	if err != nil {
 		t.Fatal(err)
 	}
