@@ -22,7 +22,7 @@ func TestParse(t *testing.T) {
 	RegisterTableModel("instrument", new(ngerest.Instrument))
 	RegisterTableModel("orderBookL2", new(ngerest.OrderBookL2))
 
-	sql := `select Symbol, Price, Size as volume from trade where Price > 1.0 or Symbol = 'XBTUSD' UNION select MarkPrice, FairPrice from instrument union select * from orderBookL2`
+	sql := `select Symbol, Price, Size as volume from trade where Price > 0.0 or Symbol = 'XBTUSD' UNION select FairPrice from instrument union select * from orderBookL2`
 
 	td := ngerest.Trade{
 		Symbol: "XBTUSD",
@@ -36,4 +36,15 @@ func TestParse(t *testing.T) {
 	}
 
 	t.Log(fn["trade"]([]*ngerest.Trade{&td}))
+	t.Log(fn["instrument"]([]*ngerest.Instrument{
+		&ngerest.Instrument{MarkPrice: 10000, FairPrice: 10000},
+	}))
+	t.Log(fn["orderBookL2"]([]*ngerest.OrderBookL2{
+		&ngerest.OrderBookL2{
+			Price:  9203,
+			Side:   "Sell",
+			Symbol: "XBTUSD",
+			Size:   100,
+		},
+	}))
 }
