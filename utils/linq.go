@@ -12,26 +12,29 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+// LinqFilter filter function powered by linq
+type LinqFilter func(interface{}) []map[string]interface{}
+
 var (
 	tableModels map[string]interface{}
 )
 
 func init() {
-	RegTableModel("trade", new(ngerest.Trade))
-	RegTableModel("instrument", new(ngerest.Instrument))
-	RegTableModel("orderBookL2", new(ngerest.OrderBookL2))
+	RegisterTableModel("trade", new(ngerest.Trade))
+	RegisterTableModel("instrument", new(ngerest.Instrument))
+	RegisterTableModel("orderBookL2", new(ngerest.OrderBookL2))
 }
 
-type column struct {
+type columnDef struct {
 	name, alias string
 	define      *reflect.StructField
 }
 
-func (col *column) GetName() string {
+func (col *columnDef) GetName() string {
 	return col.define.Name
 }
 
-func (col *column) GetJSONName() string {
+func (col *columnDef) GetJSONName() string {
 	jsn, exist := col.define.Tag.Lookup("json")
 
 	if exist {
@@ -41,11 +44,11 @@ func (col *column) GetJSONName() string {
 	return col.GetName()
 }
 
-func (col *column) HasAlias() bool {
+func (col *columnDef) HasAlias() bool {
 	return col.alias != ""
 }
 
-func (col *column) GetAliasName() string {
+func (col *columnDef) GetAliasName() string {
 	if col.alias != "" {
 		return col.alias
 	}
@@ -53,18 +56,18 @@ func (col *column) GetAliasName() string {
 	return col.GetName()
 }
 
-func (col *column) GetType() reflect.Type {
+func (col *columnDef) GetType() reflect.Type {
 	return col.define.Type
 }
 
-type table struct {
+type tableDef struct {
 	name, alias string
-	columns     map[string]*column
-	selected    map[string]*column
+	columns     map[string]*columnDef
+	selected    map[string]*columnDef
 }
 
-// RegTableModel register table module for linq query
-func RegTableModel(name string, tbl interface{}) error {
+// RegisterTableModel register table module for linq query
+func RegisterTableModel(name string, tbl interface{}) error {
 	if tableModels == nil {
 		tableModels = make(map[string]interface{})
 	} else if _, exist := tableModels[name]; exist {
@@ -156,9 +159,9 @@ func parseUnion(stmt sqlparser.Statement) []*sqlparser.Select {
 	return result
 }
 
-func parseTable(stmt *sqlparser.Select) (*table, error) {
-	tableDefine := table{
-		columns: make(map[string]*column),
+func parseTable(stmt *sqlparser.Select) (*tableDef, error) {
+	tableDefine := tableDef{
+		columns: make(map[string]*columnDef),
 	}
 
 	errTableType := errors.New("invalid table type")
@@ -203,7 +206,7 @@ func parseTable(stmt *sqlparser.Select) (*table, error) {
 	// }
 
 	for colName, col := range GetFieldTypes(reflect.Indirect(reflect.ValueOf(model)).Interface(), "*") {
-		tableDefine.columns[colName] = &column{
+		tableDefine.columns[colName] = &columnDef{
 			name:   colName,
 			define: col,
 		}
@@ -218,9 +221,9 @@ func parseTable(stmt *sqlparser.Select) (*table, error) {
 	return &tableDefine, nil
 }
 
-func parseColumns(tbl *table, stmt *sqlparser.Select) (map[string]*column, error) {
+func parseColumns(tbl *tableDef, stmt *sqlparser.Select) (map[string]*columnDef, error) {
 	var (
-		selectedColumns    = make(map[string]*column)
+		selectedColumns    = make(map[string]*columnDef)
 		errColumnName      = errors.New("invalid column name")
 		errColumnStatement = errors.New("invalid column statement")
 	)
@@ -408,14 +411,14 @@ func parseCondition(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 }
 
 // ParseSQL parse table, column & conditions from SQL
-func ParseSQL(sql string) (map[string]func(interface{}) []map[string]interface{}, error) {
+func ParseSQL(sql string) (map[string]LinqFilter, error) {
 	stmt, err := sqlparser.Parse(sql)
 
 	if err != nil {
 		return nil, err
 	}
 
-	filterFunc := make(map[string]func(interface{}) []map[string]interface{})
+	filterFunc := make(map[string]LinqFilter)
 
 	for _, sel := range parseUnion(stmt) {
 		tblDefine, err := parseTable(sel)
