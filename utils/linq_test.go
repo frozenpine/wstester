@@ -18,7 +18,10 @@ func TestGetField(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
-	// sql := "select a.Symbol, b.Price from trade a, instrument b where a.Size > 100 and (b.MarkPrice > 0 or b.FairPrice > 0)"
+	RegisterTableModel("trade", new(ngerest.Trade))
+	RegisterTableModel("instrument", new(ngerest.Instrument))
+	RegisterTableModel("orderBookL2", new(ngerest.OrderBookL2))
+
 	sql := `select Symbol, Price, Size as volume from trade where Price > 1.0 or Symbol = 'XBTUSD' UNION select MarkPrice, FairPrice from instrument union select * from orderBookL2`
 
 	td := ngerest.Trade{

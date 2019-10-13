@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	linq "github.com/ahmetb/go-linq"
-	"github.com/frozenpine/ngerest"
 	"github.com/xwb1989/sqlparser"
 )
 
@@ -18,12 +17,6 @@ type LinqFilter func(interface{}) []map[string]interface{}
 var (
 	tableModels map[string]interface{}
 )
-
-func init() {
-	RegisterTableModel("trade", new(ngerest.Trade))
-	RegisterTableModel("instrument", new(ngerest.Instrument))
-	RegisterTableModel("orderBookL2", new(ngerest.OrderBookL2))
-}
 
 type columnDef struct {
 	name, alias string

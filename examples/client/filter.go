@@ -8,6 +8,7 @@ import (
 	linq "github.com/ahmetb/go-linq"
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils"
 	flag "github.com/spf13/pflag"
 )
 
@@ -16,6 +17,10 @@ var (
 )
 
 func init() {
+	utils.RegisterTableModel("trade", new(ngerest.Trade))
+	utils.RegisterTableModel("instrument", new(ngerest.Instrument))
+	utils.RegisterTableModel("orderBookL2", new(ngerest.OrderBookL2))
+
 	flag.StringSliceVar(&filterList, "filter", []string{}, "Filter for result.")
 }
 
