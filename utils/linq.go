@@ -18,47 +18,6 @@ var (
 	tableModels map[string]interface{}
 )
 
-type columnDef struct {
-	name, alias string
-	define      *reflect.StructField
-}
-
-func (col *columnDef) GetName() string {
-	return col.define.Name
-}
-
-func (col *columnDef) GetJSONName() string {
-	jsn, exist := col.define.Tag.Lookup("json")
-
-	if exist {
-		return strings.Split(jsn, ",")[0]
-	}
-
-	return col.GetName()
-}
-
-func (col *columnDef) HasAlias() bool {
-	return col.alias != ""
-}
-
-func (col *columnDef) GetAliasName() string {
-	if col.alias != "" {
-		return col.alias
-	}
-
-	return col.GetName()
-}
-
-func (col *columnDef) GetType() reflect.Type {
-	return col.define.Type
-}
-
-type tableDef struct {
-	name, alias string
-	columns     map[string]*columnDef
-	selected    map[string]*columnDef
-}
-
 // RegisterTableModel register table module for linq query
 func RegisterTableModel(name string, tbl interface{}) error {
 	if tableModels == nil {
@@ -113,7 +72,7 @@ func GetFields(data interface{}, properties ...string) map[string]interface{} {
 func GetFieldTypes(data interface{}, properties ...string) map[string]*reflect.StructField {
 	result := make(map[string]*reflect.StructField)
 
-	t := reflect.TypeOf(data)
+	t := reflect.TypeOf(reflect.Indirect(reflect.ValueOf(data)).Interface())
 
 	for _, prop := range properties {
 		if prop == "*" {
@@ -125,12 +84,81 @@ func GetFieldTypes(data interface{}, properties ...string) map[string]*reflect.S
 
 			break
 		}
+
 		if typ, exist := t.FieldByName(prop); exist {
 			result[prop] = &typ
 		}
 	}
 
 	return result
+}
+
+// ColumnDef column definitions generated from SQL & model
+type ColumnDef struct {
+	name, alias string
+	define      *reflect.StructField
+}
+
+// GetName to get column's origin name defined by model
+func (col *ColumnDef) GetName() string {
+	return col.define.Name
+}
+
+// GetJSONName to get column's json name specified by model
+func (col *ColumnDef) GetJSONName() string {
+	jsn, exist := col.define.Tag.Lookup("json")
+
+	if exist {
+		return strings.Split(jsn, ",")[0]
+	}
+
+	return col.GetName()
+}
+
+// HasAlias to test wether column has alias definition
+func (col *ColumnDef) HasAlias() bool {
+	return col.alias != ""
+}
+
+// GetAliasName get column alias name, if no AS specified, return column's origin name
+func (col *ColumnDef) GetAliasName() string {
+	if col.HasAlias() {
+		return col.alias
+	}
+
+	return col.GetName()
+}
+
+// GetType get colume type in model
+func (col *ColumnDef) GetType() reflect.Type {
+	return col.define.Type
+}
+
+// TableDef table definitions generated from SQL & model
+type TableDef struct {
+	name, alias string
+	columns     map[string]*ColumnDef
+	selected    map[string]*ColumnDef
+	define      reflect.Type
+}
+
+// GetName get table's origin name defined by RegisterTableModel
+func (tbl *TableDef) GetName() string {
+	return tbl.name
+}
+
+// HasAlias determine wether table has alias name defined by SQL
+func (tbl *TableDef) HasAlias() bool {
+	return tbl.alias != ""
+}
+
+// GetAliasName get table's alias name, if no alias name defined, return origin name.
+func (tbl *TableDef) GetAliasName() string {
+	if tbl.HasAlias() {
+		return tbl.alias
+	}
+
+	return tbl.GetName()
 }
 
 func parseUnion(stmt sqlparser.Statement) []*sqlparser.Select {
@@ -152,9 +180,9 @@ func parseUnion(stmt sqlparser.Statement) []*sqlparser.Select {
 	return result
 }
 
-func parseTable(stmt *sqlparser.Select) (*tableDef, error) {
-	tableDefine := tableDef{
-		columns: make(map[string]*columnDef),
+func parseTable(stmt *sqlparser.Select) (*TableDef, error) {
+	tableDefine := TableDef{
+		columns: make(map[string]*ColumnDef),
 	}
 
 	errTableType := errors.New("invalid table type")
@@ -173,33 +201,19 @@ func parseTable(stmt *sqlparser.Select) (*tableDef, error) {
 		return nil, errTableType
 	}
 
-	tableDefine.name = tableName.Name.String()
-	if !table.As.IsEmpty() {
-		tableDefine.alias = table.As.String()
-	}
-
-	model, exist := tableModels[tableDefine.name]
+	model, exist := tableModels[tableName.Name.String()]
 	if !exist {
 		return nil, errTableType
 	}
 
-	// // v := reflect.Indirect(reflect.ValueOf(model))
-	// t := reflect.TypeOf(model)
-	// // fieldCount := v.NumField()
-	// fieldCount := t.NumField()
-
-	// for idx := 0; idx < fieldCount; idx++ {
-	// 	// def := v.Field(idx)
-
-	// 	col := column{
-	// 		define: t.Field(idx),
-	// 	}
-
-	// 	tableDefine.columns[t.Name()] = &col
-	// }
+	tableDefine.name = tableName.Name.String()
+	if !table.As.IsEmpty() {
+		tableDefine.alias = table.As.String()
+	}
+	tableDefine.define = reflect.TypeOf(reflect.Indirect(reflect.ValueOf(model)).Interface())
 
 	for colName, col := range GetFieldTypes(reflect.Indirect(reflect.ValueOf(model)).Interface(), "*") {
-		tableDefine.columns[colName] = &columnDef{
+		tableDefine.columns[colName] = &ColumnDef{
 			name:   colName,
 			define: col,
 		}
@@ -214,9 +228,9 @@ func parseTable(stmt *sqlparser.Select) (*tableDef, error) {
 	return &tableDefine, nil
 }
 
-func parseColumns(tbl *tableDef, stmt *sqlparser.Select) (map[string]*columnDef, error) {
+func parseColumns(tbl *TableDef, stmt *sqlparser.Select) (map[string]*ColumnDef, error) {
 	var (
-		selectedColumns    = make(map[string]*columnDef)
+		selectedColumns    = make(map[string]*ColumnDef)
 		errColumnName      = errors.New("invalid column name")
 		errColumnStatement = errors.New("invalid column statement")
 	)
