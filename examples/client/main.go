@@ -14,6 +14,8 @@ import (
 	"github.com/frozenpine/wstester/client"
 	"github.com/frozenpine/wstester/utils"
 
+	_ "net/http/pprof"
+
 	flag "github.com/spf13/pflag"
 )
 
@@ -198,6 +200,10 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt)
 
 	running := true
+
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
 
 	for running {
 		if failCount > 0 {

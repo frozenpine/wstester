@@ -318,6 +318,8 @@ func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool,
 		return nil, errors.New("left side must be a property of struct")
 	}
 
+	leftName := strings.Title(left.Name.String())
+
 	right, ok := compare.Right.(*sqlparser.SQLVal)
 	if !ok {
 		return nil, errors.New("right side must be a literal value")
@@ -331,73 +333,73 @@ func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool,
 		case sqlparser.EqualStr:
 			switch right.Type {
 			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
 				return leftValue == rightValue
 			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
 				return leftValue == rightValue
 			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
 				return leftValue == rightValue
 			}
 		case sqlparser.LessThanStr:
 			switch right.Type {
 			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
 				return leftValue < rightValue
 			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
 				return leftValue < rightValue
 			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
 				return leftValue < rightValue
 			}
 		case sqlparser.GreaterThanStr:
 			switch right.Type {
 			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
 				return leftValue > rightValue
 			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
 				return leftValue > rightValue
 			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
 				return leftValue > rightValue
 			}
 		case sqlparser.LessEqualStr:
 			switch right.Type {
 			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
 				return leftValue <= rightValue
 			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
 				return leftValue <= rightValue
 			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
 				return leftValue <= rightValue
 			}
 		case sqlparser.GreaterEqualStr:
 			switch right.Type {
 			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
 				return leftValue >= rightValue
 			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
 				return leftValue >= rightValue
 			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
 				return leftValue >= rightValue
 			}
 		case sqlparser.NotEqualStr:
 			switch right.Type {
 			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
 				return leftValue != rightValue
 			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
 				return leftValue != rightValue
 			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, left.Name.String()), right)
+				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
 				return leftValue != rightValue
 			}
 		default:
