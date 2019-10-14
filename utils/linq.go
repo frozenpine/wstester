@@ -291,9 +291,9 @@ func parseColumns(tbl *TableDef, stmt *sqlparser.Select) (map[string]*ColumnDef,
 	return selectedColumns, nil
 }
 
-func parseInt(left interface{}, right *sqlparser.SQLVal) (int, int) {
-	leftValue := left.(int)
-	rightValue, _ := strconv.Atoi(string(right.Val))
+func parseInt(left interface{}, right *sqlparser.SQLVal) (int64, int64) {
+	leftValue := left.(int64)
+	rightValue, _ := strconv.ParseInt(string(right.Val), 10, 64)
 
 	return leftValue, rightValue
 }
