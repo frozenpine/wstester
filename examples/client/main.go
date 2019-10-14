@@ -14,7 +14,7 @@ import (
 	"github.com/frozenpine/wstester/client"
 	"github.com/frozenpine/wstester/utils"
 
-	_ "net/http/pprof"
+	// _ "net/http/pprof"
 
 	flag "github.com/spf13/pflag"
 )
@@ -34,7 +34,7 @@ const (
 	defaultMaxReconnectCount = -1
 	defaultMaxDelayCount     = 6
 
-	defaultDuration = time.Duration(-1)
+	defaultRunningDuration = time.Duration(-1)
 )
 
 var (
@@ -136,7 +136,7 @@ func init() {
 		"Max slot count in binary expect backoff algorithm.")
 
 	flag.DurationVarP(
-		&deadline, "deadline", "d", defaultDuration,
+		&deadline, "deadline", "d", defaultRunningDuration,
 		"Deadline duration, -1 means infinity.")
 
 	flag.StringVar(&apiKey, "key", "", "API Key for authentication request.")
