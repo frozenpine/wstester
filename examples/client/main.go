@@ -163,15 +163,21 @@ func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
 	return ctx, cancelFunc
 }
 
-func normalizeTopicTable() {
+func normalizeTopicTable() (err error) {
 	if appendTopics {
 		topics = append(topics, defaultTopics...)
 	}
 	topicSet := utils.NewStringSet(topics).(utils.Set)
-	tableSet := utils.NewStringSet(tables).(utils.Set).Join(topicSet)
 
 	topics = topicSet.(utils.StringSet).Values()
-	tables = tableSet.(utils.StringSet).Values()
+
+	for _, topic := range topics {
+		utils.RegisterTableModel(topic, topicMapper[topic])
+	}
+
+	filters, err = utils.ParseSQL(sql)
+
+	return
 }
 
 func main() {
@@ -179,7 +185,9 @@ func main() {
 		flag.Parse()
 	}
 
-	normalizeTopicTable()
+	if err := normalizeTopicTable(); err != nil {
+		panic(err)
+	}
 
 	client.SetLogLevel(dbgLevel)
 
@@ -225,9 +233,9 @@ func main() {
 		ins := client.NewClient(cfg)
 
 		ins.Subscribe(topics...)
-		for _, table := range tables {
+		for table := range filters {
 			if ch := ins.GetResponse(table); ch != nil {
-				output(ctx, table, filter(ctx, table, ch))
+				filter(ctx, table, ch)
 			}
 		}
 

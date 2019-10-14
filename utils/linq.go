@@ -140,6 +140,7 @@ type TableDef struct {
 	columns     map[string]*ColumnDef
 	selected    map[string]*ColumnDef
 	define      reflect.Type
+	where       func(interface{}) bool
 }
 
 // GetName get table's origin name defined by RegisterTableModel
@@ -159,6 +160,37 @@ func (tbl *TableDef) GetAliasName() string {
 	}
 
 	return tbl.GetName()
+}
+
+// GetFilter get a filter function for data slice
+func (tbl *TableDef) GetFilter() LinqFilter {
+	return func(datas interface{}) []map[string]interface{} {
+		var results []map[string]interface{}
+
+		query := linq.From(datas)
+
+		if tbl.where != nil {
+			query = query.Where(func(v interface{}) bool {
+				return tbl.where(v)
+			})
+		}
+
+		query.Select(func(v interface{}) interface{} {
+			result := make(map[string]interface{})
+
+			for _, col := range tbl.selected {
+				key := col.GetJSONName()
+				if col.HasAlias() {
+					key = col.GetAliasName()
+				}
+				result[key] = GetFieldValue(v, col.GetName())
+			}
+
+			return result
+		}).ToSlice(&results)
+
+		return results
+	}
 }
 
 func parseUnion(stmt sqlparser.Statement) []*sqlparser.Select {
@@ -185,25 +217,23 @@ func parseTable(stmt *sqlparser.Select) (*TableDef, error) {
 		columns: make(map[string]*ColumnDef),
 	}
 
-	errTableType := errors.New("invalid table type")
-
 	if len(stmt.From) > 1 {
-		return nil, errors.New("only one table in select")
+		return nil, errors.New("only support one table in FROM statement")
 	}
 
 	table, ok := stmt.From[0].(*sqlparser.AliasedTableExpr)
 	if !ok {
-		return nil, errTableType
+		return nil, errors.New("invalid table type: " + sqlparser.String(stmt.From[0]))
 	}
 
 	tableName, ok := table.Expr.(sqlparser.TableName)
 	if !ok {
-		return nil, errTableType
+		return nil, errors.New("can not convert SQLNode to TableName")
 	}
 
 	model, exist := tableModels[tableName.Name.String()]
 	if !exist {
-		return nil, errTableType
+		return nil, errors.New("table model not defined: " + tableName.Name.String())
 	}
 
 	tableDefine.name = tableName.Name.String()
@@ -230,9 +260,7 @@ func parseTable(stmt *sqlparser.Select) (*TableDef, error) {
 
 func parseColumns(tbl *TableDef, stmt *sqlparser.Select) (map[string]*ColumnDef, error) {
 	var (
-		selectedColumns    = make(map[string]*ColumnDef)
-		errColumnName      = errors.New("invalid column name")
-		errColumnStatement = errors.New("invalid column statement")
+		selectedColumns = make(map[string]*ColumnDef)
 	)
 
 	for _, col := range stmt.SelectExprs {
@@ -240,9 +268,11 @@ func parseColumns(tbl *TableDef, stmt *sqlparser.Select) (map[string]*ColumnDef,
 		case *sqlparser.AliasedExpr:
 			colName, _ := col.Expr.(*sqlparser.ColName)
 
-			colDef, exist := tbl.columns[colName.Name.String()]
+			key := strings.Title(colName.Name.String())
+
+			colDef, exist := tbl.columns[key]
 			if !exist {
-				return nil, errColumnName
+				return nil, fmt.Errorf("column[%s] definition not exists", colName.Name.String())
 			}
 			if !col.As.IsEmpty() {
 				colDef.alias = col.As.String()
@@ -254,7 +284,7 @@ func parseColumns(tbl *TableDef, stmt *sqlparser.Select) (map[string]*ColumnDef,
 				selectedColumns[column.GetName()] = column
 			}
 		default:
-			return nil, errColumnStatement
+			return nil, fmt.Errorf("unsupported column statement: %s", sqlparser.String(col))
 		}
 	}
 
@@ -418,14 +448,14 @@ func parseCondition(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 }
 
 // ParseSQL parse table, column & conditions from SQL
-func ParseSQL(sql string) (map[string]LinqFilter, error) {
+func ParseSQL(sql string) (map[string]*TableDef, error) {
 	stmt, err := sqlparser.Parse(sql)
 
 	if err != nil {
 		return nil, err
 	}
 
-	filterFunc := make(map[string]LinqFilter)
+	tables := make(map[string]*TableDef)
 
 	for _, sel := range parseUnion(stmt) {
 		tblDefine, err := parseTable(sel)
@@ -434,37 +464,17 @@ func ParseSQL(sql string) (map[string]LinqFilter, error) {
 			return nil, err
 		}
 
-		conditionFn := func(interface{}) bool { return true }
-
 		if sel.Where != nil {
-			conditionFn, err = parseCondition(sel.Where.Expr)
+			conditionFn, err := parseCondition(sel.Where.Expr)
 			if err != nil {
 				return nil, err
 			}
+
+			tblDefine.where = conditionFn
 		}
 
-		filterFunc[tblDefine.name] = func(datas interface{}) []map[string]interface{} {
-			var results []map[string]interface{}
-
-			linq.From(datas).Where(func(v interface{}) bool {
-				return conditionFn(v)
-			}).Select(func(v interface{}) interface{} {
-				result := make(map[string]interface{})
-
-				for _, col := range tblDefine.selected {
-					key := col.GetJSONName()
-					if col.HasAlias() {
-						key = col.GetAliasName()
-					}
-					result[key] = GetFieldValue(v, col.GetName())
-				}
-
-				return result
-			}).ToSlice(&results)
-
-			return results
-		}
+		tables[tblDefine.GetName()] = tblDefine
 	}
 
-	return filterFunc, nil
+	return tables, nil
 }
