@@ -23,6 +23,7 @@ var (
 		"order":       new(ngerest.Order),
 		"margin":      new(ngerest.Margin),
 		"position":    new(ngerest.Position),
+		"execution":   new(ngerest.Execution),
 	}
 )
 
