@@ -16,6 +16,93 @@ type LinqFilter func(interface{}) []map[string]interface{}
 
 var (
 	tableModels map[string]interface{}
+
+	operatorMapper = map[string][3]func(interface{}, string, *sqlparser.SQLVal) bool{
+		sqlparser.EqualStr: [3]func(interface{}, string, *sqlparser.SQLVal) bool{
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+				return lValue == rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+				return lValue == rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+				return lValue == rValue
+			},
+		},
+		sqlparser.LessThanStr: [3]func(interface{}, string, *sqlparser.SQLVal) bool{
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+				return lValue < rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+				return lValue < rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+				return lValue < rValue
+			},
+		},
+		sqlparser.GreaterThanStr: [3]func(interface{}, string, *sqlparser.SQLVal) bool{
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+				return lValue > rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+				return lValue > rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+				return lValue > rValue
+			},
+		},
+		sqlparser.LessEqualStr: [3]func(interface{}, string, *sqlparser.SQLVal) bool{
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+				return lValue <= rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+				return lValue <= rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+				return lValue <= rValue
+			},
+		},
+		sqlparser.GreaterEqualStr: [3]func(interface{}, string, *sqlparser.SQLVal) bool{
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+				return lValue >= rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+				return lValue >= rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+				return lValue >= rValue
+			},
+		},
+		sqlparser.NotEqualStr: [3]func(interface{}, string, *sqlparser.SQLVal) bool{
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+				return lValue != rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+				return lValue != rValue
+			},
+			func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+				lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+				return lValue != rValue
+			},
+		},
+	}
 )
 
 // RegisterTableModel register table module for linq query
@@ -310,93 +397,6 @@ func parseStr(left interface{}, right *sqlparser.SQLVal) (string, string) {
 	rightValue := string(right.Val)
 
 	return leftValue, rightValue
-}
-
-var operatorMapper = map[string][]func(interface{}, string, *sqlparser.SQLVal) bool{
-	sqlparser.EqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
-			return lValue == rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
-			return lValue == rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
-			return lValue == rValue
-		},
-	},
-	sqlparser.LessThanStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
-			return lValue < rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
-			return lValue < rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
-			return lValue < rValue
-		},
-	},
-	sqlparser.GreaterThanStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
-			return lValue > rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
-			return lValue > rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
-			return lValue > rValue
-		},
-	},
-	sqlparser.LessEqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
-			return lValue <= rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
-			return lValue <= rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
-			return lValue <= rValue
-		},
-	},
-	sqlparser.GreaterEqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
-			return lValue >= rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
-			return lValue >= rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
-			return lValue >= rValue
-		},
-	},
-	sqlparser.NotEqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
-			return lValue != rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
-			return lValue != rValue
-		},
-		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
-			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
-			return lValue != rValue
-		},
-	},
 }
 
 func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool, error) {
