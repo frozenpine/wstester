@@ -312,6 +312,93 @@ func parseStr(left interface{}, right *sqlparser.SQLVal) (string, string) {
 	return leftValue, rightValue
 }
 
+var operatorMapper = map[string][]func(interface{}, string, *sqlparser.SQLVal) bool{
+	sqlparser.EqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+			return lValue == rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+			return lValue == rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+			return lValue == rValue
+		},
+	},
+	sqlparser.LessThanStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+			return lValue < rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+			return lValue < rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+			return lValue < rValue
+		},
+	},
+	sqlparser.GreaterThanStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+			return lValue > rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+			return lValue > rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+			return lValue > rValue
+		},
+	},
+	sqlparser.LessEqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+			return lValue <= rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+			return lValue <= rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+			return lValue <= rValue
+		},
+	},
+	sqlparser.GreaterEqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+			return lValue >= rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+			return lValue >= rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+			return lValue >= rValue
+		},
+	},
+	sqlparser.NotEqualStr: []func(interface{}, string, *sqlparser.SQLVal) bool{
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseStr(GetFieldValue(l, lName), r)
+			return lValue != rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseInt(GetFieldValue(l, lName), r)
+			return lValue != rValue
+		},
+		func(l interface{}, lName string, r *sqlparser.SQLVal) bool {
+			lValue, rValue := parseFloat(GetFieldValue(l, lName), r)
+			return lValue != rValue
+		},
+	},
+}
+
 func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool, error) {
 	left, ok := compare.Left.(*sqlparser.ColName)
 	if !ok {
@@ -326,87 +413,16 @@ func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool,
 	}
 
 	return func(v interface{}) bool {
-		errOperator := errors.New("unsupported operator: " + compare.Operator)
-		errValueType := errors.New("invalid value type")
-
-		switch compare.Operator {
-		case sqlparser.EqualStr:
-			switch right.Type {
-			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
-				return leftValue == rightValue
-			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
-				return leftValue == rightValue
-			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
-				return leftValue == rightValue
-			}
-		case sqlparser.LessThanStr:
-			switch right.Type {
-			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
-				return leftValue < rightValue
-			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
-				return leftValue < rightValue
-			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
-				return leftValue < rightValue
-			}
-		case sqlparser.GreaterThanStr:
-			switch right.Type {
-			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
-				return leftValue > rightValue
-			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
-				return leftValue > rightValue
-			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
-				return leftValue > rightValue
-			}
-		case sqlparser.LessEqualStr:
-			switch right.Type {
-			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
-				return leftValue <= rightValue
-			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
-				return leftValue <= rightValue
-			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
-				return leftValue <= rightValue
-			}
-		case sqlparser.GreaterEqualStr:
-			switch right.Type {
-			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
-				return leftValue >= rightValue
-			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
-				return leftValue >= rightValue
-			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
-				return leftValue >= rightValue
-			}
-		case sqlparser.NotEqualStr:
-			switch right.Type {
-			case sqlparser.IntVal:
-				leftValue, rightValue := parseInt(GetFieldValue(v, leftName), right)
-				return leftValue != rightValue
-			case sqlparser.FloatVal:
-				leftValue, rightValue := parseFloat(GetFieldValue(v, leftName), right)
-				return leftValue != rightValue
-			case sqlparser.StrVal:
-				leftValue, rightValue := parseStr(GetFieldValue(v, leftName), right)
-				return leftValue != rightValue
-			}
-		default:
-			panic(errOperator)
+		fnList, exist := operatorMapper[compare.Operator]
+		if !exist {
+			panic("unsupported operator: " + compare.Operator)
 		}
 
-		panic(errValueType)
+		if len(fnList) <= int(right.Type) {
+			panic("invalid value type")
+		}
+
+		return fnList[right.Type](v, leftName, right)
 	}, nil
 }
 
