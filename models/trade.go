@@ -17,7 +17,7 @@ type TradeResponse struct {
 func NewTradePartial() *TradeResponse {
 	partial := TradeResponse{}
 	partial.Table = "trade"
-	partial.Action = "partial"
+	partial.Action = PartialAction
 	partial.Keys = []string{}
 	partial.Types = make(map[string]string)
 	partial.ForeignKeys = make(map[string]string)
