@@ -201,6 +201,8 @@ func main() {
 
 	running := true
 
+	maxLast := time.Duration(0)
+
 	for running {
 		if failCount > 0 {
 			if maxReconnectCount >= 0 && failCount > maxReconnectCount {
@@ -265,9 +267,13 @@ func main() {
 			running = false
 		}
 
+		last := time.Now().Sub(start)
+		if last > maxLast {
+			maxLast = last
+		}
 		log.Printf(
-			"%s round connection last %v long.",
-			humanReadNum(roundCount), time.Now().Sub(start),
+			"%s round connection last %v long, max connection time in history: %v.",
+			humanReadNum(roundCount), last, maxLast,
 		)
 		roundCount++
 	}
