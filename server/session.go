@@ -80,6 +80,7 @@ func (s *clientSession) Close(code int, reason string) error {
 	}
 
 	s.closeOnce.Do(func() {
+		// TODO: 清理session中的其他goroutine
 		s.conn.Close()
 	})
 

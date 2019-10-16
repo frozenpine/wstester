@@ -29,27 +29,35 @@ func (c *TradeCache) snapshot() models.TableResponse {
 
 	hisLen := len(c.historyTrade)
 
-	idx := utils.MinInt(c.maxLength, hisLen)
+	trimLen := utils.MinInt(c.maxLength, hisLen)
 
-	snap.Data = c.historyTrade[hisLen-idx:]
+	snap.Data = c.historyTrade[hisLen-trimLen:]
 
 	return snap
 }
 
 func (c *TradeCache) handleInput(in *CacheInput) models.TableResponse {
-	rsp := models.TradeResponse{}
-	rsp.Table = "trade"
-	rsp.Action = "insert"
+	var rsp models.TableResponse
 
-	parsed := ngerest.Trade{}
+	if in.IsBreakPoint() {
+		rsp = in.breakpointFunc()
+	} else {
+		td := models.TradeResponse{}
+		td.Table = "trade"
+		td.Action = "insert"
 
-	json.Unmarshal(in.msg, &parsed)
+		parsed := ngerest.Trade{}
 
-	rsp.Data = []*ngerest.Trade{&parsed}
+		json.Unmarshal(in.msg, &parsed)
 
-	c.applyData(&rsp)
+		td.Data = []*ngerest.Trade{&parsed}
 
-	return &rsp
+		c.applyData(&td)
+
+		rsp = &td
+	}
+
+	return rsp
 }
 
 func (c *TradeCache) applyData(data *models.TradeResponse) {
@@ -137,8 +145,9 @@ func mockTrade(cache Cache) {
 func NewTradeCache(ctx context.Context) *TradeCache {
 	td := TradeCache{
 		tableCache: tableCache{
-			ready: make(chan struct{}),
-			close: make(chan struct{}),
+			ready:     make(chan struct{}),
+			close:     make(chan struct{}),
+			maxLength: defaultTradeLen,
 		},
 	}
 
@@ -147,6 +156,7 @@ func NewTradeCache(ctx context.Context) *TradeCache {
 	}
 
 	td.handleInputFn = td.handleInput
+	td.snapshotFn = td.snapshot
 
 	return &td
 }

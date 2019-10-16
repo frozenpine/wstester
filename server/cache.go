@@ -12,6 +12,7 @@ type Cache interface {
 	Start(context.Context) error
 	Stop() error
 	Ready() <-chan struct{}
+	// TakeSnapshot take snapshot for cache, bool arg means wether publish snapshot in channel.
 	TakeSnapshot(bool) models.TableResponse
 	Append(*CacheInput)
 }
@@ -23,6 +24,11 @@ type CacheInput struct {
 	msg            []byte
 }
 
+// IsBreakPoint to check input is a breakpoint message
+func (in *CacheInput) IsBreakPoint() bool {
+	return in.breakpointFunc != nil
+}
+
 // NewCacheInput make a new cache input
 func NewCacheInput(msg []byte) *CacheInput {
 	cache := CacheInput{
@@ -31,11 +37,6 @@ func NewCacheInput(msg []byte) *CacheInput {
 	}
 
 	return &cache
-}
-
-// IsBreakPoint to check input is a breakpoint message
-func (in *CacheInput) IsBreakPoint() bool {
-	return in.breakpointFunc != nil
 }
 
 type tableCache struct {
@@ -81,9 +82,7 @@ func (c *tableCache) Start(ctx context.Context) error {
 				}
 
 				if c.handleInputFn == nil {
-					log.Println("handleInputFn is nil.")
-
-					continue
+					log.Panicln("handleInputFn is nil.")
 				}
 
 				rsp := c.handleInputFn(obj)
@@ -114,17 +113,12 @@ func (c *tableCache) Ready() <-chan struct{} {
 // TakeSnapshot to get snapshot of cache, if publish is true, snapshot result will be notified in channel
 func (c *tableCache) TakeSnapshot(publish bool) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
-	defer func() {
-		close(ch)
-	}()
 
 	c.pipeline <- &CacheInput{
 		pubToChannel: publish,
 		breakpointFunc: func() models.TableResponse {
 			if c.snapshotFn == nil {
-				log.Println("snapshotFn is nil.")
-
-				return nil
+				log.Panicln("snapshotFn is nil.")
 			}
 
 			snap := c.snapshotFn()

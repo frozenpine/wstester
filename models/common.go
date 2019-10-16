@@ -8,6 +8,17 @@ import (
 	"github.com/frozenpine/ngerest"
 )
 
+const (
+	// PartialAction partial action
+	PartialAction = "partial"
+	// InsertAction insert action
+	InsertAction = "insert"
+	// UpdateAction update action
+	UpdateAction = "update"
+	// DeleteAction delete action
+	DeleteAction = "delete"
+)
+
 var (
 	// PingPattern ping message pattern
 	PingPattern = regexp.MustCompile(`ping`)
@@ -246,5 +257,5 @@ func (tbl *tableResponse) IsTableResponse() bool {
 
 // IsPartialResponse determinate wether table response is partial data
 func (tbl *tableResponse) IsPartialResponse() bool {
-	return tbl.Action == "partial"
+	return tbl.Action == PartialAction
 }

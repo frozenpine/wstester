@@ -183,14 +183,25 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 		// TODO: private flow subscribe
 		if pubChannel, chanExist = s.pubChannels[topicName]; chanExist {
-			if topicName == "trade" {
-				mockTrade(pubChannel.(Cache))
-			}
-
 			go func(ch Channel) {
 				<-waitRsp
 
-				for data := range ch.RetriveData() {
+				cache := ch.(Cache)
+				dataChan := ch.RetriveData()
+
+				partialSend := false
+
+				cache.TakeSnapshot(true)
+
+				for data := range dataChan {
+					if data.IsPartialResponse() {
+						if partialSend {
+							continue
+						}
+
+						partialSend = true
+					}
+
 					client.WriteJSONMessage(data)
 				}
 			}(pubChannel)
@@ -332,6 +343,9 @@ func NewServer(ctx context.Context, cfg *SvrConfig) Server {
 	// mbl := NewMBLCache()
 
 	svr.pubChannels["trade"] = td
+	// FIXME: mock的临时方案
+	mockTrade(td)
+
 	// svr.pubChannels["instrument"] = ins
 	// svr.pubChannels["orderBookL2"] = mbl
 
