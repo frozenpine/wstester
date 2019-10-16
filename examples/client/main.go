@@ -201,10 +201,6 @@ func main() {
 
 	running := true
 
-	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
-
 	for running {
 		if failCount > 0 {
 			if maxReconnectCount >= 0 && failCount > maxReconnectCount {
