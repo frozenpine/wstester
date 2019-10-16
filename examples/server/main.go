@@ -7,8 +7,9 @@ import (
 )
 
 func main() {
-	cfg := server.NewWsConfig()
-	svr := server.NewServer(cfg)
+	cfg := server.NewSvrConfig()
+
+	svr := server.NewServer(nil, cfg)
 
 	svr.RunForever(context.Background())
 }

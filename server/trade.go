@@ -15,93 +15,11 @@ var (
 	defaultTradeLen int = 200
 )
 
-type tradeMessage struct {
-	doNotPublish   bool
-	breakPointFunc func() []*ngerest.Trade
-	msg            *sarama.ConsumerMessage
-}
-
-func (msg *tradeMessage) IsBreakPoint() bool {
-	return msg.breakPointFunc != nil
-}
-
 // TradeCache retrive & store trade data
 type TradeCache struct {
-	rspChannel
+	tableCache
 
-	pipeline     chan tradeMessage
-	ready        chan bool
-	ctx          context.Context
-	maxLength    int
 	historyTrade []*ngerest.Trade
-}
-
-// RecentTrade get recent trade data, goroutine safe
-func (c *TradeCache) RecentTrade(publish bool) []*ngerest.Trade {
-	ch := make(chan []*ngerest.Trade, 1)
-	defer func() {
-		close(ch)
-	}()
-
-	c.pipeline <- tradeMessage{
-		doNotPublish: !publish,
-		breakPointFunc: func() []*ngerest.Trade {
-			snap := c.snapshot()
-
-			ch <- snap
-
-			return snap
-		},
-	}
-
-	return <-ch
-}
-
-// Start start cache backgroud goroutine
-func (c *TradeCache) Start() (err error) {
-	go func() {
-		var rsp *models.TradeResponse
-
-		for obj := range c.pipeline {
-			if obj.IsBreakPoint() {
-				rsp = models.NewTradePartial()
-				rsp.Data = obj.breakPointFunc()
-			} else {
-				rsp = c.parseData(obj.msg)
-				c.applyData(rsp)
-			}
-
-			if !obj.doNotPublish {
-				c.PublishData(rsp)
-			}
-		}
-	}()
-
-	err = c.rspChannel.Start()
-
-	return err
-}
-
-// Setup setup for consumer
-func (c *TradeCache) Setup(sarama.ConsumerGroupSession) error {
-	close(c.ready)
-	return nil
-}
-
-// Cleanup cleanup for consumer
-func (c *TradeCache) Cleanup(sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-// ConsumeClaim consume message from claim
-func (c *TradeCache) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	for message := range claim.Messages() {
-		c.pipeline <- tradeMessage{
-			msg: message,
-		}
-	}
-
-	return nil
 }
 
 func (c *TradeCache) snapshot() []*ngerest.Trade {
@@ -133,13 +51,11 @@ func (c *TradeCache) applyData(data *models.TradeResponse) {
 }
 
 // NewTradeCache make a new trade cache.
-func NewTradeCache() *TradeCache {
+func NewTradeCache(ctx context.Context) *TradeCache {
 	td := TradeCache{}
 
-	if err := td.Start(); err != nil {
+	if err := td.Start(ctx); err != nil {
 		log.Panicln(err)
-
-		return nil
 	}
 
 	return &td

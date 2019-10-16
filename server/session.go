@@ -97,7 +97,7 @@ func (s *clientSession) IsAuthorized() bool {
 	return s.clientID != "" && s.accountID != ""
 }
 
-func (s *clientSession) getSvrCfg() *WsConfig {
+func (s *clientSession) getSvrCfg() *SvrConfig {
 	return s.svr.cfg
 }
 
@@ -109,7 +109,7 @@ func (s *clientSession) heartbeatHandler() {
 	var (
 		hbCounter int
 		err       error
-		cfg       *WsConfig       = s.getSvrCfg()
+		cfg       *SvrConfig      = s.getSvrCfg()
 		ctx       context.Context = s.getSvcCtx()
 	)
 
@@ -175,7 +175,7 @@ func (s *clientSession) ReadMessage() ([]byte, error) {
 	var (
 		msg []byte
 		err error
-		cfg *WsConfig = s.getSvrCfg()
+		cfg *SvrConfig = s.getSvrCfg()
 	)
 
 HEARTBEAT:

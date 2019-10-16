@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -12,7 +13,7 @@ import (
 // Channel message channel
 type Channel interface {
 	// Start initialize channel and start a dispatch goroutine
-	Start() error
+	Start(context.Context) error
 	// Close close channel
 	Close() error
 	// Connect connect child channel, child channel will get dispatched data from current channel
@@ -34,6 +35,7 @@ type rspChannel struct {
 	retriveLock      sync.Mutex
 	connectLock      sync.Mutex
 
+	ctx       context.Context
 	isStarted bool
 	startOnce sync.Once
 	isClosed  bool
@@ -88,9 +90,22 @@ func (c *rspChannel) Connect(child Channel) error {
 	c.newChildChannels = append(c.newChildChannels, child)
 	c.connectLock.Unlock()
 
-	child.Start()
+	child.Start(c.ctx)
 
 	return nil
+}
+
+func (c *rspChannel) cleanup() {
+	for _, ch := range c.destinations {
+		close(ch)
+	}
+
+	for _, subChan := range c.childChannels {
+		subChan.Close()
+	}
+
+	c.isStarted = false
+	c.isClosed = true
 }
 
 func (c *rspChannel) Start() error {
@@ -110,19 +125,20 @@ func (c *rspChannel) Start() error {
 		c.isClosed = false
 
 		go func() {
-			defer func() {
-				for _, ch := range c.destinations {
-					close(ch)
-				}
+			defer c.cleanup()
 
-				for _, subChan := range c.childChannels {
-					subChan.Close()
-				}
-			}()
+			for {
+				select {
+				case <-c.ctx.Done():
+					return
+				case data := <-c.source:
+					if data == nil {
+						continue
+					}
 
-			for data := range c.source {
-				c.dispatchDistinations(data)
-				c.dispatchSubChannels(data)
+					c.dispatchDistinations(data)
+					c.dispatchSubChannels(data)
+				}
 			}
 		}()
 

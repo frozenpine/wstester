@@ -20,7 +20,7 @@ import (
 type Client interface {
 	Host() string
 	Connect(ctx context.Context) error
-	Closed() <-chan bool
+	Closed() <-chan struct{}
 	Subscribe(topics ...string)
 	UnSubscribe(topics ...string)
 	IsConnected() bool
@@ -49,7 +49,7 @@ type client struct {
 
 	rspChannelMapper map[string][]chan models.TableResponse
 
-	closeFlag chan bool
+	closeFlag chan struct{}
 	closeOnce sync.Once
 
 	SubscribedTopics map[string]*models.SubscribeResponse
@@ -240,7 +240,7 @@ func (c *client) Connect(ctx context.Context) error {
 }
 
 // Closed websocket closed notification
-func (c *client) Closed() <-chan bool {
+func (c *client) Closed() <-chan struct{} {
 	return c.closeFlag
 }
 
@@ -613,7 +613,7 @@ func NewClient(cfg *WsConfig) Client {
 	ins := client{
 		cfg:           cfg,
 		heartbeatChan: make(chan *models.HeartBeat),
-		closeFlag:     make(chan bool, 0),
+		closeFlag:     make(chan struct{}, 0),
 
 		SubscribedTopics: make(map[string]*models.SubscribeResponse),
 		rspChannelMapper: make(map[string][]chan models.TableResponse),

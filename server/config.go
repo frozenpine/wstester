@@ -10,8 +10,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// WsConfig websocket listen config
-type WsConfig struct {
+// SvrConfig websocket listen config
+type SvrConfig struct {
 	Listen       net.IP
 	Port         int
 	BaseURI      string
@@ -29,7 +29,7 @@ type WsConfig struct {
 }
 
 // ChangeListen change server listen address
-func (c *WsConfig) ChangeListen(addr string) error {
+func (c *SvrConfig) ChangeListen(addr string) error {
 	errInvalidAddr := fmt.Errorf("invalid addr: %s", addr)
 	addrTuple := strings.Split(addr, ":")
 	if len(addrTuple) != 2 {
@@ -53,21 +53,21 @@ func (c *WsConfig) ChangeListen(addr string) error {
 }
 
 // GetListenAddr get configured listen addr for server
-func (c *WsConfig) GetListenAddr() string {
+func (c *SvrConfig) GetListenAddr() string {
 	return fmt.Sprintf("%s:%d", c.Listen.String(), c.Port)
 }
 
 // GetNS get server's namespace from listen addr
-func (c *WsConfig) GetNS() uuid.UUID {
+func (c *SvrConfig) GetNS() uuid.UUID {
 	nsString := fmt.Sprintf("%v:%s", c.FrontID, c.GetListenAddr())
 	nsHash := md5.Sum([]byte(nsString))
 
 	return uuid.Must(uuid.FromBytes(nsHash[:]))
 }
 
-// NewWsConfig create a new server config
-func NewWsConfig() *WsConfig {
-	cfg := WsConfig{
+// NewSvrConfig create a new server config
+func NewSvrConfig() *SvrConfig {
+	cfg := SvrConfig{
 		Listen:       net.ParseIP("0.0.0.0"),
 		Port:         9988,
 		BaseURI:      "/realtime",

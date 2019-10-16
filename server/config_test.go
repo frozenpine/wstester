@@ -5,7 +5,7 @@ import (
 )
 
 func TestGetNS(t *testing.T) {
-	cfg := NewWsConfig()
+	cfg := NewSvrConfig()
 
 	t.Log(cfg.GetNS())
 

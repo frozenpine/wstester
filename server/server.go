@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Shopify/sarama"
 	"github.com/frozenpine/wstester/models"
 	"github.com/gorilla/websocket"
 )
@@ -40,22 +39,22 @@ type Server interface {
 	// RunForever startup and serve forever
 	RunForever(ctx context.Context) error
 	// ReloadCfg reload server config
-	ReloadCfg(*WsConfig)
+	ReloadCfg(*SvrConfig)
 }
 
 type server struct {
-	cfg      *WsConfig
+	cfg      *SvrConfig
 	ctx      context.Context
 	upgrader *websocket.Upgrader
 
 	statics serverStatics
 
-	clients     map[string]Session
-	subCaches   map[string]sarama.ConsumerGroupHandler
+	clients map[string]Session
+	// subCaches   map[string]sarama.ConsumerGroupHandler
 	pubChannels map[string]Channel
 }
 
-func (s *server) ReloadCfg(cfg *WsConfig) {
+func (s *server) ReloadCfg(cfg *SvrConfig) {
 	s.cfg = cfg
 
 	for _, client := range s.clients {
@@ -304,7 +303,10 @@ func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 //NewServer to create a websocket server
-func NewServer(cfg *WsConfig) Server {
+func NewServer(ctx context.Context, cfg *SvrConfig) Server {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	svr := server{
 		cfg: cfg,
 		upgrader: &websocket.Upgrader{
@@ -315,21 +317,21 @@ func NewServer(cfg *WsConfig) Server {
 				return true
 			},
 		},
-		statics:     serverStatics{},
-		clients:     make(map[string]Session),
-		subCaches:   make(map[string]sarama.ConsumerGroupHandler),
+		statics: serverStatics{},
+		clients: make(map[string]Session),
+		// subCaches:   make(map[string]sarama.ConsumerGroupHandler),
 		pubChannels: make(map[string]Channel),
 	}
 
-	td := NewTradeCache()
-	ins := NewInstrumentCache()
-	mbl := NewMBLCache()
+	td := NewTradeCache(ctx)
+	// ins := NewInstrumentCache()
+	// mbl := NewMBLCache()
 
 	svr.pubChannels["trade"] = td
-	svr.pubChannels["instrument"] = ins
-	svr.pubChannels["orderBookL2"] = mbl
+	// svr.pubChannels["instrument"] = ins
+	// svr.pubChannels["orderBookL2"] = mbl
 
-	svr.subCaches["trade"] = td
+	// svr.subCaches["trade"] = td
 	// svr.subCaches["instrument"] = ins
 	// svr.subCaches["orderBookL2"] = mbl
 
