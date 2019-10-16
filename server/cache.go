@@ -12,15 +12,25 @@ type Cache interface {
 	Start(context.Context) error
 	Stop() error
 	Ready() <-chan struct{}
-	TakeSnapshot(bool) []models.TableResponse
-	Append(models.TableResponse)
+	TakeSnapshot(bool) models.TableResponse
+	Append(*CacheInput)
 }
 
 // CacheInput wrapper structure for table response
 type CacheInput struct {
 	pubToChannel   bool
-	breakpointFunc func() []interface{}
-	msg            models.TableResponse
+	breakpointFunc func() models.TableResponse
+	msg            []byte
+}
+
+// NewCacheInput make a new cache input
+func NewCacheInput(msg []byte) *CacheInput {
+	cache := CacheInput{
+		pubToChannel: true,
+		msg:          msg,
+	}
+
+	return &cache
 }
 
 // IsBreakPoint to check input is a breakpoint message
@@ -37,16 +47,9 @@ type tableCache struct {
 	close     chan struct{}
 	IsClosed  bool
 	maxLength int
-}
 
-func (c *tableCache) snapshot() []interface{} {
-	log.Println("snapshot must be rewrite to func correcttly.")
-	return nil
-}
-
-func (c *tableCache) handleInput(in *CacheInput) models.TableResponse {
-	log.Println("handleInput must be rewrite to func correcttly.")
-	return nil
+	snapshotFn    func() models.TableResponse
+	handleInputFn func(*CacheInput) models.TableResponse
 }
 
 func (c *tableCache) Start(ctx context.Context) error {
@@ -76,7 +79,14 @@ func (c *tableCache) Start(ctx context.Context) error {
 				if obj == nil {
 					continue
 				}
-				rsp := c.handleInput(obj)
+
+				if c.handleInputFn == nil {
+					log.Println("handleInputFn is nil.")
+
+					continue
+				}
+
+				rsp := c.handleInputFn(obj)
 
 				if rsp != nil && obj.pubToChannel {
 					c.PublishData(rsp)
@@ -102,16 +112,22 @@ func (c *tableCache) Ready() <-chan struct{} {
 }
 
 // TakeSnapshot to get snapshot of cache, if publish is true, snapshot result will be notified in channel
-func (c *tableCache) TakeSnapshot(publish bool) []interface{} {
-	ch := make(chan []interface{}, 1)
+func (c *tableCache) TakeSnapshot(publish bool) models.TableResponse {
+	ch := make(chan models.TableResponse, 1)
 	defer func() {
 		close(ch)
 	}()
 
 	c.pipeline <- &CacheInput{
 		pubToChannel: publish,
-		breakpointFunc: func() []interface{} {
-			snap := c.snapshot()
+		breakpointFunc: func() models.TableResponse {
+			if c.snapshotFn == nil {
+				log.Println("snapshotFn is nil.")
+
+				return nil
+			}
+
+			snap := c.snapshotFn()
 
 			ch <- snap
 
@@ -122,9 +138,6 @@ func (c *tableCache) TakeSnapshot(publish bool) []interface{} {
 	return <-ch
 }
 
-func (c *tableCache) Append(msg models.TableResponse) {
-	c.pipeline <- &CacheInput{
-		pubToChannel: true,
-		msg:          msg,
-	}
+func (c *tableCache) Append(in *CacheInput) {
+	c.pipeline <- in
 }

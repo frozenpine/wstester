@@ -182,15 +182,18 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 		waitRsp := make(chan bool, 0)
 
 		// TODO: private flow subscribe
-
 		if pubChannel, chanExist = s.pubChannels[topicName]; chanExist {
-			go func() {
+			if topicName == "trade" {
+				mockTrade(pubChannel.(Cache))
+			}
+
+			go func(ch Channel) {
 				<-waitRsp
 
-				for data := range pubChannel.RetriveData() {
+				for data := range ch.RetriveData() {
 					client.WriteJSONMessage(data)
 				}
-			}()
+			}(pubChannel)
 		}
 
 		rsp := models.SubscribeResponse{
@@ -237,7 +240,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if headerSub := s.getReqSubscribe(r); headerSub != nil {
-		if subRsp := s.handleSubscribe(headerSub, clientSenssion); subRsp != nil && logLevel >= 2 {
+		if subRsp := s.handleSubscribe(headerSub, clientSenssion); subRsp != nil {
 			for _, rsp := range subRsp {
 				log.Println("->", clientSenssion.GetID(), rsp.String())
 			}
@@ -317,6 +320,7 @@ func NewServer(ctx context.Context, cfg *SvrConfig) Server {
 				return true
 			},
 		},
+		ctx:     ctx,
 		statics: serverStatics{},
 		clients: make(map[string]Session),
 		// subCaches:   make(map[string]sarama.ConsumerGroupHandler),

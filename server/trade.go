@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math/rand"
+	"strings"
+	"time"
 
-	"github.com/Shopify/sarama"
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
@@ -22,20 +24,30 @@ type TradeCache struct {
 	historyTrade []*ngerest.Trade
 }
 
-func (c *TradeCache) snapshot() []*ngerest.Trade {
+func (c *TradeCache) snapshot() models.TableResponse {
+	snap := models.NewTradePartial()
+
 	hisLen := len(c.historyTrade)
 
 	idx := utils.MinInt(c.maxLength, hisLen)
 
-	return c.historyTrade[hisLen-idx:]
+	snap.Data = c.historyTrade[hisLen-idx:]
+
+	return snap
 }
 
-func (c *TradeCache) parseData(msg *sarama.ConsumerMessage) *models.TradeResponse {
+func (c *TradeCache) handleInput(in *CacheInput) models.TableResponse {
 	rsp := models.TradeResponse{}
+	rsp.Table = "trade"
+	rsp.Action = "insert"
 
-	parsed := make(map[string]interface{})
+	parsed := ngerest.Trade{}
 
-	json.Unmarshal(msg.Value, &parsed)
+	json.Unmarshal(in.msg, &parsed)
+
+	rsp.Data = []*ngerest.Trade{&parsed}
+
+	c.applyData(&rsp)
 
 	return &rsp
 }
@@ -50,13 +62,91 @@ func (c *TradeCache) applyData(data *models.TradeResponse) {
 	}
 }
 
+func mockTrade(cache Cache) {
+	go func() {
+		ticker := time.NewTicker(time.Second)
+
+		var (
+			lastPrice         float64
+			lastTickDirection string
+			sides             = [2]string{"Buy", "Sell"}
+			sizeMax           = float32(1000.0)
+			priceMax          = 9900.0
+			priceMin          = 8100.0
+		)
+
+		for {
+			<-ticker.C
+
+			rand.Seed(time.Now().UnixNano())
+
+			for i := 0; i < rand.Intn(1000); i++ {
+
+				choice := rand.Intn(1000)
+
+				tickDirection := ""
+
+				price := priceMin + float64(choice)*0.5
+				if price > priceMax {
+					price = priceMax
+				}
+				switch {
+				case price > lastPrice:
+					tickDirection = "PlusTick"
+				case price == lastPrice:
+					if strings.Contains(lastTickDirection, "Zero") {
+						tickDirection = lastTickDirection
+					} else {
+						tickDirection = "Zero" + lastTickDirection
+					}
+				case price < lastPrice:
+					tickDirection = "MinusTick"
+				}
+
+				lastTickDirection = tickDirection
+
+				size := float32(choice)
+				if size < 1 {
+					size = 1
+				} else if size > sizeMax {
+					size = sizeMax
+				}
+
+				lastPrice = price
+
+				td := ngerest.Trade{
+					Symbol:        "XBTUSD",
+					Side:          sides[choice%2],
+					Size:          size,
+					Price:         price,
+					Timestamp:     ngerest.NGETime(time.Now()),
+					TickDirection: tickDirection,
+				}
+
+				lastPrice = td.Price
+
+				result, _ := json.Marshal(td)
+
+				cache.Append(NewCacheInput(result))
+			}
+		}
+	}()
+}
+
 // NewTradeCache make a new trade cache.
 func NewTradeCache(ctx context.Context) *TradeCache {
-	td := TradeCache{}
+	td := TradeCache{
+		tableCache: tableCache{
+			ready: make(chan struct{}),
+			close: make(chan struct{}),
+		},
+	}
 
 	if err := td.Start(ctx); err != nil {
 		log.Panicln(err)
 	}
+
+	td.handleInputFn = td.handleInput
 
 	return &td
 }

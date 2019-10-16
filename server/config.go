@@ -10,6 +10,19 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const (
+	defaultListen       = "0.0.0.0"
+	defaultPort         = 9988
+	defaultBaseURI      = "/realtime"
+	defaultSignatureURI = "/api/v1/signature"
+	defaultWelcomMsg    = "Welcome to the BTCMEX Realtime API."
+	defaultDocURI       = "https://docs.btcmex.com"
+	defaultID           = "0"
+	defaultHBInterval   = 15
+	defaultHBFail       = 3
+	isReverseHB         = false
+)
+
 // SvrConfig websocket listen config
 type SvrConfig struct {
 	Listen       net.IP
@@ -68,20 +81,20 @@ func (c *SvrConfig) GetNS() uuid.UUID {
 // NewSvrConfig create a new server config
 func NewSvrConfig() *SvrConfig {
 	cfg := SvrConfig{
-		Listen:       net.ParseIP("0.0.0.0"),
-		Port:         9988,
-		BaseURI:      "/realtime",
-		SignatureURI: "/api/v1/signature",
+		Listen:       net.ParseIP(defaultListen),
+		Port:         defaultPort,
+		BaseURI:      defaultBaseURI,
+		SignatureURI: defaultSignatureURI,
 
-		WelcomMsg: "Welcome to the BTCMEX Realtime API.",
-		DocsURI:   "https://docs.btcmex.com",
-		FrontID:   "0",
+		WelcomMsg: defaultWelcomMsg,
+		DocsURI:   defaultDocURI,
+		FrontID:   defaultID,
 
 		ConnectLimit: 40,
 
-		HeartbeatInterval:  15,
-		ReversHeartbeat:    false,
-		HeartbeatFailCount: 3,
+		HeartbeatInterval:  defaultHBInterval,
+		ReversHeartbeat:    isReverseHB,
+		HeartbeatFailCount: defaultHBFail,
 	}
 
 	return &cfg
