@@ -272,7 +272,7 @@ func main() {
 			maxLast = last
 		}
 		log.Printf(
-			"%s round connection last %v long, max connection time in history: %v.",
+			"%s round connection last %v long, max connection time in history is %v.",
 			humanReadNum(roundCount), last, maxLast,
 		)
 		roundCount++
