@@ -197,7 +197,7 @@ func main() {
 	failCount := 0
 
 	sigChan := make(chan os.Signal)
-	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, os.Interrupt, os.Kill)
 
 	running := true
 
