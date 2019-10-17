@@ -13,6 +13,21 @@ type MBLResponse struct {
 	Data []*ngerest.OrderBookL2 `json:"data"`
 }
 
+// NewMBLPartial make a new mbl partial response
+func NewMBLPartial() *MBLResponse {
+	partial := MBLResponse{}
+
+	partial.Table = "orderBookL2"
+	partial.Action = PartialAction
+	partial.Keys = []string{}
+	partial.Types = make(map[string]string)
+	partial.ForeignKeys = make(map[string]string)
+	partial.Attributes = make(map[string]string)
+	partial.Filter = make(map[string]string)
+
+	return &partial
+}
+
 // String get structure's string format
 func (mbl *MBLResponse) String() string {
 	result, _ := json.Marshal(mbl)

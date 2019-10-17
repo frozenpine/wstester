@@ -49,8 +49,7 @@ type server struct {
 
 	statics serverStatics
 
-	clients map[string]Session
-	// subCaches   map[string]sarama.ConsumerGroupHandler
+	clients     map[string]Session
 	pubChannels map[string]Channel
 }
 
@@ -341,14 +340,14 @@ func NewServer(ctx context.Context, cfg *SvrConfig) Server {
 
 	td := NewTradeCache(ctx)
 	// ins := NewInstrumentCache()
-	// mbl := NewMBLCache()
+	mbl := NewMBLCache(ctx)
 
 	svr.pubChannels["trade"] = td
 	// FIXME: mock的临时方案
 	mockTrade(td)
 
 	// svr.pubChannels["instrument"] = ins
-	// svr.pubChannels["orderBookL2"] = mbl
+	svr.pubChannels["orderBookL2"] = mbl
 
 	// svr.subCaches["trade"] = td
 	// svr.subCaches["instrument"] = ins

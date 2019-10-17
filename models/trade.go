@@ -16,6 +16,7 @@ type TradeResponse struct {
 // NewTradePartial make a new trade partial response
 func NewTradePartial() *TradeResponse {
 	partial := TradeResponse{}
+
 	partial.Table = "trade"
 	partial.Action = PartialAction
 	partial.Keys = []string{}

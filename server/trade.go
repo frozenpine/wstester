@@ -42,6 +42,7 @@ func (c *TradeCache) handleInput(in *CacheInput) models.TableResponse {
 	if in.IsBreakPoint() {
 		rsp = in.breakpointFunc()
 	} else {
+		// FIXME: real sub flow handle
 		td := models.TradeResponse{}
 		td.Table = "trade"
 		td.Action = "insert"
@@ -149,13 +150,12 @@ func NewTradeCache(ctx context.Context) *TradeCache {
 	td.destinations = make(map[Session]chan models.Response)
 	td.ready = make(chan struct{})
 	td.maxLength = defaultTradeLen
+	td.handleInputFn = td.handleInput
+	td.snapshotFn = td.snapshot
 
 	if err := td.Start(ctx); err != nil {
 		log.Panicln(err)
 	}
-
-	td.handleInputFn = td.handleInput
-	td.snapshotFn = td.snapshot
 
 	return &td
 }
