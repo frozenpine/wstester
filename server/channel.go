@@ -119,7 +119,7 @@ func (c *rspChannel) Start() error {
 
 	c.startOnce.Do(func() {
 		if c.source == nil {
-			c.source = make(chan models.Response)
+			c.source = make(chan models.Response, 1000)
 		}
 
 		c.isClosed = false
