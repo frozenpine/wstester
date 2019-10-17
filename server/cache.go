@@ -19,7 +19,7 @@ type Cache interface {
 
 // CacheInput wrapper structure for table response
 type CacheInput struct {
-	pubToChannel   bool
+	PubToChannel   bool
 	breakpointFunc func() models.TableResponse
 	msg            []byte
 }
@@ -32,7 +32,7 @@ func (in *CacheInput) IsBreakPoint() bool {
 // NewCacheInput make a new cache input
 func NewCacheInput(msg []byte) *CacheInput {
 	cache := CacheInput{
-		pubToChannel: true,
+		PubToChannel: true,
 		msg:          msg,
 	}
 
@@ -87,7 +87,7 @@ func (c *tableCache) Start(ctx context.Context) error {
 
 				rsp := c.handleInputFn(obj)
 
-				if rsp != nil && obj.pubToChannel {
+				if rsp != nil && obj.PubToChannel {
 					c.PublishData(rsp)
 				}
 			}
@@ -115,7 +115,7 @@ func (c *tableCache) TakeSnapshot(publish bool) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
 
 	c.pipeline <- &CacheInput{
-		pubToChannel: publish,
+		PubToChannel: publish,
 		breakpointFunc: func() models.TableResponse {
 			if c.snapshotFn == nil {
 				log.Panicln("snapshotFn is nil.")

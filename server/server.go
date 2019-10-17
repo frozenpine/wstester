@@ -78,9 +78,10 @@ func (s *server) RunForever(ctx context.Context) error {
 }
 
 func (s *server) incClients(conn *websocket.Conn) Session {
-	session := NewSession(conn, s)
+	session := NewSession(s.ctx, conn, s)
 	if err := session.Welcome(); err != nil {
 		log.Println(err)
+		session.Close(-1, "Send welcom message failed.")
 
 		return nil
 	}
@@ -202,7 +203,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 						partialSend = true
 					}
 
-					client.WriteJSONMessage(data)
+					client.WriteJSONMessage(data, false)
 				}
 			}(pubChannel)
 		}
@@ -214,7 +215,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 		}
 
 		rspList = append(rspList, &rsp)
-		client.WriteJSONMessage(&rsp)
+		client.WriteJSONMessage(&rsp, false)
 
 		close(waitRsp)
 	}

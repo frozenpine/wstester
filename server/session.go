@@ -35,12 +35,18 @@ type Session interface {
 	// ReadMessage receive message from client session
 	ReadMessage() ([]byte, error)
 	// WriteTextMessage send text message to client
-	WriteTextMessage(string) error
+	WriteTextMessage(string, bool) error
 	// WriteJSONMessage send json object to client
-	WriteJSONMessage(interface{}) error
+	WriteJSONMessage(interface{}, bool) error
 
 	// ReloadCfg reload server configurations
 	ReloadCfg()
+}
+
+type message struct {
+	json    interface{}
+	txt     string
+	errChan chan error
 }
 
 type clientSession struct {
@@ -50,7 +56,10 @@ type clientSession struct {
 	accountID string
 
 	conn      *websocket.Conn
+	sendChan  chan *message
 	closeOnce sync.Once
+	ctx       context.Context
+	cancelFn  context.CancelFunc
 
 	hbChan         chan *models.HeartBeat
 	heartbeatTimer *time.Timer
@@ -67,7 +76,7 @@ func (s *clientSession) Welcome() error {
 		SessionID: s.GetID(),
 	}
 
-	return s.WriteJSONMessage(&info)
+	return s.WriteJSONMessage(&info, true)
 }
 
 func (s *clientSession) GetID() string {
@@ -80,7 +89,7 @@ func (s *clientSession) Close(code int, reason string) error {
 	}
 
 	s.closeOnce.Do(func() {
-		// TODO: 清理session中的其他goroutine
+		s.cancelFn()
 		s.conn.Close()
 	})
 
@@ -106,22 +115,23 @@ func (s *clientSession) getSvcCtx() context.Context {
 	return s.svr.ctx
 }
 
-func (s *clientSession) heartbeatHandler() {
+func (s *clientSession) heartbeatLoop() {
 	var (
 		hbCounter int
 		err       error
-		cfg       *SvrConfig      = s.getSvrCfg()
-		ctx       context.Context = s.getSvcCtx()
+		cfg       *SvrConfig = s.getSvrCfg()
 	)
 
 	if cfg.ReversHeartbeat {
 		go func() {
+			ticker := time.NewTicker(time.Second * time.Duration(cfg.HeartbeatInterval))
+
 			for {
 				select {
-				case <-ctx.Done():
-					s.Close(0, "Server exit.")
+				case <-s.ctx.Done():
+					ticker.Stop()
 					return
-				case <-time.NewTicker(time.Second * time.Duration(cfg.HeartbeatInterval)).C:
+				case <-ticker.C:
 					s.hbChan <- models.NewPing()
 				}
 			}
@@ -132,7 +142,8 @@ func (s *clientSession) heartbeatHandler() {
 		go func() {
 			for {
 				select {
-				case <-ctx.Done():
+				case <-s.ctx.Done():
+					s.heartbeatTimer.Stop()
 					return
 				case <-s.heartbeatTimer.C:
 					s.Close(-1, "Receive data timeout.")
@@ -145,13 +156,13 @@ func (s *clientSession) heartbeatHandler() {
 		switch hb.Type() {
 		case "Ping":
 			if cfg.ReversHeartbeat {
-				if err = s.WriteTextMessage("ping"); err != nil {
+				if err = s.WriteTextMessage("ping", true); err != nil {
 					s.Close(-1, fmt.Sprintf("Send heatbeat to client session[%s] failed.", s.GetID()))
 					return
 				}
 				hbCounter += hb.Value()
 			} else {
-				if err = s.WriteTextMessage("pong"); err != nil {
+				if err = s.WriteTextMessage("pong", true); err != nil {
 					s.Close(-1, fmt.Sprintf("Send heatbeat to client session[%s] failed.", s.GetID()))
 					return
 				}
@@ -204,30 +215,91 @@ HEARTBEAT:
 	return msg, err
 }
 
-func (s *clientSession) WriteTextMessage(msg string) error {
-	return s.conn.WriteMessage(websocket.TextMessage, []byte(msg))
+func (s *clientSession) WriteTextMessage(txt string, sync bool) (err error) {
+	msg := message{txt: txt}
+
+	if sync {
+		msg.errChan = make(chan error, 1)
+
+		defer func() {
+			err = <-msg.errChan
+		}()
+	}
+
+	s.sendChan <- &msg
+
+	return
 }
 
-func (s *clientSession) WriteJSONMessage(obj interface{}) error {
-	return s.conn.WriteJSON(obj)
+func (s *clientSession) WriteJSONMessage(obj interface{}, sync bool) (err error) {
+	msg := message{json: obj}
+
+	if sync {
+		msg.errChan = make(chan error, 1)
+
+		defer func() {
+			err = <-msg.errChan
+		}()
+	}
+
+	s.sendChan <- &msg
+
+	return
 }
 
 func (s *clientSession) ReloadCfg() {
 	// TODO: session's configuration reload
 }
 
+func (s *clientSession) sendMessageLoop() {
+	var err error
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case msg := <-s.sendChan:
+			if msg == nil {
+				continue
+			}
+
+			if msg.json != nil {
+				err = s.conn.WriteJSON(msg.json)
+			} else if msg.txt != "" {
+				err = s.conn.WriteMessage(websocket.TextMessage, []byte(msg.txt))
+			}
+
+			if msg.errChan != nil {
+				msg.errChan <- err
+			}
+
+			if err != nil {
+				s.Close(-1, err.Error())
+			}
+		}
+	}
+}
+
 // NewSession create client session from webosocket conn
-func NewSession(conn *websocket.Conn, svr *server) Session {
+func NewSession(ctx context.Context, conn *websocket.Conn, svr *server) Session {
 	sessionID := uuid.NewV3(svr.cfg.GetNS(), conn.UnderlyingConn().RemoteAddr().String())
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	session := clientSession{
 		svr:       svr,
 		conn:      conn,
 		sessionID: sessionID,
 		hbChan:    make(chan *models.HeartBeat),
+		sendChan:  make(chan *message),
 	}
 
-	go session.heartbeatHandler()
+	session.ctx, session.cancelFn = context.WithCancel(ctx)
+
+	go session.heartbeatLoop()
+	go session.sendMessageLoop()
 
 	return &session
 }
