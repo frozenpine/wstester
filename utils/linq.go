@@ -467,13 +467,17 @@ func parseCondition(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 
 // ParseSQL parse table, column & conditions from SQL
 func ParseSQL(sql string) (map[string]*TableDef, error) {
+	tables := make(map[string]*TableDef)
+
+	if sql == "" {
+		return tables, nil
+	}
+
 	stmt, err := sqlparser.Parse(sql)
 
 	if err != nil {
 		return nil, err
 	}
-
-	tables := make(map[string]*TableDef)
 
 	for _, sel := range parseUnion(stmt) {
 		tblDefine, err := parseTable(sel)
