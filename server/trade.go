@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -78,18 +79,21 @@ func mockTrade(cache Cache) {
 		var (
 			lastPrice         float64
 			lastTickDirection string
-			sides             = [2]string{"Buy", "Sell"}
-			sizeMax           = float32(1000.0)
-			priceMax          = 9900.0
-			priceMin          = 8100.0
+			sides                     = [2]string{"Buy", "Sell"}
+			sizeMax                   = float32(1000.0)
+			priceMax                  = 9900.0
+			priceMin                  = 8100.0
+			hisMaxRate        float64 = 0.0
 		)
 
 		for {
 			<-ticker.C
 
-			rand.Seed(time.Now().UnixNano())
+			start := time.Now()
+			rand.Seed(start.UnixNano())
+			count := rand.Intn(1000)
 
-			for i := 0; i < rand.Intn(1000); i++ {
+			for i := 0; i < count; i++ {
 
 				choice := rand.Intn(1000)
 
@@ -138,6 +142,14 @@ func mockTrade(cache Cache) {
 
 				cache.Append(NewCacheInput(result))
 			}
+
+			elasped := time.Now().Sub(start).Nanoseconds()
+			rate := float64(count) * 1000.0 / float64(elasped/1000)
+			if rate > hisMaxRate && !math.IsInf(rate, 1) {
+				hisMaxRate = rate
+			}
+
+			log.Printf("Mock trade send rate: %.2f rps, history max rate: %.2f rps\n", rate, hisMaxRate)
 		}
 	}()
 }
