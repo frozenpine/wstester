@@ -54,11 +54,8 @@ type server struct {
 }
 
 func (s *server) ReloadCfg(cfg *SvrConfig) {
-	s.cfg = cfg
-
-	for _, client := range s.clients {
-		client.ReloadCfg()
-	}
+	// TODO: 确认是否为值拷贝
+	*s.cfg = *cfg
 }
 
 func (s *server) RunForever(ctx context.Context) error {
@@ -76,8 +73,11 @@ func (s *server) RunForever(ctx context.Context) error {
 	return err
 }
 
-func (s *server) incClients(conn *websocket.Conn) Session {
-	session := NewSession(s.ctx, conn, s)
+func (s *server) incClients(conn *websocket.Conn, req *http.Request) Session {
+	clientCtx := context.WithValue(s.ctx, SvrConfigKey, s.cfg)
+
+	session := NewSession(clientCtx, conn, req)
+
 	if err := session.Welcome(); err != nil {
 		log.Println(err)
 		session.Close(-1, "Send welcom message failed.")
@@ -87,6 +87,7 @@ func (s *server) incClients(conn *websocket.Conn) Session {
 
 	s.clients[session.GetID()] = session
 	atomic.AddInt64(&s.statics.Clients, 1)
+	log.Printf("Client session[%s] connected from: %s.\n", session.GetID(), session.GetAddr().String())
 
 	return session
 }
@@ -111,6 +112,8 @@ func (s *server) decClients(session interface{}) {
 
 	delete(s.clients, client.GetID())
 	atomic.AddInt64(&s.statics.Clients, -1)
+
+	log.Printf("Client session[%s] disconnected.\n", client.GetID())
 }
 
 func (s *server) getReqAuth(r *http.Request) error {
@@ -135,7 +138,7 @@ func (s *server) getReqAuth(r *http.Request) error {
 	return nil
 }
 
-func (s *server) getReqSubscribe(r *http.Request) *models.OperationRequest {
+func (s *server) getReqSubscribe(r *http.Request, c Session) *models.OperationRequest {
 	query := r.URL.Query()
 
 	if topicStrList, exist := query["subscribe"]; exist {
@@ -146,7 +149,7 @@ func (s *server) getReqSubscribe(r *http.Request) *models.OperationRequest {
 			op.Args = append(op.Args, strings.Split(topicStr, ",")...)
 		}
 
-		log.Println("Request subscirbe:", op.String())
+		log.Printf("Client session[%s] request subscirbe:%s\n", c.GetID(), op.String())
 
 		return &op
 	}
@@ -239,7 +242,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 	}
 
-	clientSenssion := s.incClients(conn)
+	clientSenssion := s.incClients(conn, r)
 	defer func() {
 		s.decClients(clientSenssion)
 	}()
@@ -250,10 +253,10 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 		rspList []models.Response
 	)
 
-	if headerSub := s.getReqSubscribe(r); headerSub != nil {
+	if headerSub := s.getReqSubscribe(r, clientSenssion); headerSub != nil {
 		if subRsp := s.handleSubscribe(headerSub, clientSenssion); subRsp != nil {
 			for _, rsp := range subRsp {
-				log.Println("->", clientSenssion.GetID(), rsp.String())
+				log.Printf("-> [%s] %s\n", clientSenssion.GetID(), rsp.String())
 			}
 		}
 	}
@@ -282,10 +285,14 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 
 			switch req.GetOperation() {
 			case "subscribe":
+				log.Printf("Client session[%s] operation subscribe: %s\n", clientSenssion.GetID(), req.String())
+
 				if subRsp := s.handleSubscribe(req, clientSenssion); subRsp != nil {
 					rspList = append(rspList, subRsp...)
 				}
 			case "auth":
+				log.Printf("Client session[%s] operation auth: %s\n", clientSenssion.GetID(), req.String())
+
 				if authRsp := s.handleAuth(req, clientSenssion); authRsp != nil {
 					rspList = append(rspList, authRsp)
 				}

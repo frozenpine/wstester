@@ -10,6 +10,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// SvrContextKey context key for server
+type SvrContextKey string
+
 const (
 	defaultListen       = "0.0.0.0"
 	defaultPort         = 9988
@@ -21,6 +24,9 @@ const (
 	defaultHBInterval   = 15
 	defaultHBFail       = 3
 	isReverseHB         = false
+
+	// SvrConfigKey context key for SvrConfig
+	SvrConfigKey = SvrContextKey("config")
 )
 
 // SvrConfig websocket listen config
