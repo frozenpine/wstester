@@ -188,7 +188,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 				<-waitRsp
 
 				cache := ch.(Cache)
-				dataChan := ch.RetriveData()
+				dataChan := ch.RetriveData(client)
 
 				partialSend := false
 

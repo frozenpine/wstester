@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
@@ -13,27 +14,26 @@ import (
 // Channel message channel
 type Channel interface {
 	// Start initialize channel and start a dispatch goroutine
-	Start(context.Context) error
+	Start(ctx context.Context) error
 	// Close close channel
 	Close() error
 	// Connect connect child channel, child channel will get dispatched data from current channel
-	Connect(Channel) error
+	Connect(subChan Channel) error
 
 	// PublishData publish data to current channel
-	PublishData(models.Response) error
+	PublishData(rsp models.Response) error
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData() <-chan models.Response
+	RetriveData(client Session) <-chan models.Response
 }
 
 type rspChannel struct {
 	source chan models.Response
 
-	destinations     []chan models.Response
-	newDestinations  []chan models.Response
+	destinations     map[Session]chan models.Response
 	childChannels    []Channel
 	newChildChannels []Channel
-	retriveLock      sync.Mutex
-	connectLock      sync.Mutex
+	retriveLock      sync.RWMutex
+	connectLock      sync.RWMutex
 
 	ctx       context.Context
 	isStarted bool
@@ -56,7 +56,7 @@ func (c *rspChannel) PublishData(data models.Response) error {
 	return nil
 }
 
-func (c *rspChannel) RetriveData() <-chan models.Response {
+func (c *rspChannel) RetriveData(client Session) <-chan models.Response {
 	if c.isClosed {
 		ch := make(chan models.Response, 0)
 		close(ch)
@@ -68,10 +68,10 @@ func (c *rspChannel) RetriveData() <-chan models.Response {
 		c.Start()
 	}
 
-	ch := make(chan models.Response)
+	ch := make(chan models.Response, 1000)
 
 	c.retriveLock.Lock()
-	c.newDestinations = append(c.newDestinations, ch)
+	c.destinations[client] = ch
 	c.retriveLock.Unlock()
 
 	return ch
@@ -130,6 +130,7 @@ func (c *rspChannel) Start() error {
 			for {
 				select {
 				case <-c.ctx.Done():
+					log.Println("channel closed.")
 					return
 				case data := <-c.source:
 					if data == nil {
@@ -168,48 +169,35 @@ func (c *rspChannel) Close() error {
 	return nil
 }
 
-func (c *rspChannel) mergeNewDest() {
-	c.retriveLock.Lock()
-	defer func() {
-		c.retriveLock.Unlock()
-	}()
-
-	if len(c.newDestinations) > 0 {
-		c.destinations = append(c.destinations, c.newDestinations...)
-
-		c.newDestinations = c.newDestinations[len(c.newDestinations):]
-	}
-}
-
 func (c *rspChannel) dispatchDistinations(data models.Response) {
-	var invalidDest []int
+	var invalidDest []Session
 
-	c.mergeNewDest()
+	writeTimeout := time.NewTimer(time.Second * 5)
 
-	for idx, dest := range c.destinations {
-		if dest == nil {
-			invalidDest = append(invalidDest, idx)
-			continue
+	c.retriveLock.RLock()
+	for client, dest := range c.destinations {
+		if client.IsClosed() {
+			invalidDest = append(invalidDest, client)
 		}
 
-		dest <- data
-	}
-
-	if len(invalidDest) > 0 {
-		tmpSlice := make([]interface{}, len(c.destinations))
-
-		for idx, ele := range c.destinations {
-			tmpSlice[idx] = ele
-		}
-
-		tmpSlice = utils.RangeSlice(tmpSlice, invalidDest)
-
-		c.destinations = make([]chan models.Response, len(tmpSlice))
-
-		for idx, ele := range tmpSlice {
-			c.destinations[idx] = ele.(chan models.Response)
+		select {
+		case dest <- data:
+			writeTimeout.Reset(time.Second * 5)
+		case <-writeTimeout.C:
+			invalidDest = append(invalidDest, client)
+			writeTimeout = time.NewTimer(time.Second * 5)
+			log.Printf("Dispatch data to client[%s] timeout.", client.GetID())
 		}
 	}
+	c.retriveLock.RUnlock()
+
+	writeTimeout.Stop()
+
+	c.retriveLock.Lock()
+	for _, closedClient := range invalidDest {
+		delete(c.destinations, closedClient)
+	}
+	c.retriveLock.Unlock()
 }
 
 func (c *rspChannel) mergeNewSubChannel() {

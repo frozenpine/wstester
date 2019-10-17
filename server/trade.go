@@ -143,13 +143,12 @@ func mockTrade(cache Cache) {
 
 // NewTradeCache make a new trade cache.
 func NewTradeCache(ctx context.Context) *TradeCache {
-	td := TradeCache{
-		tableCache: tableCache{
-			ready:     make(chan struct{}),
-			close:     make(chan struct{}),
-			maxLength: defaultTradeLen,
-		},
-	}
+	td := TradeCache{}
+
+	td.pipeline = make(chan *CacheInput, 1000)
+	td.destinations = make(map[Session]chan models.Response)
+	td.ready = make(chan struct{})
+	td.maxLength = defaultTradeLen
 
 	if err := td.Start(ctx); err != nil {
 		log.Panicln(err)

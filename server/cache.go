@@ -9,12 +9,16 @@ import (
 
 // Cache cache for table response
 type Cache interface {
-	Start(context.Context) error
+	// Start start cache backgroud loop
+	Start(ctx context.Context) error
+	// Stop stop cache backgroud loop
 	Stop() error
+	// Ready wait for cache ready
 	Ready() <-chan struct{}
 	// TakeSnapshot take snapshot for cache, bool arg means wether publish snapshot in channel.
-	TakeSnapshot(bool) models.TableResponse
-	Append(*CacheInput)
+	TakeSnapshot(publish bool) models.TableResponse
+	// Append append data to cache
+	Append(in *CacheInput)
 }
 
 // CacheInput wrapper structure for table response
@@ -45,7 +49,6 @@ type tableCache struct {
 	pipeline  chan *CacheInput
 	ready     chan struct{}
 	IsReady   bool
-	close     chan struct{}
 	IsClosed  bool
 	maxLength int
 
@@ -61,7 +64,7 @@ func (c *tableCache) Start(ctx context.Context) error {
 	c.ctx = ctx
 
 	if c.pipeline == nil {
-		c.pipeline = make(chan *CacheInput)
+		c.pipeline = make(chan *CacheInput, 1000)
 	}
 
 	go func() {
@@ -73,8 +76,6 @@ func (c *tableCache) Start(ctx context.Context) error {
 		for {
 			select {
 			case <-c.ctx.Done():
-				return
-			case <-c.close:
 				return
 			case obj := <-c.pipeline:
 				if obj == nil {
@@ -102,7 +103,6 @@ func (c *tableCache) Start(ctx context.Context) error {
 }
 
 func (c *tableCache) Stop() error {
-	close(c.close)
 	return nil
 }
 
@@ -124,6 +124,7 @@ func (c *tableCache) TakeSnapshot(publish bool) models.TableResponse {
 			snap := c.snapshotFn()
 
 			ch <- snap
+			close(ch)
 
 			return snap
 		},

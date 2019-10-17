@@ -21,6 +21,8 @@ var (
 
 // Session interface interactive with client session
 type Session interface {
+	// IsClosed session is closed.
+	IsClosed() bool
 	// Welcome send welcome message to client
 	Welcome() error
 	// GetID to get session's unique id
@@ -57,12 +59,17 @@ type clientSession struct {
 
 	conn      *websocket.Conn
 	sendChan  chan *message
+	isClosed  bool
 	closeOnce sync.Once
 	ctx       context.Context
 	cancelFn  context.CancelFunc
 
 	hbChan         chan *models.HeartBeat
 	heartbeatTimer *time.Timer
+}
+
+func (s *clientSession) IsClosed() bool {
+	return s.isClosed
 }
 
 func (s *clientSession) Welcome() error {
@@ -89,6 +96,7 @@ func (s *clientSession) Close(code int, reason string) error {
 	}
 
 	s.closeOnce.Do(func() {
+		s.isClosed = true
 		s.cancelFn()
 		s.conn.Close()
 	})
@@ -260,7 +268,7 @@ func (s *clientSession) sendMessageLoop() {
 			return
 		case msg := <-s.sendChan:
 			if msg == nil {
-				continue
+				return
 			}
 
 			if msg.json != nil {
