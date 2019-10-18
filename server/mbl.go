@@ -25,10 +25,6 @@ type MBLCache struct {
 }
 
 func (c *MBLCache) snapshot(depth int) models.TableResponse {
-	if depth < 0 {
-		depth = 0
-	}
-
 	snap := models.NewMBLPartial()
 
 	dataList := make([]*ngerest.OrderBookL2, len(c.orderCache))
@@ -39,7 +35,14 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 	}
 	sort.Sort(sort.Reverse(sort.Float64Slice(priceList)))
 
-	priceList = priceList[c.sellCount-utils.MinInt(c.sellCount, depth) : c.sellCount+utils.MinInt(c.buyCount, depth)]
+	sellStart := c.sellCount - utils.MinInt(c.sellCount, depth)
+	buyEnd := c.sellCount + utils.MinInt(c.buyCount, depth)
+	if depth <= 0 {
+		sellStart = 0
+		buyEnd = c.sellCount + c.buyCount
+	}
+
+	priceList = priceList[sellStart:buyEnd]
 
 	for idx, price := range priceList {
 		dataList[idx] = c.orderCache[price]

@@ -26,6 +26,10 @@ type TradeCache struct {
 }
 
 func (c *TradeCache) snapshot(depth int) models.TableResponse {
+	if depth <= 0 {
+		depth = c.maxLength
+	}
+
 	snap := models.NewTradePartial()
 
 	hisLen := len(c.historyTrade)

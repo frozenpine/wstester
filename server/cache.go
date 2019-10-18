@@ -11,15 +11,20 @@ import (
 
 // Cache cache for table response
 type Cache interface {
-	// Start start cache backgroud loop
+	// Start start cache backgroud loop.
 	Start(ctx context.Context) error
-	// Stop stop cache backgroud loop
+	// Stop stop cache backgroud loop.
 	Stop() error
-	// Ready wait for cache ready
+	// Ready wait for cache ready.
 	Ready() <-chan struct{}
-	// TakeSnapshot take snapshot for cache, bool arg means wether publish snapshot in channel.
+	// TakeSnapshot take snapshot for cache,
+	// depth <= 0 means all available depth level,
+	// publish means wether publish snapshot in channel,
+	// this is an async to sync operation, snapshot operation queued in cache pipeline and
+	// return util queued operation finished.
 	TakeSnapshot(depth int, publish bool) models.TableResponse
 	// Append append data to cache
+	// this is an async operation if cache pipeline not full.
 	Append(in *CacheInput)
 }
 
@@ -53,6 +58,7 @@ type tableCache struct {
 	startOnce sync.Once
 	IsReady   bool
 	IsClosed  bool
+	stopOnce  sync.Once
 	maxLength int
 
 	snapshotFn    func(int) models.TableResponse
@@ -111,9 +117,9 @@ func (c *tableCache) Start(ctx context.Context) error {
 			}
 		}()
 
+		close(c.ready)
 		c.IsReady = true
 		c.IsClosed = false
-		close(c.ready)
 
 		if !c.rspChannel.isStarted {
 			c.rspChannel.Start()
@@ -124,6 +130,23 @@ func (c *tableCache) Start(ctx context.Context) error {
 }
 
 func (c *tableCache) Stop() error {
+	if c.IsClosed == true {
+		return errors.New("cache is already stopped")
+	}
+	if c.IsReady == false {
+		return errors.New("cache is not ready")
+	}
+
+	c.stopOnce.Do(func() {
+		c.IsClosed = true
+		c.IsReady = false
+		close(c.pipeline)
+
+		if !c.rspChannel.isClosed {
+			c.rspChannel.Close()
+		}
+	})
+
 	return nil
 }
 
@@ -131,7 +154,6 @@ func (c *tableCache) Ready() <-chan struct{} {
 	return c.ready
 }
 
-// TakeSnapshot to get snapshot of cache, if publish is true, snapshot result will be notified in channel
 func (c *tableCache) TakeSnapshot(depth int, publish bool) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
 
