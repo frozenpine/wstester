@@ -33,7 +33,7 @@ type Client interface {
 }
 
 type client struct {
-	cfg         *WsConfig
+	cfg         *Config
 	ws          *websocket.Conn
 	connected   bool
 	authencated bool
@@ -609,7 +609,7 @@ func (c *client) messageHandler() {
 }
 
 // NewClient create a new mock client instance
-func NewClient(cfg *WsConfig) Client {
+func NewClient(cfg *Config) Client {
 	ins := client{
 		cfg:           cfg,
 		heartbeatChan: make(chan *models.HeartBeat),

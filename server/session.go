@@ -53,7 +53,7 @@ type message struct {
 }
 
 type clientSession struct {
-	cfg       *SvrConfig
+	cfg       *Config
 	sessionID uuid.UUID
 	clientID  string
 	accountID string
@@ -282,7 +282,7 @@ func (c *clientSession) sendMessageLoop() {
 
 // NewSession create client session from webosocket conn
 func NewSession(ctx context.Context, conn *websocket.Conn, req *http.Request) Session {
-	cfg := ctx.Value(SvrConfigKey).(*SvrConfig)
+	cfg := ctx.Value(SvrConfigKey).(*Config)
 	// TODO: get real addr x-forwared-for from upgrade request.
 	sessionID := uuid.NewV3(cfg.GetNS(), conn.RemoteAddr().String())
 

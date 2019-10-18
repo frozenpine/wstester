@@ -29,8 +29,8 @@ type APIKeyAuth struct {
 	AuthURI string
 }
 
-// WsConfig configuration for websocket
-type WsConfig struct {
+// Config configuration for websocket
+type Config struct {
 	Symbol             string
 	Scheme             string
 	Host               string
@@ -42,7 +42,7 @@ type WsConfig struct {
 }
 
 // ChangeHost change configuration's host
-func (c *WsConfig) ChangeHost(host string) error {
+func (c *Config) ChangeHost(host string) error {
 	result, err := url.Parse(host)
 
 	if err != nil {
@@ -65,7 +65,7 @@ func (c *WsConfig) ChangeHost(host string) error {
 }
 
 // GetURL to convert confiuration to URL instance
-func (c *WsConfig) GetURL() *url.URL {
+func (c *Config) GetURL() *url.URL {
 	remote := url.URL{
 		Scheme: c.Scheme,
 		Host:   c.Host,
@@ -76,8 +76,8 @@ func (c *WsConfig) GetURL() *url.URL {
 }
 
 // NewConfig to make a default new config
-func NewConfig() *WsConfig {
-	cfg := WsConfig{
+func NewConfig() *Config {
+	cfg := Config{
 		Symbol:             "XBTUSD",
 		Scheme:             "wss",
 		Host:               "www.btcmex.com",

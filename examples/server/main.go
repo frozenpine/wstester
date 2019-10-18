@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	cfg := server.NewSvrConfig()
+	cfg := server.NewConfig()
 
 	svr := server.NewServer(nil, cfg)
 

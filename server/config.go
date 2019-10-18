@@ -29,8 +29,8 @@ const (
 	SvrConfigKey = SvrContextKey("config")
 )
 
-// SvrConfig websocket listen config
-type SvrConfig struct {
+// Config websocket listen config
+type Config struct {
 	Listen       net.IP
 	Port         int
 	BaseURI      string
@@ -48,7 +48,7 @@ type SvrConfig struct {
 }
 
 // ChangeListen change server listen address
-func (c *SvrConfig) ChangeListen(addr string) error {
+func (c *Config) ChangeListen(addr string) error {
 	errInvalidAddr := fmt.Errorf("invalid addr: %s", addr)
 	addrTuple := strings.Split(addr, ":")
 	if len(addrTuple) != 2 {
@@ -72,21 +72,21 @@ func (c *SvrConfig) ChangeListen(addr string) error {
 }
 
 // GetListenAddr get configured listen addr for server
-func (c *SvrConfig) GetListenAddr() string {
+func (c *Config) GetListenAddr() string {
 	return fmt.Sprintf("%s:%d", c.Listen.String(), c.Port)
 }
 
 // GetNS get server's namespace from listen addr
-func (c *SvrConfig) GetNS() uuid.UUID {
+func (c *Config) GetNS() uuid.UUID {
 	nsString := fmt.Sprintf("%v:%s", c.FrontID, c.GetListenAddr())
 	nsHash := md5.Sum([]byte(nsString))
 
 	return uuid.Must(uuid.FromBytes(nsHash[:]))
 }
 
-// NewSvrConfig create a new server config
-func NewSvrConfig() *SvrConfig {
-	cfg := SvrConfig{
+// NewConfig create a new server config
+func NewConfig() *Config {
+	cfg := Config{
 		Listen:       net.ParseIP(defaultListen),
 		Port:         defaultPort,
 		BaseURI:      defaultBaseURI,

@@ -39,11 +39,11 @@ type Server interface {
 	// RunForever startup and serve forever
 	RunForever(ctx context.Context) error
 	// ReloadCfg reload server config
-	ReloadCfg(*SvrConfig)
+	ReloadCfg(*Config)
 }
 
 type server struct {
-	cfg      *SvrConfig
+	cfg      *Config
 	ctx      context.Context
 	upgrader *websocket.Upgrader
 
@@ -53,7 +53,7 @@ type server struct {
 	pubChannels map[string]Channel
 }
 
-func (s *server) ReloadCfg(cfg *SvrConfig) {
+func (s *server) ReloadCfg(cfg *Config) {
 	// TODO: 确认是否为值拷贝
 	*s.cfg = *cfg
 }
@@ -324,7 +324,7 @@ func (s *server) statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 //NewServer to create a websocket server
-func NewServer(ctx context.Context, cfg *SvrConfig) Server {
+func NewServer(ctx context.Context, cfg *Config) Server {
 	if ctx == nil {
 		ctx = context.Background()
 	}
