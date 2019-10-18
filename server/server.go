@@ -194,7 +194,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 				partialSend := false
 
-				cache.TakeSnapshot(true)
+				cache.TakeSnapshot(0, true)
 
 				for data := range dataChan {
 					if data.IsPartialResponse() {

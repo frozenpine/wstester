@@ -25,12 +25,12 @@ type TradeCache struct {
 	historyTrade []*ngerest.Trade
 }
 
-func (c *TradeCache) snapshot() models.TableResponse {
+func (c *TradeCache) snapshot(depth int) models.TableResponse {
 	snap := models.NewTradePartial()
 
 	hisLen := len(c.historyTrade)
 
-	trimLen := utils.MinInt(c.maxLength, hisLen)
+	trimLen := utils.MinInt(c.maxLength, hisLen, depth)
 
 	snap.Data = c.historyTrade[hisLen-trimLen:]
 

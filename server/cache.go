@@ -18,7 +18,7 @@ type Cache interface {
 	// Ready wait for cache ready
 	Ready() <-chan struct{}
 	// TakeSnapshot take snapshot for cache, bool arg means wether publish snapshot in channel.
-	TakeSnapshot(publish bool) models.TableResponse
+	TakeSnapshot(depth int, publish bool) models.TableResponse
 	// Append append data to cache
 	Append(in *CacheInput)
 }
@@ -55,7 +55,7 @@ type tableCache struct {
 	IsClosed  bool
 	maxLength int
 
-	snapshotFn    func() models.TableResponse
+	snapshotFn    func(int) models.TableResponse
 	handleInputFn func(*CacheInput) models.TableResponse
 }
 
@@ -132,7 +132,7 @@ func (c *tableCache) Ready() <-chan struct{} {
 }
 
 // TakeSnapshot to get snapshot of cache, if publish is true, snapshot result will be notified in channel
-func (c *tableCache) TakeSnapshot(publish bool) models.TableResponse {
+func (c *tableCache) TakeSnapshot(depth int, publish bool) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
 
 	c.pipeline <- &CacheInput{
@@ -142,7 +142,7 @@ func (c *tableCache) TakeSnapshot(publish bool) models.TableResponse {
 				log.Panicln("snapshotFn is nil.")
 			}
 
-			snap := c.snapshotFn()
+			snap := c.snapshotFn(depth)
 
 			ch <- snap
 			close(ch)
