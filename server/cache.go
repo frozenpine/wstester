@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log"
+	"sync"
 
 	"github.com/frozenpine/wstester/models"
 )
@@ -48,6 +50,7 @@ type tableCache struct {
 
 	pipeline  chan *CacheInput
 	ready     chan struct{}
+	startOnce sync.Once
 	IsReady   bool
 	IsClosed  bool
 	maxLength int
@@ -57,47 +60,65 @@ type tableCache struct {
 }
 
 func (c *tableCache) Start(ctx context.Context) error {
-	if ctx == nil {
-		ctx = context.Background()
+	if c.isStarted {
+		return errors.New("cache is already started")
 	}
 
-	c.ctx = ctx
-
-	if c.pipeline == nil {
-		c.pipeline = make(chan *CacheInput, 1000)
+	if c.isClosed {
+		return errors.New("cache is already closed")
 	}
 
-	go func() {
-		defer func() {
-			c.IsReady = false
-			c.IsClosed = true
-		}()
+	c.startOnce.Do(func() {
+		if ctx == nil {
+			ctx = context.Background()
+		}
 
-		for {
-			select {
-			case <-c.ctx.Done():
-				return
-			case obj := <-c.pipeline:
-				if obj == nil {
-					continue
-				}
+		c.ctx = ctx
 
-				if c.handleInputFn == nil {
-					log.Panicln("handleInputFn is nil.")
-				}
+		if c.pipeline == nil {
+			c.pipeline = make(chan *CacheInput, 1000)
+		}
 
-				rsp := c.handleInputFn(obj)
+		if c.ready == nil {
+			c.ready = make(chan struct{})
+		}
 
-				if rsp != nil && obj.PubToChannel {
-					c.PublishData(rsp)
+		go func() {
+			defer func() {
+				c.IsReady = false
+				c.IsClosed = true
+			}()
+
+			for {
+				select {
+				case <-c.ctx.Done():
+					return
+				case obj := <-c.pipeline:
+					if obj == nil {
+						continue
+					}
+
+					if c.handleInputFn == nil {
+						log.Panicln("handleInputFn is nil.")
+					}
+
+					rsp := c.handleInputFn(obj)
+
+					if rsp != nil && obj.PubToChannel {
+						c.PublishData(rsp)
+					}
 				}
 			}
-		}
-	}()
+		}()
 
-	c.IsReady = true
-	c.IsClosed = false
-	close(c.ready)
+		c.IsReady = true
+		c.IsClosed = false
+		close(c.ready)
+
+		if !c.rspChannel.isStarted {
+			c.rspChannel.Start()
+		}
+	})
 
 	return nil
 }
