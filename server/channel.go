@@ -205,6 +205,7 @@ func (c *rspChannel) dispatchDistinations(data models.Response) {
 	for client, dest := range c.destinations {
 		if client.IsClosed() {
 			invalidDest = append(invalidDest, client)
+			writeTimeout.Reset(time.Second * 5)
 			continue
 		}
 
