@@ -18,28 +18,28 @@ import (
 type MBLCache struct {
 	tableCache
 
-	buyCount  int
-	sellCount int
-
+	depth      int
+	asks       sort.Float64Slice
+	bids       sort.Float64Slice
 	orderCache map[float64]*ngerest.OrderBookL2
 }
 
 func (c *MBLCache) snapshot(depth int) models.TableResponse {
+	c.depth = depth
 	snap := models.NewMBLPartial()
 
 	dataList := make([]*ngerest.OrderBookL2, len(c.orderCache))
 
-	priceList := []float64{}
-	for price := range c.orderCache {
-		priceList = append(priceList, price)
-	}
-	sort.Sort(sort.Reverse(sort.Float64Slice(priceList)))
+	priceList := append(c.asks, c.bids...)
 
-	sellStart := c.sellCount - utils.MinInt(c.sellCount, depth)
-	buyEnd := c.sellCount + utils.MinInt(c.buyCount, depth)
+	sellCount := c.asks.Len()
+	buyCount := c.bids.Len()
+	sellStart := sellCount - utils.MinInt(sellCount, depth)
+	buyEnd := sellCount + utils.MinInt(buyCount, depth)
 	if depth <= 0 {
+		c.depth = 0
 		sellStart = 0
-		buyEnd = c.sellCount + c.buyCount
+		buyEnd = sellCount + buyCount
 	}
 
 	priceList = priceList[sellStart:buyEnd]
@@ -105,8 +105,8 @@ func (c *MBLCache) applyData(data *models.MBLResponse) {
 
 func (c *MBLCache) initCache() {
 	c.orderCache = make(map[float64]*ngerest.OrderBookL2)
-	c.sellCount = 0
-	c.buyCount = 0
+	c.asks = sort.Float64Slice{}
+	c.bids = sort.Float64Slice{}
 }
 
 func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) error {
@@ -116,9 +116,11 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) error {
 
 	switch ord.Side {
 	case "Buy":
-		c.buyCount--
+		idx := c.bids.Search(ord.Price)
+		c.bids = append(c.bids[0:idx], c.bids[idx+1:]...)
 	case "Sell":
-		c.sellCount--
+		idx := c.asks.Search(ord.Price)
+		c.asks = append(c.asks[0:idx], c.asks[idx+1:]...)
 	default:
 		return errors.New("invalid order side: " + ord.Side)
 	}
@@ -129,18 +131,20 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) error {
 }
 
 func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) error {
-	if orgin, exist := c.orderCache[ord.Price]; exist {
+	if origin, exist := c.orderCache[ord.Price]; exist {
 		return fmt.Errorf(
 			"%s order[%f@%.0f] insert on %s side with already exist order[%f@%.0f %.0f]",
-			orgin.Symbol, orgin.Price, orgin.Size, ord.Side, orgin.Price, orgin.Size, orgin.ID,
+			origin.Symbol, origin.Price, origin.Size, ord.Side, origin.Price, origin.Size, origin.ID,
 		)
 	}
 
 	switch ord.Side {
 	case "Buy":
-		c.buyCount++
+		c.bids = append(c.bids, ord.Price)
+		sort.Sort(sort.Reverse(c.bids))
 	case "Sell":
-		c.sellCount++
+		c.asks = append(c.asks, ord.Price)
+		sort.Sort(c.asks)
 	default:
 		return errors.New("invalid order side: " + ord.Side)
 	}
@@ -151,9 +155,9 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) error {
 }
 
 func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) error {
-	if orgin, exist := c.orderCache[ord.Price]; exist {
-		orgin.Size = ord.Size
-		orgin.ID = ord.ID
+	if origin, exist := c.orderCache[ord.Price]; exist {
+		origin.Size = ord.Size
+		origin.ID = ord.ID
 
 		return nil
 	}

@@ -140,3 +140,15 @@ type TradeNotify struct {
 func (td *TradeNotify) GetContent() interface{} {
 	return td.Content
 }
+
+// MBLNotify notify message for trade
+type MBLNotify struct {
+	notifyMessage
+
+	Content *models.MBLResponse `json:"content"`
+}
+
+// GetContent get content in mbl notify
+func (mbl *MBLNotify) GetContent() interface{} {
+	return mbl.Content
+}
