@@ -173,9 +173,9 @@ func (s *server) handleAuth(req models.Request, client Session) models.Response 
 
 func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
 	var (
-		rspList    []models.Response
-		pubChannel Cache
-		chanExist  bool
+		rspList []models.Response
+		cache   Cache
+		exist   bool
 	)
 
 	for _, topicStr := range req.GetArgs() {
@@ -185,16 +185,16 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 		waitRsp := make(chan bool, 0)
 
 		// TODO: private flow subscribe
-		if pubChannel, chanExist = s.dataCaches[topicName]; chanExist {
-			go func(cache Cache) {
+		if cache, exist = s.dataCaches[topicName]; exist {
+			go func(c Cache) {
 				<-waitRsp
 
-				rspChan := cache.GetLimitedRsp(Realtime)
+				rspChan := c.GetLimitedRsp(Realtime)
 				dataChan := rspChan.RetriveData(client)
 
 				partialSend := false
 
-				cache.TakeSnapshot(0, rspChan)
+				c.TakeSnapshot(0, rspChan)
 
 				for data := range dataChan {
 					if data.IsPartialResponse() {
@@ -207,11 +207,11 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 					client.WriteJSONMessage(data, false)
 				}
-			}(pubChannel)
+			}(cache)
 		}
 
 		rsp := models.SubscribeResponse{
-			Success:   chanExist,
+			Success:   exist,
 			Subscribe: topicStr,
 			Request:   *req.(*models.OperationRequest),
 		}
