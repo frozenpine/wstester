@@ -15,12 +15,13 @@ import (
 // Channel message channel
 type Channel interface {
 	// Start initialize channel and start a dispatch goroutine
-	Start(ctx context.Context) error
-	// Close close channel
+	Start() error
+	// Close close channel input
 	Close() error
 	// Connect connect child channel, child channel will get dispatched data from current channel
 	Connect(subChan Channel) error
-
+	// TODO: Disconnect sub channel
+	// Disconnect(subChan Channel) error
 	// PublishData publish data to current channel
 	PublishData(rsp models.Response) error
 	// RetriveData to get an chan to retrive data in current channel
@@ -92,22 +93,9 @@ func (c *rspChannel) Connect(child Channel) error {
 	c.newChildChannels = append(c.newChildChannels, child)
 	c.connectLock.Unlock()
 
-	child.Start(c.ctx)
+	child.Start()
 
 	return nil
-}
-
-func (c *rspChannel) cleanup() {
-	for _, ch := range c.destinations {
-		close(ch)
-	}
-
-	for _, subChan := range c.childChannels {
-		subChan.Close()
-	}
-
-	c.isStarted = false
-	c.isClosed = true
 }
 
 func (c *rspChannel) Start() error {
@@ -135,12 +123,11 @@ func (c *rspChannel) Start() error {
 		c.isClosed = false
 
 		go func() {
-			defer c.cleanup()
+			defer c.Close()
 
 			for {
 				select {
 				case <-c.ctx.Done():
-					log.Println("channel closed.")
 					return
 				case data := <-c.source:
 					if data == nil {
@@ -174,6 +161,12 @@ func (c *rspChannel) Close() error {
 		close(c.source)
 
 		c.isClosed = true
+
+		for _, ch := range c.destinations {
+			close(ch)
+		}
+
+		log.Println("channel closed.")
 	})
 
 	return nil

@@ -19,6 +19,8 @@ import (
 type MBLCache struct {
 	tableCache
 
+	limitedChannel [3]Channel
+
 	asks       sort.Float64Slice
 	bids       sort.Float64Slice
 	orderCache map[float64]*ngerest.OrderBookL2
@@ -50,7 +52,7 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 	return snap
 }
 
-func (c *MBLCache) handleInput(in *CacheInput) models.TableResponse {
+func (c *MBLCache) handleInput(in *CacheInput) {
 	var rsp models.TableResponse
 
 	if in.IsBreakPoint() {
@@ -66,7 +68,14 @@ func (c *MBLCache) handleInput(in *CacheInput) models.TableResponse {
 		}
 	}
 
-	return rsp
+	if rsp != nil {
+		if in.pubChannel != nil {
+			in.pubChannel.PublishData(rsp)
+		}
+		if in.pubToDefault {
+			c.PublishData(rsp)
+		}
+	}
 }
 
 func (c *MBLCache) applyData(data *models.MBLResponse) {
@@ -174,15 +183,35 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) error {
 	return fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
 }
 
+// GetLimitedRsp get limited response channel
+func (c *MBLCache) GetLimitedRsp(limit CacheLimitType) Channel {
+	switch limit {
+	case Realtime:
+		return c
+	case Realtime25:
+		if c.limitedChannel[limit] == nil {
+			c.limitedChannel[limit] = &rspChannel{ctx: c.ctx}
+		}
+		fallthrough
+	case Depth25:
+		fallthrough
+	case Quote:
+		return c.limitedChannel[limit]
+	default:
+		return c
+	}
+}
+
 // NewMBLCache make a new MBL cache.
 func NewMBLCache(ctx context.Context) *MBLCache {
 	mbl := MBLCache{}
-
+	mbl.ctx = ctx
 	mbl.handleInputFn = mbl.handleInput
 	mbl.snapshotFn = mbl.snapshot
+
 	mbl.initCache()
 
-	if err := mbl.Start(ctx); err != nil {
+	if err := mbl.Start(); err != nil {
 		log.Panicln(err)
 	}
 

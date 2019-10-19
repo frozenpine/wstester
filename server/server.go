@@ -190,11 +190,11 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 				<-waitRsp
 
 				cache := ch.(Cache)
-				dataChan := ch.RetriveData(client)
+				dataChan := cache.GetLimitedRsp(0).RetriveData(client)
 
 				partialSend := false
 
-				cache.TakeSnapshot(0, true)
+				cache.TakeSnapshot(0, ch)
 
 				for data := range dataChan {
 					if data.IsPartialResponse() {

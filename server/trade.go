@@ -41,7 +41,7 @@ func (c *TradeCache) snapshot(depth int) models.TableResponse {
 	return snap
 }
 
-func (c *TradeCache) handleInput(in *CacheInput) models.TableResponse {
+func (c *TradeCache) handleInput(in *CacheInput) {
 	var rsp models.TableResponse
 
 	if in.IsBreakPoint() {
@@ -63,7 +63,14 @@ func (c *TradeCache) handleInput(in *CacheInput) models.TableResponse {
 		rsp = &td
 	}
 
-	return rsp
+	if rsp != nil {
+		if in.pubChannel != nil {
+			in.pubChannel.PublishData(rsp)
+		}
+		if in.pubToDefault {
+			c.PublishData(rsp)
+		}
+	}
 }
 
 func (c *TradeCache) applyData(data *models.TradeResponse) {
@@ -161,12 +168,12 @@ func mockTrade(cache Cache) {
 // NewTradeCache make a new trade cache.
 func NewTradeCache(ctx context.Context) *TradeCache {
 	td := TradeCache{}
-
+	td.ctx = ctx
 	td.maxLength = defaultTradeLen
 	td.handleInputFn = td.handleInput
 	td.snapshotFn = td.snapshot
 
-	if err := td.Start(ctx); err != nil {
+	if err := td.Start(); err != nil {
 		log.Panicln(err)
 	}
 

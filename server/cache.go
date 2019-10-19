@@ -9,10 +9,24 @@ import (
 	"github.com/frozenpine/wstester/models"
 )
 
+// CacheLimitType limited cache types
+type CacheLimitType int
+
+const (
+	// Realtime get all real time mbl notify
+	Realtime CacheLimitType = iota
+	// Realtime25 get real time mbl notify under depth 25
+	Realtime25
+	// Depth25 get real time mbl in depth25 snapshot
+	Depth25
+	// Quote get quote tick in 500ms
+	Quote
+)
+
 // Cache cache for table response
 type Cache interface {
 	// Start start cache backgroud loop.
-	Start(ctx context.Context) error
+	Start() error
 	// Stop stop cache backgroud loop.
 	Stop() error
 	// Ready wait for cache ready.
@@ -22,15 +36,18 @@ type Cache interface {
 	// publish means wether publish snapshot in channel,
 	// this is an async to sync operation, snapshot operation queued in cache pipeline and
 	// return util queued operation finished.
-	TakeSnapshot(depth int, publish bool) models.TableResponse
+	TakeSnapshot(depth int, publish Channel) models.TableResponse
 	// Append append data to cache
 	// this is an async operation if cache pipeline not full.
 	Append(in *CacheInput)
+	// GetLimitedChannel get limited response channel
+	GetLimitedRsp(limit CacheLimitType) Channel
 }
 
 // CacheInput wrapper structure for table response
 type CacheInput struct {
-	PubToChannel   bool
+	pubToDefault   bool
+	pubChannel     Channel
 	breakpointFunc func() models.TableResponse
 	msg            []byte
 }
@@ -43,7 +60,7 @@ func (in *CacheInput) IsBreakPoint() bool {
 // NewCacheInput make a new cache input
 func NewCacheInput(msg []byte) *CacheInput {
 	cache := CacheInput{
-		PubToChannel: true,
+		pubToDefault: true,
 		msg:          msg,
 	}
 
@@ -62,10 +79,10 @@ type tableCache struct {
 	maxLength int
 
 	snapshotFn    func(int) models.TableResponse
-	handleInputFn func(*CacheInput) models.TableResponse
+	handleInputFn func(*CacheInput)
 }
 
-func (c *tableCache) Start(ctx context.Context) error {
+func (c *tableCache) Start() error {
 	if c.isStarted {
 		return errors.New("cache is already started")
 	}
@@ -75,11 +92,9 @@ func (c *tableCache) Start(ctx context.Context) error {
 	}
 
 	c.startOnce.Do(func() {
-		if ctx == nil {
-			ctx = context.Background()
+		if c.ctx == nil {
+			c.ctx = context.Background()
 		}
-
-		c.ctx = ctx
 
 		if c.pipeline == nil {
 			c.pipeline = make(chan *CacheInput, 1000)
@@ -108,11 +123,7 @@ func (c *tableCache) Start(ctx context.Context) error {
 						log.Panicln("handleInputFn is nil.")
 					}
 
-					rsp := c.handleInputFn(obj)
-
-					if rsp != nil && obj.PubToChannel {
-						c.PublishData(rsp)
-					}
+					c.handleInputFn(obj)
 				}
 			}
 		}()
@@ -154,11 +165,11 @@ func (c *tableCache) Ready() <-chan struct{} {
 	return c.ready
 }
 
-func (c *tableCache) TakeSnapshot(depth int, publish bool) models.TableResponse {
+func (c *tableCache) TakeSnapshot(depth int, publish Channel) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
 
 	c.pipeline <- &CacheInput{
-		PubToChannel: publish,
+		pubChannel: publish,
 		breakpointFunc: func() models.TableResponse {
 			if c.snapshotFn == nil {
 				log.Panicln("snapshotFn is nil.")
@@ -174,6 +185,10 @@ func (c *tableCache) TakeSnapshot(depth int, publish bool) models.TableResponse 
 	}
 
 	return <-ch
+}
+
+func (c *tableCache) GetLimitedRsp(limit CacheLimitType) Channel {
+	return c
 }
 
 func (c *tableCache) Append(in *CacheInput) {
