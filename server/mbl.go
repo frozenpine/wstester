@@ -31,17 +31,16 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 
 	snap := models.NewMBLPartial()
 
-	asksLen := c.asks.Len()
-	bidsLen := c.bids.Len()
-	sellDepth := utils.MinInt(asksLen, depth)
-	buyDepth := utils.MinInt(bidsLen, depth)
+	sellLength := c.asks.Len()
+	buyLength := c.bids.Len()
+	sellDepth := utils.MinInt(sellLength, depth)
+	buyDepth := utils.MinInt(buyLength, depth)
 
-	dataList := make([]*ngerest.OrderBookL2, sellDepth+buyDepth)
-
-	priceList := append([]float64{}, c.bids[bidsLen-buyDepth:]...)
+	priceList := append([]float64{}, c.bids[buyLength-buyDepth:]...)
 	priceList = append(priceList, c.asks[0:sellDepth]...)
 	utils.ReverseFloat64Slice(priceList)
 
+	dataList := make([]*ngerest.OrderBookL2, sellDepth+buyDepth)
 	for idx, price := range priceList {
 		dataList[idx] = c.orderCache[price]
 	}
