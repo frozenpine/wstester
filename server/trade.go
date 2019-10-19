@@ -26,7 +26,7 @@ type TradeCache struct {
 }
 
 func (c *TradeCache) snapshot(depth int) models.TableResponse {
-	if depth <= 0 {
+	if depth < 1 {
 		depth = c.maxLength
 	}
 

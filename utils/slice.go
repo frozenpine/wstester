@@ -36,3 +36,11 @@ func Slice(src []interface{}, idx int) []interface{} {
 
 	return src
 }
+
+// ReverseFloat64Slice revert a float64 slice
+func ReverseFloat64Slice(s []float64) []float64 {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+	return s
+}

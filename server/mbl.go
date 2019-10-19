@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 
 	"github.com/frozenpine/ngerest"
@@ -18,31 +19,28 @@ import (
 type MBLCache struct {
 	tableCache
 
-	depth      int
 	asks       sort.Float64Slice
 	bids       sort.Float64Slice
 	orderCache map[float64]*ngerest.OrderBookL2
 }
 
 func (c *MBLCache) snapshot(depth int) models.TableResponse {
-	c.depth = depth
-	snap := models.NewMBLPartial()
-
-	dataList := make([]*ngerest.OrderBookL2, len(c.orderCache))
-
-	priceList := append(c.asks, c.bids...)
-
-	sellCount := c.asks.Len()
-	buyCount := c.bids.Len()
-	sellStart := sellCount - utils.MinInt(sellCount, depth)
-	buyEnd := sellCount + utils.MinInt(buyCount, depth)
-	if depth <= 0 {
-		c.depth = 0
-		sellStart = 0
-		buyEnd = sellCount + buyCount
+	if depth < 1 {
+		depth = math.MaxInt64
 	}
 
-	priceList = priceList[sellStart:buyEnd]
+	snap := models.NewMBLPartial()
+
+	asksLen := c.asks.Len()
+	bidsLen := c.bids.Len()
+	sellDepth := utils.MinInt(asksLen, depth)
+	buyDepth := utils.MinInt(bidsLen, depth)
+
+	dataList := make([]*ngerest.OrderBookL2, sellDepth+buyDepth)
+
+	priceList := append([]float64{}, c.bids[bidsLen-buyDepth:]...)
+	priceList = append(priceList, c.asks[0:sellDepth]...)
+	utils.ReverseFloat64Slice(priceList)
 
 	for idx, price := range priceList {
 		dataList[idx] = c.orderCache[price]
@@ -138,15 +136,27 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) error {
 		)
 	}
 
+	var dst *sort.Float64Slice
+
 	switch ord.Side {
 	case "Buy":
-		c.bids = append(c.bids, ord.Price)
-		sort.Sort(sort.Reverse(c.bids))
+		dst = &c.bids
 	case "Sell":
-		c.asks = append(c.asks, ord.Price)
-		sort.Sort(c.asks)
+		dst = &c.asks
 	default:
 		return errors.New("invalid order side: " + ord.Side)
+	}
+
+	if dst.Len() < 1 || ord.Price > (*dst)[dst.Len()-1] {
+		*dst = append((*dst), ord.Price)
+	} else if ord.Price < (*dst)[0] {
+		*dst = append(sort.Float64Slice{ord.Price}, *dst...)
+	} else {
+		midIdx := dst.Len() / 2
+
+		*dst = append(append((*dst)[0:midIdx], ord.Price), (*dst)[midIdx:]...)
+
+		sort.Sort(*dst)
 	}
 
 	c.orderCache[ord.Price] = ord
