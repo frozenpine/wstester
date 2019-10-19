@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"math"
+	"math" 
 )
 
 // MaxInt return max int

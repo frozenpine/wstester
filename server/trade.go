@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/frozenpine/ngerest"
+	"github.com/frozenpine/wstester/kafka"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 )
@@ -47,20 +48,14 @@ func (c *TradeCache) handleInput(in *CacheInput) {
 	if in.IsBreakPoint() {
 		rsp = in.breakpointFunc()
 	} else {
-		// FIXME: real sub flow handle
-		td := models.TradeResponse{}
-		td.Table = "trade"
-		td.Action = "insert"
+		tdNotify := kafka.TradeNotify{}
 
-		parsed := ngerest.Trade{}
-
-		json.Unmarshal(in.msg, &parsed)
-
-		td.Data = []*ngerest.Trade{&parsed}
-
-		c.applyData(&td)
-
-		rsp = &td
+		if err := json.Unmarshal(in.msg, &tdNotify); err != nil {
+			log.Println(err)
+		} else {
+			c.applyData(tdNotify.Content)
+			rsp = tdNotify.Content
+		}
 	}
 
 	if rsp != nil {
@@ -103,6 +98,13 @@ func mockTrade(cache Cache) {
 			start := time.Now()
 			rand.Seed(start.UnixNano())
 			count := rand.Intn(1000)
+
+			tdNotify := kafka.TradeNotify{
+				Content: &models.TradeResponse{},
+			}
+			tdNotify.Type = "trade"
+			tdNotify.Content.Table = "trade"
+			tdNotify.Content.Action = "insert"
 
 			for i := 0; i < count; i++ {
 
@@ -149,10 +151,11 @@ func mockTrade(cache Cache) {
 
 				lastPrice = td.Price
 
-				result, _ := json.Marshal(td)
-
-				cache.Append(NewCacheInput(result))
+				tdNotify.Content.Data = append(tdNotify.Content.Data, &td)
 			}
+
+			result, _ := json.Marshal(tdNotify)
+			cache.Append(NewCacheInput(result))
 
 			elasped := time.Now().Sub(start).Nanoseconds()
 			rate := float64(count) * 1000.0 / float64(elasped/1000)
