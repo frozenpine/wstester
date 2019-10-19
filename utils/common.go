@@ -4,8 +4,24 @@ import (
 	"math"
 )
 
-// MaxInt return max int num in args
-func MaxInt(numbers ...int) int {
+// MaxInt return max int
+func MaxInt(i, j int) int {
+	if i >= j {
+		return i
+	}
+	return j
+}
+
+// MinInt return min int
+func MinInt(i, j int) int {
+	if i <= j {
+		return i
+	}
+	return j
+}
+
+// MaxInts return max int num in args
+func MaxInts(numbers ...int) int {
 	max := math.MinInt64
 
 	for _, num := range numbers {
@@ -17,8 +33,8 @@ func MaxInt(numbers ...int) int {
 	return max
 }
 
-// MinInt return min int num in args
-func MinInt(numbers ...int) int {
+// MinInts return min int num in args
+func MinInts(numbers ...int) int {
 	min := math.MaxInt64
 
 	for _, num := range numbers {

@@ -14,7 +14,7 @@ import (
 	"github.com/frozenpine/wstester/utils"
 )
 
-var (
+const (
 	defaultTradeLen int = 200
 )
 
@@ -34,7 +34,7 @@ func (c *TradeCache) snapshot(depth int) models.TableResponse {
 
 	hisLen := len(c.historyTrade)
 
-	trimLen := utils.MinInt(c.maxLength, hisLen, depth)
+	trimLen := utils.MinInts(c.maxLength, hisLen, depth)
 
 	snap.Data = c.historyTrade[hisLen-trimLen:]
 
