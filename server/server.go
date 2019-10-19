@@ -49,8 +49,8 @@ type server struct {
 
 	statics serverStatics
 
-	clients     map[string]Session
-	pubChannels map[string]Channel
+	clients    map[string]Session
+	dataCaches map[string]Cache
 }
 
 func (s *server) ReloadCfg(cfg *Config) {
@@ -174,7 +174,7 @@ func (s *server) handleAuth(req models.Request, client Session) models.Response 
 func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
 	var (
 		rspList    []models.Response
-		pubChannel Channel
+		pubChannel Cache
 		chanExist  bool
 	)
 
@@ -185,16 +185,16 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 		waitRsp := make(chan bool, 0)
 
 		// TODO: private flow subscribe
-		if pubChannel, chanExist = s.pubChannels[topicName]; chanExist {
-			go func(ch Channel) {
+		if pubChannel, chanExist = s.dataCaches[topicName]; chanExist {
+			go func(cache Cache) {
 				<-waitRsp
 
-				cache := ch.(Cache)
-				dataChan := cache.GetLimitedRsp(0).RetriveData(client)
+				rspChan := cache.GetLimitedRsp(Realtime)
+				dataChan := rspChan.RetriveData(client)
 
 				partialSend := false
 
-				cache.TakeSnapshot(0, ch)
+				cache.TakeSnapshot(0, rspChan)
 
 				for data := range dataChan {
 					if data.IsPartialResponse() {
@@ -342,19 +342,19 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 		statics: serverStatics{},
 		clients: make(map[string]Session),
 		// subCaches:   make(map[string]sarama.ConsumerGroupHandler),
-		pubChannels: make(map[string]Channel),
+		dataCaches: make(map[string]Cache),
 	}
 
 	td := NewTradeCache(ctx)
 	// ins := NewInstrumentCache()
 	mbl := NewMBLCache(ctx)
 
-	svr.pubChannels["trade"] = td
+	svr.dataCaches["trade"] = td
 	// FIXME: mock的临时方案
 	mockTrade(td)
 
 	// svr.pubChannels["instrument"] = ins
-	svr.pubChannels["orderBookL2"] = mbl
+	svr.dataCaches["orderBookL2"] = mbl
 
 	// svr.subCaches["trade"] = td
 	// svr.subCaches["instrument"] = ins
