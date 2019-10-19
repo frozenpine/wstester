@@ -6,7 +6,7 @@ import (
 
 // MaxInt return max int num in args
 func MaxInt(numbers ...int) int {
-	max := 0
+	max := math.MinInt64
 
 	for _, num := range numbers {
 		if num > max {
