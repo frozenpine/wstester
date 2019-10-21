@@ -58,12 +58,25 @@ func (c *TradeCache) handleInput(in *CacheInput) {
 		}
 	}
 
-	if rsp != nil {
-		if in.pubChannel != nil {
-			in.pubChannel.PublishData(rsp)
+	if rsp == nil {
+		return
+	}
+
+	if in.pubChannels != nil && len(in.pubChannels) > 0 {
+		for _, ch := range in.pubChannels {
+			ch.PublishData(rsp)
 		}
-		if in.pubToDefault {
-			c.PublishData(rsp)
+
+		return
+	}
+
+	for chType, chGroup := range c.channelGroup {
+		_ = chType
+
+		for depth, ch := range chGroup {
+			_ = depth
+
+			ch.PublishData(rsp)
 		}
 	}
 }

@@ -184,17 +184,19 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 		waitRsp := make(chan bool, 0)
 
-		// TODO: private flow subscribe
 		if cache, exist = s.dataCaches[topicName]; exist {
-			go func(c Cache) {
+			// TODO: private flow subscribe
+			// cache.Subscribe() or something like
+
+			go func(cache Cache, chType ChannelType, depth int) {
 				<-waitRsp
 
-				rspChan := c.GetLimitedRsp(Realtime)
+				rspChan := cache.GetRspChannel(chType, depth)
 				dataChan := rspChan.RetriveData(client)
 
 				partialSend := false
 
-				c.TakeSnapshot(0, rspChan)
+				cache.TakeSnapshot(depth, rspChan)
 
 				for data := range dataChan {
 					if data.IsPartialResponse() {
@@ -207,7 +209,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 					client.WriteJSONMessage(data, false)
 				}
-			}(cache)
+			}(cache, Realtime, 0)
 		}
 
 		rsp := models.SubscribeResponse{

@@ -68,12 +68,25 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		}
 	}
 
-	if rsp != nil {
-		if in.pubChannel != nil {
-			in.pubChannel.PublishData(rsp)
+	if rsp == nil {
+		return
+	}
+
+	if in.pubChannels != nil && len(in.pubChannels) > 0 {
+		for _, ch := range in.pubChannels {
+			ch.PublishData(rsp)
 		}
-		if in.pubToDefault {
-			c.PublishData(rsp)
+
+		return
+	}
+
+	for chType, chGroup := range c.channelGroup {
+		_ = chType
+
+		for depth, ch := range chGroup {
+			_ = depth
+
+			ch.PublishData(rsp)
 		}
 	}
 }
@@ -181,25 +194,6 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) error {
 	}
 
 	return fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
-}
-
-// GetLimitedRsp get limited response channel
-func (c *MBLCache) GetLimitedRsp(limit CacheLimitType) Channel {
-	switch limit {
-	case Realtime:
-		return c
-	case Realtime25:
-		if c.limitedChannel[limit] == nil {
-			c.limitedChannel[limit] = &rspChannel{ctx: c.ctx}
-		}
-		fallthrough
-	case Depth25:
-		fallthrough
-	case Quote:
-		return c.limitedChannel[limit]
-	default:
-		return c
-	}
 }
 
 // NewMBLCache make a new MBL cache.

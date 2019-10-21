@@ -39,18 +39,18 @@ type rspChannel struct {
 	connectLock      sync.Mutex
 
 	ctx       context.Context
-	isStarted bool
+	IsReady   bool
 	startOnce sync.Once
-	isClosed  bool
+	IsClosed  bool
 	closeOnce sync.Once
 }
 
 func (c *rspChannel) PublishData(data models.Response) error {
-	if c.isClosed {
+	if c.IsClosed {
 		return fmt.Errorf("channel is already closed")
 	}
 
-	if !c.isStarted {
+	if !c.IsReady {
 		c.Start()
 	}
 
@@ -60,14 +60,14 @@ func (c *rspChannel) PublishData(data models.Response) error {
 }
 
 func (c *rspChannel) RetriveData(client Session) <-chan models.Response {
-	if c.isClosed {
+	if c.IsClosed {
 		ch := make(chan models.Response, 0)
 		close(ch)
 
 		return ch
 	}
 
-	if !c.isStarted {
+	if !c.IsReady {
 		c.Start()
 	}
 
@@ -81,11 +81,11 @@ func (c *rspChannel) RetriveData(client Session) <-chan models.Response {
 }
 
 func (c *rspChannel) Connect(child Channel) error {
-	if c.isClosed {
+	if c.IsClosed {
 		return fmt.Errorf("channel is already closed")
 	}
 
-	if !c.isStarted {
+	if !c.IsReady {
 		c.Start()
 	}
 
@@ -99,11 +99,11 @@ func (c *rspChannel) Connect(child Channel) error {
 }
 
 func (c *rspChannel) Start() error {
-	if c.isStarted {
+	if c.IsReady {
 		return errors.New("channel is already started")
 	}
 
-	if c.isClosed {
+	if c.IsClosed {
 		return errors.New("channel is already closed")
 	}
 
@@ -120,7 +120,7 @@ func (c *rspChannel) Start() error {
 			c.newDestinations = make(map[Session]chan models.Response)
 		}
 
-		c.isClosed = false
+		c.IsClosed = false
 
 		go func() {
 			defer c.Close()
@@ -140,27 +140,27 @@ func (c *rspChannel) Start() error {
 			}
 		}()
 
-		c.isStarted = true
+		c.IsReady = true
 	})
 
 	return nil
 }
 
 func (c *rspChannel) Close() error {
-	if !c.isStarted {
+	if !c.IsReady {
 		return fmt.Errorf("channel is not started")
 	}
 
-	if c.isClosed {
+	if c.IsClosed {
 		return fmt.Errorf("channel is already closed")
 	}
 
 	c.closeOnce.Do(func() {
-		c.isStarted = false
+		c.IsReady = false
 
 		close(c.source)
 
-		c.isClosed = true
+		c.IsClosed = true
 
 		for _, ch := range c.destinations {
 			close(ch)
