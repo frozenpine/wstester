@@ -19,10 +19,8 @@ import (
 type MBLCache struct {
 	tableCache
 
-	limitedChannel [3]Channel
-
-	asks       sort.Float64Slice
-	bids       sort.Float64Slice
+	asks       sort.Float64Slice // in DESC order
+	bids       sort.Float64Slice // in ASC order
 	orderCache map[float64]*ngerest.OrderBookL2
 }
 
@@ -53,41 +51,31 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 }
 
 func (c *MBLCache) handleInput(in *CacheInput) {
-	var rsp models.TableResponse
-
 	if in.IsBreakPoint() {
-		rsp = in.breakpointFunc()
+		if rsp := in.breakpointFunc(); rsp != nil {
+			if in.pubChannels != nil && len(in.pubChannels) > 0 {
+				for _, ch := range in.pubChannels {
+					ch.PublishData(rsp)
+				}
+			}
+		}
+
+		return
+	}
+
+	mblNotify := kafka.MBLNotify{}
+
+	if err := json.Unmarshal(in.msg, &mblNotify); err != nil {
+		log.Println(err)
 	} else {
-		mblNotify := kafka.MBLNotify{}
-
-		if err := json.Unmarshal(in.msg, &mblNotify); err != nil {
-			log.Println(err)
-		} else {
-			c.applyData(mblNotify.Content)
-			rsp = mblNotify.Content
-		}
+		c.applyData(mblNotify.Content)
 	}
 
-	if rsp == nil {
-		return
-	}
+	// FIXME: 不用深度级别的notify分发
+	for depth, ch := range c.channelGroup[Realtime] {
+		_ = depth
 
-	if in.pubChannels != nil && len(in.pubChannels) > 0 {
-		for _, ch := range in.pubChannels {
-			ch.PublishData(rsp)
-		}
-
-		return
-	}
-
-	for chType, chGroup := range c.channelGroup {
-		_ = chType
-
-		for depth, ch := range chGroup {
-			_ = depth
-
-			ch.PublishData(rsp)
-		}
+		ch.PublishData(mblNotify.Content)
 	}
 }
 
@@ -95,19 +83,19 @@ func (c *MBLCache) applyData(data *models.MBLResponse) {
 	switch data.Action {
 	case models.DeleteAction:
 		for _, ord := range data.Data {
-			if err := c.deleteOrder(ord); err != nil {
+			if _, err := c.deleteOrder(ord); err != nil {
 				log.Println(err)
 			}
 		}
 	case models.InsertAction:
 		for _, ord := range data.Data {
-			if err := c.insertOrder(ord); err != nil {
+			if _, err := c.insertOrder(ord); err != nil {
 				log.Println(err)
 			}
 		}
 	case models.UpdateAction:
 		for _, ord := range data.Data {
-			if err := c.updateOrder(ord); err != nil {
+			if _, err := c.updateOrder(ord); err != nil {
 				log.Println(err)
 			}
 		}
@@ -128,36 +116,15 @@ func (c *MBLCache) initCache() {
 	c.bids = sort.Float64Slice{}
 }
 
-func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) error {
+func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	if _, exist := c.orderCache[ord.Price]; !exist {
-		return fmt.Errorf("%s order[%f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
+		return 0, fmt.Errorf("%s order[%f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
 	}
 
-	switch ord.Side {
-	case "Buy":
-		idx := c.bids.Search(ord.Price)
-		c.bids = append(c.bids[0:idx], c.bids[idx+1:]...)
-	case "Sell":
-		idx := c.asks.Search(ord.Price)
-		c.asks = append(c.asks[0:idx], c.asks[idx+1:]...)
-	default:
-		return errors.New("invalid order side: " + ord.Side)
-	}
-
-	delete(c.orderCache, ord.Price)
-
-	return nil
-}
-
-func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) error {
-	if origin, exist := c.orderCache[ord.Price]; exist {
-		return fmt.Errorf(
-			"%s order[%f@%.0f] insert on %s side with already exist order[%f@%.0f %.0f]",
-			origin.Symbol, origin.Price, origin.Size, ord.Side, origin.Price, origin.Size, origin.ID,
-		)
-	}
-
-	var dst *sort.Float64Slice
+	var (
+		idx int
+		dst *sort.Float64Slice
+	)
 
 	switch ord.Side {
 	case "Buy":
@@ -165,35 +132,67 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) error {
 	case "Sell":
 		dst = &c.asks
 	default:
-		return errors.New("invalid order side: " + ord.Side)
+		return 0, errors.New("invalid order side: " + ord.Side)
 	}
 
-	if dst.Len() < 1 || ord.Price > (*dst)[dst.Len()-1] {
-		*dst = append((*dst), ord.Price)
-	} else if ord.Price < (*dst)[0] {
-		*dst = append(sort.Float64Slice{ord.Price}, *dst...)
-	} else {
-		midIdx := dst.Len() / 2
+	idx = dst.Search(ord.Price)
+	*dst = append((*dst)[0:idx], (*dst)[idx+1:]...)
 
-		*dst = append(append((*dst)[0:midIdx], ord.Price), (*dst)[midIdx:]...)
+	delete(c.orderCache, ord.Price)
 
-		sort.Sort(*dst)
+	return idx + 1, nil
+}
+
+func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
+	if origin, exist := c.orderCache[ord.Price]; exist {
+		return 0, fmt.Errorf(
+			"%s order[%f@%.0f] insert on %s side with already exist order[%f@%.0f %.0f]",
+			origin.Symbol, origin.Price, origin.Size, ord.Side, origin.Price, origin.Size, origin.ID,
+		)
+	}
+
+	var (
+		depth int
+	)
+
+	switch ord.Side {
+	case "Buy":
+		c.bids = append(c.bids, ord.Price)
+		sort.Sort(c.bids)
+		depth = c.bids.Len() - c.bids.Search(ord.Price)
+	case "Sell":
+		c.asks = append(c.asks, ord.Price)
+		sort.Sort(c.asks)
+		depth = c.asks.Search(ord.Price) + 1
+	default:
+		return 0, errors.New("invalid order side: " + ord.Side)
 	}
 
 	c.orderCache[ord.Price] = ord
 
-	return nil
+	return depth, nil
 }
 
-func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) error {
+func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 	if origin, exist := c.orderCache[ord.Price]; exist {
+		var idx int
+
+		switch ord.Side {
+		case "Buy":
+			idx = c.bids.Search(ord.Price)
+		case "Sell":
+			idx = c.asks.Search(ord.Price)
+		default:
+			return 0, errors.New("invalid side: " + ord.Side)
+		}
+
 		origin.Size = ord.Size
 		origin.ID = ord.ID
 
-		return nil
+		return idx + 1, nil
 	}
 
-	return fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
+	return 0, fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
 }
 
 // NewMBLCache make a new MBL cache.

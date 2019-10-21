@@ -45,7 +45,7 @@ func BenchmarkInsertBuy(b *testing.B) {
 	cache.initCache()
 
 	for i := 0; i < b.N; i++ {
-		if err := cache.insertOrder(&ngerest.OrderBookL2{
+		if _, err := cache.insertOrder(&ngerest.OrderBookL2{
 			Price: float64(i),
 			Size:  float32(i),
 			Side:  "Buy",
@@ -60,7 +60,7 @@ func BenchmarkInsertSell(b *testing.B) {
 	cache.initCache()
 
 	for i := 0; i < b.N; i++ {
-		if err := cache.insertOrder(&ngerest.OrderBookL2{
+		if _, err := cache.insertOrder(&ngerest.OrderBookL2{
 			Price: float64(i),
 			Size:  float32(i),
 			Side:  "Sell",

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"math" 
+	"math"
 )
 
 // MaxInt return max int
@@ -44,4 +44,116 @@ func MinInts(numbers ...int) int {
 	}
 
 	return min
+}
+
+// PriceSort insert price in price list
+func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
+	originLen := len(priceList)
+
+	midIdx := originLen / 2
+
+	if desc {
+		if price > priceList[0] {
+			rtn := make([]float64, originLen+1)
+			rtn[0] = price
+			for idx, price := range priceList {
+				rtn[idx+1] = price
+			}
+			return 0, rtn
+		}
+
+		if price < priceList[originLen-1] {
+			return len(priceList), append(priceList, price)
+		}
+
+		for {
+			if price < priceList[midIdx] {
+				if price > priceList[midIdx+1] {
+					// TODO: 修正right部分数据被覆盖的问题
+					return midIdx + 1, append(append(priceList[0:midIdx+1], price), priceList[midIdx+2:originLen]...)
+				}
+
+				newIdx := midIdx / 2
+
+				if midIdx == newIdx {
+					midIdx++
+				} else {
+					midIdx = newIdx
+				}
+
+				if midIdx >= originLen {
+					break
+				}
+			} else {
+				if price < priceList[midIdx-1] {
+					return midIdx, append(append(priceList[0:midIdx], price), priceList[midIdx+1:originLen]...)
+				}
+
+				newIdx := (originLen - midIdx) / 2
+
+				if midIdx == newIdx {
+					midIdx--
+				} else {
+					midIdx = newIdx
+				}
+
+				if midIdx <= 0 {
+					break
+				}
+			}
+		}
+
+		return -1, nil
+	}
+
+	if price > priceList[originLen-1] {
+		return originLen, append(priceList, price)
+	}
+
+	if price < priceList[0] {
+		rtn := make([]float64, originLen+1)
+		rtn[0] = price
+		for idx, price := range priceList {
+			rtn[idx+1] = price
+		}
+		return 0, rtn
+	}
+
+	for {
+		if price > priceList[midIdx] {
+			if price < priceList[midIdx+1] {
+				return midIdx + 1, append(append(priceList[0:midIdx+1], price), priceList[midIdx+2:]...)
+			}
+
+			newIdx := (originLen - midIdx) / 2
+
+			if midIdx == newIdx {
+				midIdx++
+			} else {
+				midIdx = newIdx
+			}
+
+			if midIdx >= originLen {
+				break
+			}
+		} else {
+			if price > priceList[midIdx-1] {
+				return midIdx, append(append(priceList[0:midIdx], price), priceList[midIdx+1:originLen]...)
+			}
+
+			newIdx := midIdx / 2
+
+			if midIdx == newIdx {
+				midIdx--
+			} else {
+				midIdx = newIdx
+			}
+
+			if midIdx <= 0 {
+				break
+			}
+		}
+	}
+
+	return -1, nil
 }
