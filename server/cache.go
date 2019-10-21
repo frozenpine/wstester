@@ -58,12 +58,21 @@ func (in *CacheInput) IsBreakPoint() bool {
 
 // NewCacheInput make a new cache input
 func NewCacheInput(msg []byte) *CacheInput {
-	cache := CacheInput{
-		pubChannels: nil,
-		msg:         msg,
+	input := CacheInput{
+		msg: msg,
 	}
 
-	return &cache
+	return &input
+}
+
+// NewBreakpoint make a new cache breakpoint
+func NewBreakpoint(breakpointFn func() models.TableResponse, publish ...Channel) *CacheInput {
+	input := CacheInput{
+		pubChannels:    publish,
+		breakpointFunc: breakpointFn,
+	}
+
+	return &input
 }
 
 type tableCache struct {
@@ -178,21 +187,20 @@ func (c *tableCache) Ready() <-chan struct{} {
 func (c *tableCache) TakeSnapshot(depth int, publish ...Channel) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
 
-	c.pipeline <- &CacheInput{
-		pubChannels: publish,
-		breakpointFunc: func() models.TableResponse {
-			if c.snapshotFn == nil {
-				log.Panicln("snapshotFn is nil.")
-			}
+	snapFn := func() models.TableResponse {
+		if c.snapshotFn == nil {
+			log.Panicln("snapshotFn is nil.")
+		}
 
-			snap := c.snapshotFn(depth)
+		snap := c.snapshotFn(depth)
 
-			ch <- snap
-			close(ch)
+		ch <- snap
+		close(ch)
 
-			return snap
-		},
+		return snap
 	}
+
+	c.pipeline <- NewBreakpoint(snapFn, publish...)
 
 	return <-ch
 }
