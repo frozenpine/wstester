@@ -45,14 +45,14 @@ func (c *TradeCache) snapshot(depth int) models.TableResponse {
 func (c *TradeCache) handleInput(in *CacheInput) {
 	if in.IsBreakPoint() {
 		if rsp := in.breakpointFunc(); rsp != nil {
-			if in.pubChannels == nil || len(in.pubChannels) < 1 {
-				return
-			}
-
-			for _, ch := range in.pubChannels {
-				ch.PublishData(rsp)
+			if in.pubChannels != nil && len(in.pubChannels) > 0 {
+				for _, ch := range in.pubChannels {
+					ch.PublishData(rsp)
+				}
 			}
 		}
+
+		return
 	}
 
 	tdNotify := kafka.TradeNotify{}
