@@ -155,14 +155,23 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		idx int
+		idx    int
+		sorted sort.Float64Slice
 	)
 
 	switch ord.Side {
 	case "Buy":
-		idx, c.bids = utils.PriceSort(c.bids, ord.Price, false)
+		idx, sorted = utils.PriceSort(c.bids, ord.Price, false)
+		if idx < 0 {
+			return 0, errors.New("fail to insert price in bids")
+		}
+		c.bids = sorted
 	case "Sell":
-		idx, c.asks = utils.PriceSort(c.asks, ord.Price, true)
+		idx, sorted = utils.PriceSort(c.asks, ord.Price, true)
+		if idx < 0 {
+			return 0, errors.New("fail to insert price in price list")
+		}
+		c.asks = sorted
 	default:
 		return 0, errors.New("invalid order side: " + ord.Side)
 	}
