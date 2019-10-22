@@ -61,7 +61,7 @@ func BenchmarkInsertSell(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		if _, err := cache.insertOrder(&ngerest.OrderBookL2{
-			Price: float64(i),
+			Price: float64(b.N - i),
 			Size:  float32(i),
 			Side:  "Sell",
 		}); err != nil {

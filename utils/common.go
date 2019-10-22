@@ -46,19 +46,23 @@ func MinInts(numbers ...int) int {
 	return min
 }
 
-// PriceSort insert price in price list
+// PriceSort insert price in price list, origin price list must be sorted, and has unique price
 func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
 	originLen := len(priceList)
+
+	if originLen < 1 {
+		return 0, append(priceList, price)
+	}
 
 	midIdx := originLen / 2
 
 	if desc {
 		if price > priceList[0] {
 			rtn := make([]float64, originLen+1)
+
 			rtn[0] = price
-			for idx, price := range priceList {
-				rtn[idx+1] = price
-			}
+			copy(rtn[1:], priceList)
+
 			return 0, rtn
 		}
 
@@ -69,11 +73,17 @@ func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
 		for {
 			if price < priceList[midIdx] {
 				if price > priceList[midIdx+1] {
-					// TODO: 修正right部分数据被覆盖的问题
-					return midIdx + 1, append(append(priceList[0:midIdx+1], price), priceList[midIdx+2:originLen]...)
+					rtn := make([]float64, originLen+1)
+
+					copy(rtn, priceList[0:midIdx+1])
+					copy(rtn[midIdx+2:], priceList[midIdx+1:])
+
+					rtn[midIdx+1] = price
+
+					return midIdx + 1, rtn
 				}
 
-				newIdx := midIdx / 2
+				newIdx := (originLen-midIdx)/2 + midIdx
 
 				if midIdx == newIdx {
 					midIdx++
@@ -86,10 +96,17 @@ func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
 				}
 			} else {
 				if price < priceList[midIdx-1] {
-					return midIdx, append(append(priceList[0:midIdx], price), priceList[midIdx+1:originLen]...)
+					rtn := make([]float64, originLen+1)
+
+					copy(rtn, priceList[0:midIdx])
+					copy(rtn[midIdx+2:], priceList[midIdx+1:])
+
+					rtn[midIdx] = price
+
+					return midIdx, rtn
 				}
 
-				newIdx := (originLen - midIdx) / 2
+				newIdx := midIdx / 2
 
 				if midIdx == newIdx {
 					midIdx--
@@ -112,20 +129,27 @@ func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
 
 	if price < priceList[0] {
 		rtn := make([]float64, originLen+1)
+
 		rtn[0] = price
-		for idx, price := range priceList {
-			rtn[idx+1] = price
-		}
+		copy(rtn[1:], priceList)
+
 		return 0, rtn
 	}
 
 	for {
 		if price > priceList[midIdx] {
 			if price < priceList[midIdx+1] {
-				return midIdx + 1, append(append(priceList[0:midIdx+1], price), priceList[midIdx+2:]...)
+				rtn := make([]float64, originLen+1)
+
+				copy(rtn, priceList[0:midIdx+1])
+				copy(rtn[midIdx+2:], priceList[midIdx+1:])
+
+				rtn[midIdx+1] = price
+
+				return midIdx + 1, rtn
 			}
 
-			newIdx := (originLen - midIdx) / 2
+			newIdx := (originLen-midIdx)/2 + midIdx
 
 			if midIdx == newIdx {
 				midIdx++
@@ -138,7 +162,14 @@ func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
 			}
 		} else {
 			if price > priceList[midIdx-1] {
-				return midIdx, append(append(priceList[0:midIdx], price), priceList[midIdx+1:originLen]...)
+				rtn := make([]float64, originLen+1)
+
+				copy(rtn, priceList[0:midIdx])
+				copy(rtn[midIdx+1:], priceList[midIdx:])
+
+				rtn[midIdx] = price
+
+				return midIdx, rtn
 			}
 
 			newIdx := midIdx / 2

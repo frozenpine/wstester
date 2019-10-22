@@ -36,9 +36,12 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 	sellDepth := utils.MinInt(sellLength, depth)
 	buyDepth := utils.MinInt(buyLength, depth)
 
-	priceList := append([]float64{}, c.bids[buyLength-buyDepth:]...)
-	priceList = append(priceList, c.asks[0:sellDepth]...)
-	utils.ReverseFloat64Slice(priceList)
+	priceList := make([]float64, sellDepth+buyDepth)
+
+	copy(priceList, c.asks[sellLength-sellDepth:])
+	copy(priceList[sellDepth:], c.bids[buyLength-buyDepth:])
+
+	utils.ReverseFloat64Slice(priceList[sellDepth:])
 
 	dataList := make([]*ngerest.OrderBookL2, sellDepth+buyDepth)
 	for idx, price := range priceList {
@@ -152,25 +155,21 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		depth int
+		idx int
 	)
 
 	switch ord.Side {
 	case "Buy":
-		c.bids = append(c.bids, ord.Price)
-		sort.Sort(c.bids)
-		depth = c.bids.Len() - c.bids.Search(ord.Price)
+		idx, c.bids = utils.PriceSort(c.bids, ord.Price, false)
 	case "Sell":
-		c.asks = append(c.asks, ord.Price)
-		sort.Sort(c.asks)
-		depth = c.asks.Search(ord.Price) + 1
+		idx, c.asks = utils.PriceSort(c.asks, ord.Price, true)
 	default:
 		return 0, errors.New("invalid order side: " + ord.Side)
 	}
 
 	c.orderCache[ord.Price] = ord
 
-	return depth, nil
+	return idx + 1, nil
 }
 
 func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
