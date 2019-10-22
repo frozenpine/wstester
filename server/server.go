@@ -352,11 +352,12 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	mbl := NewMBLCache(ctx)
 
 	svr.dataCaches["trade"] = td
-	// FIXME: mock的临时方案
-	mockTrade(td)
-
 	// svr.pubChannels["instrument"] = ins
 	svr.dataCaches["orderBookL2"] = mbl
+
+	// FIXME: mock的临时方案
+	mockTrade(td)
+	mockMBL(mbl)
 
 	// svr.subCaches["trade"] = td
 	// svr.subCaches["instrument"] = ins
