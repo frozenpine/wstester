@@ -43,42 +43,33 @@ func (c *TradeCache) snapshot(depth int) models.TableResponse {
 }
 
 func (c *TradeCache) handleInput(in *CacheInput) {
-	var rsp models.TableResponse
-
 	if in.IsBreakPoint() {
-		rsp = in.breakpointFunc()
-	} else {
-		tdNotify := kafka.TradeNotify{}
+		if rsp := in.breakpointFunc(); rsp != nil {
+			if in.pubChannels == nil || len(in.pubChannels) < 1 {
+				return
+			}
 
-		if err := json.Unmarshal(in.msg, &tdNotify); err != nil {
-			log.Println(err)
-		} else {
-			c.applyData(tdNotify.Content)
-			rsp = tdNotify.Content
+			for _, ch := range in.pubChannels {
+				ch.PublishData(rsp)
+			}
 		}
 	}
 
-	if rsp == nil {
+	tdNotify := kafka.TradeNotify{}
+
+	if err := json.Unmarshal(in.msg, &tdNotify); err != nil {
+		log.Println(err)
 		return
 	}
 
-	if in.pubChannels != nil && len(in.pubChannels) > 0 {
-		for _, ch := range in.pubChannels {
-			ch.PublishData(rsp)
-		}
-
+	if tdNotify.Content == nil {
+		log.Println("Trade notify content is empty:", string(in.msg))
 		return
 	}
 
-	for chType, chGroup := range c.channelGroup {
-		_ = chType
+	c.applyData(tdNotify.Content)
 
-		for depth, ch := range chGroup {
-			_ = depth
-
-			ch.PublishData(rsp)
-		}
-	}
+	c.channelGroup[Realtime][0].PublishData(tdNotify.Content)
 }
 
 func (c *TradeCache) applyData(data *models.TradeResponse) {
