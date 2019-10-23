@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"log"
 	"math"
 )
 
@@ -47,16 +48,20 @@ func MinInts(numbers ...int) int {
 }
 
 // PriceSort insert price in price list, origin price list must be sorted, and has unique price
-func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
+func PriceSort(priceList []float64, price float64, reverse bool) (int, []float64) {
+	log.Println("price sort begin:", priceList, price, reverse)
+	defer log.Println("price sort end:", priceList)
+
 	originLen := len(priceList)
 
 	if originLen < 1 {
 		return 0, append(priceList, price)
 	}
 
-	midIdx := originLen / 2
+	start := 0
+	end := originLen - 1
 
-	if desc {
+	if reverse {
 		if price > priceList[0] {
 			rtn := make([]float64, originLen+1)
 
@@ -71,120 +76,110 @@ func PriceSort(priceList []float64, price float64, desc bool) (int, []float64) {
 		}
 
 		for {
-			if price < priceList[midIdx] {
-				if price > priceList[midIdx+1] {
+			mid := (end-start)/2 + start
+
+			if mid >= end {
+				return len(priceList), append(priceList, price)
+			}
+
+			if mid <= start {
+				rtn := make([]float64, originLen+1)
+
+				rtn[0] = price
+				copy(rtn[1:], priceList)
+
+				return 0, rtn
+			}
+
+			if price < priceList[mid] {
+				if price > priceList[mid+1] {
 					rtn := make([]float64, originLen+1)
 
-					copy(rtn, priceList[0:midIdx+1])
-					copy(rtn[midIdx+2:], priceList[midIdx+1:])
+					copy(rtn, priceList[0:mid+1])
+					copy(rtn[mid+2:], priceList[mid+1:])
 
-					rtn[midIdx+1] = price
+					rtn[mid+1] = price
 
-					return midIdx + 1, rtn
+					return mid + 1, rtn
 				}
 
-				newIdx := (originLen-midIdx)/2 + midIdx
-
-				if midIdx == newIdx {
-					midIdx++
-				} else {
-					midIdx = newIdx
-				}
-
-				if midIdx >= originLen {
-					break
-				}
+				start = mid
 			} else {
-				if price < priceList[midIdx-1] {
+				if price < priceList[mid-1] {
 					rtn := make([]float64, originLen+1)
 
-					copy(rtn, priceList[0:midIdx])
-					copy(rtn[midIdx+2:], priceList[midIdx+1:])
+					copy(rtn, priceList[0:mid])
+					copy(rtn[mid+2:], priceList[mid+1:])
 
-					rtn[midIdx] = price
+					rtn[mid] = price
 
-					return midIdx, rtn
+					return mid, rtn
 				}
 
-				newIdx := midIdx / 2
-
-				if midIdx == newIdx {
-					midIdx--
-				} else {
-					midIdx = newIdx
-				}
-
-				if midIdx <= 0 {
-					break
-				}
+				end = mid
 			}
 		}
 
-		return -1, nil
+		// return -1, nil
 	}
 
-	if price > priceList[originLen-1] {
-		return originLen, append(priceList, price)
+	if price > priceList[end] {
+		return end + 1, append(priceList, price)
 	}
 
-	if price < priceList[0] {
+	if price < priceList[start] {
 		rtn := make([]float64, originLen+1)
 
 		rtn[0] = price
 		copy(rtn[1:], priceList)
 
-		return 0, rtn
+		return start, rtn
 	}
 
 	for {
-		if price > priceList[midIdx] {
-			if price < priceList[midIdx+1] {
+		mid := (end-start)/2 + start
+
+		if mid >= end {
+			return len(priceList), append(priceList, price)
+		}
+
+		if mid <= start {
+			rtn := make([]float64, originLen+1)
+
+			rtn[0] = price
+			copy(rtn[1:], priceList)
+
+			return 0, rtn
+		}
+
+		if price > priceList[mid] {
+			if price < priceList[mid+1] {
 				rtn := make([]float64, originLen+1)
 
-				copy(rtn, priceList[0:midIdx+1])
-				copy(rtn[midIdx+2:], priceList[midIdx+1:])
+				copy(rtn, priceList[0:mid+1])
+				copy(rtn[mid+2:], priceList[mid+1:])
 
-				rtn[midIdx+1] = price
+				rtn[mid+1] = price
 
-				return midIdx + 1, rtn
+				return mid + 1, rtn
 			}
 
-			newIdx := (originLen-midIdx)/2 + midIdx
-
-			if midIdx == newIdx {
-				midIdx++
-			} else {
-				midIdx = newIdx
-			}
-
-			if midIdx >= originLen {
-				break
-			}
+			start = mid
 		} else {
-			if price > priceList[midIdx-1] {
+			if price > priceList[mid-1] {
 				rtn := make([]float64, originLen+1)
 
-				copy(rtn, priceList[0:midIdx])
-				copy(rtn[midIdx+1:], priceList[midIdx:])
+				copy(rtn, priceList[0:mid])
+				copy(rtn[mid+1:], priceList[mid:])
 
-				rtn[midIdx] = price
+				rtn[mid] = price
 
-				return midIdx, rtn
+				return mid, rtn
 			}
 
-			newIdx := midIdx / 2
-
-			if midIdx == newIdx {
-				midIdx--
-			} else {
-				midIdx = newIdx
-			}
-
-			if midIdx <= 0 {
-				break
-			}
+			end = mid
 		}
 	}
 
-	return -1, nil
+	// return -1, nil
 }

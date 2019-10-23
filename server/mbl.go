@@ -8,8 +8,10 @@ import (
 	"log"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/frozenpine/ngerest"
+	"github.com/frozenpine/wstester/client"
 	"github.com/frozenpine/wstester/kafka"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
@@ -66,57 +68,94 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
+	var depth int = -1
+
 	mblNotify := kafka.MBLNotify{}
 
 	if err := json.Unmarshal(in.msg, &mblNotify); err != nil {
 		log.Println(err)
-	} else {
-		c.applyData(mblNotify.Content)
+		return
 	}
 
-	// FIXME: 不用深度级别的notify分发
-	for depth, ch := range c.channelGroup[Realtime] {
-		_ = depth
+	if mblNotify.Content == nil {
+		log.Println("MBL notify content is empty:", string(in.msg))
+		return
+	}
+
+	depth = c.applyData(mblNotify.Content)
+
+	if depth < 0 {
+		log.Printf("invalid apply depth[%d] return: %s", depth, string(in.msg))
+		return
+	}
+
+	for lvl, ch := range c.channelGroup[Realtime] {
+		if lvl > 0 && depth > lvl {
+			continue
+		}
 
 		ch.PublishData(mblNotify.Content)
 	}
 }
 
-func (c *MBLCache) applyData(data *models.MBLResponse) {
+func (c *MBLCache) applyData(data *models.MBLResponse) int {
+	var (
+		depth int = -1
+		err   error
+		ord   *ngerest.OrderBookL2
+	)
+
 	switch data.Action {
 	case models.DeleteAction:
-		for _, ord := range data.Data {
-			if _, err := c.deleteOrder(ord); err != nil {
+		for _, ord = range data.Data {
+			if depth, err = c.deleteOrder(ord); err != nil {
 				log.Println(err)
 			}
 		}
 	case models.InsertAction:
-		for _, ord := range data.Data {
-			if _, err := c.insertOrder(ord); err != nil {
+		for _, ord = range data.Data {
+			if depth, err = c.insertOrder(ord); err != nil {
 				log.Println(err)
 			}
 		}
 	case models.UpdateAction:
-		for _, ord := range data.Data {
-			if _, err := c.updateOrder(ord); err != nil {
+		for _, ord = range data.Data {
+			if depth, err = c.updateOrder(ord); err != nil {
 				log.Println(err)
 			}
 		}
 	case models.PartialAction:
-		c.initCache()
-
-		for _, ord := range data.Data {
-			c.insertOrder(ord)
-		}
+		c.partial(data.Data)
 	default:
 		log.Panicln("Invalid action:", data.Action)
 	}
+
+	return depth
 }
 
 func (c *MBLCache) initCache() {
 	c.orderCache = make(map[float64]*ngerest.OrderBookL2)
 	c.asks = sort.Float64Slice{}
 	c.bids = sort.Float64Slice{}
+}
+
+func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
+	c.initCache()
+
+	for _, mbl := range data {
+		c.orderCache[mbl.Price] = mbl
+
+		switch mbl.Side {
+		case "Buy":
+			c.bids = append(c.bids, mbl.Price)
+		case "Sell":
+			c.asks = append(c.asks, mbl.Price)
+		default:
+			log.Println("invalid mbl side:", mbl.Side)
+		}
+	}
+
+	utils.ReverseFloat64Slice(c.bids)
 }
 
 func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
@@ -139,7 +178,11 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	idx = dst.Search(ord.Price)
-	*dst = append((*dst)[0:idx], (*dst)[idx+1:]...)
+	if idx < len(*dst)-1 {
+		*dst = append((*dst)[0:idx], (*dst)[idx+1:]...)
+	} else {
+		*dst = (*dst)[0:idx]
+	}
 
 	delete(c.orderCache, ord.Price)
 
@@ -155,7 +198,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		idx    int
+		idx    int = -1
 		sorted sort.Float64Slice
 	)
 
@@ -163,17 +206,17 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	case "Buy":
 		idx, sorted = utils.PriceSort(c.bids, ord.Price, false)
 		if idx < 0 {
-			return 0, errors.New("fail to insert price in bids")
+			return idx, errors.New("fail to insert price in bids")
 		}
 		c.bids = sorted
 	case "Sell":
 		idx, sorted = utils.PriceSort(c.asks, ord.Price, true)
 		if idx < 0 {
-			return 0, errors.New("fail to insert price in price list")
+			return idx, errors.New("fail to insert price in price list")
 		}
 		c.asks = sorted
 	default:
-		return 0, errors.New("invalid order side: " + ord.Side)
+		return idx, errors.New("invalid order side: " + ord.Side)
 	}
 
 	c.orderCache[ord.Price] = ord
@@ -182,16 +225,16 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 }
 
 func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
-	if origin, exist := c.orderCache[ord.Price]; exist {
-		var idx int
+	var idx int = -1
 
+	if origin, exist := c.orderCache[ord.Price]; exist {
 		switch ord.Side {
 		case "Buy":
 			idx = c.bids.Search(ord.Price)
 		case "Sell":
 			idx = c.asks.Search(ord.Price)
 		default:
-			return 0, errors.New("invalid side: " + ord.Side)
+			return idx, errors.New("invalid order side: " + ord.Side)
 		}
 
 		origin.Size = ord.Size
@@ -200,7 +243,49 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		return idx + 1, nil
 	}
 
-	return 0, fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
+	return idx, fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
+}
+
+func mockMBL(cache Cache) {
+	cfg := client.NewConfig()
+	ins := client.NewClient(cfg)
+	ins.Subscribe("orderBookL2")
+
+	for {
+		ctx, cancelFn := context.WithCancel(context.Background())
+
+		ins.Connect(ctx)
+
+		go func() {
+			mblChan := ins.GetResponse("orderBookL2")
+
+			for {
+				select {
+				case mbl, ok := <-mblChan:
+					if !ok {
+						cancelFn()
+						return
+					}
+
+					if mbl == nil {
+						continue
+					}
+
+					notify := kafka.MBLNotify{}
+					notify.Type = "orderBookL2"
+					notify.Content = mbl.(*models.MBLResponse)
+
+					result, _ := json.Marshal(notify)
+
+					cache.Append(NewCacheInput(result))
+				}
+			}
+		}()
+
+		<-ins.Closed()
+
+		<-time.After(time.Second * 5)
+	}
 }
 
 // NewMBLCache make a new MBL cache.
@@ -215,6 +300,11 @@ func NewMBLCache(ctx context.Context) *MBLCache {
 	if err := mbl.Start(); err != nil {
 		log.Panicln(err)
 	}
+
+	// mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx}
+	// if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
+	// 	log.Panicln(err)
+	// }
 
 	return &mbl
 }

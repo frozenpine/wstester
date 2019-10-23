@@ -113,7 +113,9 @@ func (c *tableCache) Start() error {
 			c.ready = make(chan struct{})
 		}
 
-		c.channelGroup[Realtime] = map[int]Channel{0: &rspChannel{ctx: c.ctx}}
+		c.channelGroup[Realtime] = map[int]Channel{
+			0: &rspChannel{ctx: c.ctx},
+		}
 
 		for _, chGroup := range c.channelGroup {
 			if chGroup == nil {

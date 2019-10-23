@@ -129,7 +129,11 @@ func (c *rspChannel) Start() error {
 				select {
 				case <-c.ctx.Done():
 					return
-				case data := <-c.source:
+				case data, ok := <-c.source:
+					if !ok {
+						return
+					}
+
 					if data == nil {
 						continue
 					}
