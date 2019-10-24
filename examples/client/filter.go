@@ -44,8 +44,8 @@ func filter(ctx context.Context, table string, ch <-chan models.TableResponse) e
 			select {
 			case <-ctx.Done():
 				return
-			case rsp := <-ch:
-				if rsp == nil {
+			case rsp, ok := <-ch:
+				if !ok || rsp == nil {
 					return
 				}
 

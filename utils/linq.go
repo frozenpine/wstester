@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -120,6 +121,10 @@ func RegisterTableModel(name string, tbl interface{}) error {
 
 // GetFieldValue get property value in struct
 func GetFieldValue(data interface{}, property string) interface{} {
+	if property == "" {
+		log.Panicln("property name can not be null")
+	}
+
 	return reflect.Indirect(reflect.ValueOf(data)).FieldByName(property).Interface()
 }
 
@@ -263,6 +268,10 @@ func (tbl *TableDef) GetFilter() LinqFilter {
 		}
 
 		query.Select(func(v interface{}) interface{} {
+			if reflect.Indirect(reflect.ValueOf(v)).Interface() == nil {
+				return v
+			}
+
 			result := make(map[string]interface{})
 
 			for _, col := range tbl.selected {
