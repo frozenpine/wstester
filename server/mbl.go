@@ -165,23 +165,17 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 	var (
 		idx int
-		dst *sort.Float64Slice
 	)
+
+	// FIXME: delete price in backgroup array
 
 	switch ord.Side {
 	case "Buy":
-		dst = &c.bids
+		idx, c.bids = utils.PriceRemove(c.bids, ord.Price, false)
 	case "Sell":
-		dst = &c.asks
+		idx, c.asks = utils.PriceRemove(c.asks, ord.Price, true)
 	default:
 		return 0, errors.New("invalid order side: " + ord.Side)
-	}
-
-	idx = dst.Search(ord.Price)
-	if idx < len(*dst)-1 {
-		*dst = append((*dst)[0:idx], (*dst)[idx+1:]...)
-	} else {
-		*dst = (*dst)[0:idx]
 	}
 
 	delete(c.orderCache, ord.Price)
@@ -198,23 +192,14 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		idx    int = -1
-		sorted sort.Float64Slice
+		idx int = -1
 	)
 
 	switch ord.Side {
 	case "Buy":
-		idx, sorted = utils.PriceSort(c.bids, ord.Price, false)
-		if idx < 0 {
-			return idx, errors.New("fail to insert price in bids")
-		}
-		c.bids = sorted
+		idx, c.bids = utils.PriceAdd(c.bids, ord.Price, false)
 	case "Sell":
-		idx, sorted = utils.PriceSort(c.asks, ord.Price, true)
-		if idx < 0 {
-			return idx, errors.New("fail to insert price in price list")
-		}
-		c.asks = sorted
+		idx, c.asks = utils.PriceAdd(c.asks, ord.Price, true)
 	default:
 		return idx, errors.New("invalid order side: " + ord.Side)
 	}
@@ -230,9 +215,9 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 	if origin, exist := c.orderCache[ord.Price]; exist {
 		switch ord.Side {
 		case "Buy":
-			idx = c.bids.Search(ord.Price)
+			idx = utils.PriceSearch(c.bids, ord.Price, false)
 		case "Sell":
-			idx = c.asks.Search(ord.Price)
+			idx = utils.PriceSearch(c.asks, ord.Price, true)
 		default:
 			return idx, errors.New("invalid order side: " + ord.Side)
 		}
