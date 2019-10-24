@@ -21,27 +21,55 @@ import (
 type MBLCache struct {
 	tableCache
 
-	asks       []float64 // in DESC order
-	bids       []float64 // in ASC order
+	asks     []float64 // in DESC order
+	bids     []float64 // in ASC order
+	askQuote struct {
+		bestPrice, lastPrice float64
+		bestSize, lastSize   float32
+	}
+	bidQuote struct {
+		bestPrice, lastPrice float64
+		bestSize, lastSize   float32
+	}
 	orderCache map[float64]*ngerest.OrderBookL2
 }
 
-// BestBuy best bid price
-func (c *MBLCache) BestBuy() float64 {
-	if len(c.bids) > 0 {
-		return c.bids[len(c.bids)-1]
-	}
-
-	return 0
+// BestBidPrice best bid price
+func (c *MBLCache) BestBidPrice() float64 {
+	return c.bidQuote.bestPrice
 }
 
-// BestSell best ask price
-func (c *MBLCache) BestSell() float64 {
-	if len(c.asks) > 0 {
-		return c.asks[len(c.asks)-1]
+// BestBidSize best bid size
+func (c *MBLCache) BestBidSize() float32 {
+	return c.bidQuote.bestSize
+}
+
+// BestAskPrice best ask price
+func (c *MBLCache) BestAskPrice() float64 {
+	return c.askQuote.bestPrice
+}
+
+// BestAskSize best ask size
+func (c *MBLCache) BestAskSize() float32 {
+	return c.askQuote.bestSize
+}
+
+// IsQuoteChange true if best quote changed
+func (c *MBLCache) IsQuoteChange() bool {
+	bidChanged := c.bidQuote.bestPrice != c.bidQuote.lastPrice || c.bidQuote.bestSize != c.bidQuote.lastSize
+	askChanged := c.askQuote.bestPrice != c.askQuote.lastPrice || c.askQuote.bestSize != c.askQuote.lastSize
+
+	if bidChanged {
+		c.bidQuote.lastPrice = c.bidQuote.bestPrice
+		c.bidQuote.lastSize = c.bidQuote.bestSize
 	}
 
-	return 0
+	if askChanged {
+		c.askQuote.lastPrice = c.askQuote.bestPrice
+		c.askQuote.lastSize = c.askQuote.bestSize
+	}
+
+	return bidChanged || askChanged
 }
 
 func (c *MBLCache) snapshot(depth int) models.TableResponse {
@@ -105,7 +133,10 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	// log.Println("mbl:", c.BestBuy(), c.BestSell())
+	if c.IsQuoteChange() {
+		log.Printf("Best Buy: %.1f@%.0f, Best Sell: %.1f@%.0f\n",
+			c.BestBidPrice(), c.BestBidSize(), c.BestAskPrice(), c.BestAskSize())
+	}
 
 	// apply an partial
 	if depth == 0 {
@@ -123,6 +154,7 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 
 func (c *MBLCache) applyData(data *models.MBLResponse) (int, error) {
 	var (
+		// TODO: make sure real depth
 		depth int
 		err   error
 		ord   *ngerest.OrderBookL2
@@ -182,10 +214,15 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 
 	utils.ReverseFloat64Slice(c.bids)
 
+	c.bidQuote.bestPrice = c.bids[len(c.bids)-1]
+	c.bidQuote.bestSize = c.orderCache[c.bidQuote.bestPrice].Size
+	c.askQuote.bestPrice = c.asks[len(c.asks)-1]
+	c.askQuote.bestSize = c.orderCache[c.askQuote.bestPrice].Size
+
 	snap := c.snapshot(0).GetData()
 	result, _ := json.Marshal(snap)
 
-	log.Println("partial:", string(result))
+	log.Println("MBL partial:", string(result))
 }
 
 func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
@@ -194,6 +231,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
+		// TODO: make sure real depth
 		idx int = -1
 		err error
 	)
@@ -201,8 +239,16 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	switch ord.Side {
 	case "Buy":
 		idx, c.bids = utils.PriceRemove(c.bids, ord.Price, false)
+		if idx == len(c.bids) {
+			c.bidQuote.lastPrice, c.bidQuote.bestPrice = c.bidQuote.bestPrice, c.bids[len(c.bids)-1]
+			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, c.orderCache[c.bidQuote.bestPrice].Size
+		}
 	case "Sell":
 		idx, c.asks = utils.PriceRemove(c.asks, ord.Price, true)
+		if idx == len(c.asks) {
+			c.askQuote.lastPrice, c.askQuote.bestPrice = c.askQuote.bestPrice, c.asks[len(c.asks)-1]
+			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, c.orderCache[c.askQuote.bestPrice].Size
+		}
 	default:
 		err = errors.New("invalid order side: " + ord.Side)
 	}
@@ -225,6 +271,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
+		// TODO: make sure real depth
 		idx int = -1
 		err error
 	)
@@ -232,8 +279,17 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	switch ord.Side {
 	case "Buy":
 		idx, c.bids = utils.PriceAdd(c.bids, ord.Price, false)
+		if idx == len(c.bids)-1 {
+			c.bidQuote.lastPrice, c.bidQuote.bestPrice = c.bidQuote.bestPrice, ord.Price
+			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
+		}
 	case "Sell":
 		idx, c.asks = utils.PriceAdd(c.asks, ord.Price, true)
+		c.orderCache[ord.Price] = ord
+		if idx == len(c.asks)-1 {
+			c.askQuote.lastPrice, c.askQuote.bestPrice = c.askQuote.bestPrice, ord.Price
+			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, ord.Size
+		}
 	default:
 		err = errors.New("invalid order side: " + ord.Side)
 	}
@@ -253,8 +309,14 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		switch ord.Side {
 		case "Buy":
 			idx = utils.PriceSearch(c.bids, ord.Price, false)
+			if idx == len(c.bids)-1 {
+				c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
+			}
 		case "Sell":
 			idx = utils.PriceSearch(c.asks, ord.Price, true)
+			if idx == len(c.asks)-1 {
+				c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, ord.Size
+			}
 		default:
 			err = errors.New("invalid order side: " + ord.Side)
 		}
