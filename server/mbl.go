@@ -21,15 +21,15 @@ import (
 type MBLCache struct {
 	tableCache
 
-	asks       sort.Float64Slice // in DESC order
-	bids       sort.Float64Slice // in ASC order
+	asks       []float64 // in DESC order
+	bids       []float64 // in ASC order
 	orderCache map[float64]*ngerest.OrderBookL2
 }
 
 // BestBuy best bid price
 func (c *MBLCache) BestBuy() float64 {
-	if c.bids.Len() > 0 {
-		return c.bids[c.bids.Len()-1]
+	if len(c.bids) > 0 {
+		return c.bids[len(c.bids)-1]
 	}
 
 	return 0
@@ -37,8 +37,8 @@ func (c *MBLCache) BestBuy() float64 {
 
 // BestSell best ask price
 func (c *MBLCache) BestSell() float64 {
-	if c.asks.Len() > 0 {
-		return c.asks[c.asks.Len()-1]
+	if len(c.asks) > 0 {
+		return c.asks[len(c.asks)-1]
 	}
 
 	return 0
@@ -51,8 +51,8 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 
 	snap := models.NewMBLPartial()
 
-	sellLength := c.asks.Len()
-	buyLength := c.bids.Len()
+	sellLength := len(c.asks)
+	buyLength := len(c.bids)
 	sellDepth := utils.MinInt(sellLength, depth)
 	buyDepth := utils.MinInt(buyLength, depth)
 

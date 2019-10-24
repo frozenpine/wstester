@@ -49,7 +49,7 @@ func MinInts(numbers ...int) int {
 }
 
 // PriceSearch search price in price list, -1 returned if price not found.
-func PriceSearch(priceList sort.Float64Slice, price float64, reverse bool) (idx int) {
+func PriceSearch(priceList []float64, price float64, reverse bool) (idx int) {
 	// FIXME: debug output
 	defer func() {
 		if idx < 0 {
@@ -57,7 +57,7 @@ func PriceSearch(priceList sort.Float64Slice, price float64, reverse bool) (idx 
 		}
 	}()
 
-	originLen := priceList.Len()
+	originLen := len(priceList)
 
 	idx = -1
 
@@ -75,7 +75,7 @@ func PriceSearch(priceList sort.Float64Slice, price float64, reverse bool) (idx 
 }
 
 // PriceAdd insert price in price list, origin price list must be sorted, and has unique price
-func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int, rtn sort.Float64Slice) {
+func PriceAdd(priceList []float64, price float64, reverse bool) (idx int, rtn []float64) {
 	// FIXME: debug level log
 	// defer func() {
 	// 	log.Println("price sorted:", rtn, idx, price, reverse)
@@ -95,7 +95,7 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 	if reverse {
 		if price > priceList[start] {
 			idx = start
-			rtn = append(sort.Float64Slice{price}, priceList...)
+			rtn = append([]float64{price}, priceList...)
 
 			return
 		}
@@ -108,7 +108,7 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 
 		for {
 			if (end - start) <= 1 {
-				right := append(sort.Float64Slice{}, priceList[end:]...)
+				right := append([]float64{}, priceList[end:]...)
 
 				idx = start + 1
 				rtn = append(append(priceList[0:start+1], price), right...)
@@ -120,7 +120,7 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 
 			if price < priceList[mid] {
 				if price > priceList[mid+1] {
-					right := append(sort.Float64Slice{}, priceList[mid+1:]...)
+					right := append([]float64{}, priceList[mid+1:]...)
 
 					idx = mid + 1
 					rtn = append(append(priceList[:mid+1], price), right...)
@@ -131,7 +131,7 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 				start = mid
 			} else {
 				if price < priceList[mid-1] {
-					right := append(sort.Float64Slice{}, priceList[mid:]...)
+					right := append([]float64{}, priceList[mid:]...)
 
 					idx = mid
 					rtn = append(append(priceList[0:mid], price), right...)
@@ -152,14 +152,14 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 
 	if price < priceList[start] {
 		idx = start
-		rtn = append(sort.Float64Slice{price}, priceList...)
+		rtn = append([]float64{price}, priceList...)
 
 		return
 	}
 
 	for {
 		if (end - start) <= 1 {
-			right := append(sort.Float64Slice{}, priceList[end:]...)
+			right := append([]float64{}, priceList[end:]...)
 
 			idx = start + 1
 			rtn = append(append(priceList[0:start+1], price), right...)
@@ -171,7 +171,7 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 
 		if price > priceList[mid] {
 			if price < priceList[mid+1] {
-				right := append(sort.Float64Slice{}, priceList[mid+1:]...)
+				right := append([]float64{}, priceList[mid+1:]...)
 
 				idx = mid + 1
 				rtn = append(append(priceList[0:mid+1], price), right...)
@@ -182,7 +182,7 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 			start = mid
 		} else {
 			if price > priceList[mid-1] {
-				right := append(sort.Float64Slice{}, priceList[mid:]...)
+				right := append([]float64{}, priceList[mid:]...)
 
 				idx = mid
 				rtn = append(append(priceList[0:mid], price), right...)
@@ -196,14 +196,14 @@ func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int
 }
 
 // PriceRemove remove price from price list
-func PriceRemove(priceList sort.Float64Slice, price float64, reverse bool) (int, sort.Float64Slice) {
+func PriceRemove(priceList []float64, price float64, reverse bool) (int, []float64) {
 	idx := PriceSearch(priceList, price, reverse)
 
 	if idx < 0 {
 		return idx, priceList
 	}
 
-	lastIdx := priceList.Len() - 1
+	lastIdx := len(priceList) - 1
 
 	if idx == 0 {
 		return idx, priceList[1:]
@@ -213,7 +213,7 @@ func PriceRemove(priceList sort.Float64Slice, price float64, reverse bool) (int,
 		return idx, priceList[0:idx]
 	}
 
-	right := append(sort.Float64Slice{}, priceList[idx+1:]...)
+	right := append([]float64{}, priceList[idx+1:]...)
 	copy(priceList[idx:], right)
 
 	return idx, priceList[0:lastIdx]
