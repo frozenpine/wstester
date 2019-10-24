@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"log"
 	"math"
 	"sort"
 )
@@ -73,10 +72,10 @@ func PriceSearch(priceList sort.Float64Slice, price float64, reverse bool) int {
 
 // PriceAdd insert price in price list, origin price list must be sorted, and has unique price
 func PriceAdd(priceList sort.Float64Slice, price float64, reverse bool) (idx int, rtn sort.Float64Slice) {
-	defer func() {
-		// FIXME: debug level log
-		log.Println("price sorted:", rtn, idx, price, reverse)
-	}()
+	// defer func() {
+	// 	// FIXME: debug level log
+	// 	log.Println("price sorted:", rtn, idx, price, reverse)
+	// }()
 
 	originLen := len(priceList)
 
@@ -197,7 +196,7 @@ func PriceRemove(priceList sort.Float64Slice, price float64, reverse bool) (int,
 	idx := PriceSearch(priceList, price, reverse)
 
 	if idx < 0 {
-		return idx, nil
+		return idx, priceList
 	}
 
 	lastIdx := priceList.Len() - 1

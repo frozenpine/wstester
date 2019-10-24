@@ -26,6 +26,24 @@ type MBLCache struct {
 	orderCache map[float64]*ngerest.OrderBookL2
 }
 
+// BestBuy best bid price
+func (c *MBLCache) BestBuy() float64 {
+	if c.bids.Len() > 0 {
+		return c.bids[c.bids.Len()-1]
+	}
+
+	return 0
+}
+
+// BestSell best ask price
+func (c *MBLCache) BestSell() float64 {
+	if c.asks.Len() > 0 {
+		return c.asks[c.asks.Len()-1]
+	}
+
+	return 0
+}
+
 func (c *MBLCache) snapshot(depth int) models.TableResponse {
 	if depth < 1 {
 		depth = math.MaxInt64
@@ -89,6 +107,13 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
+	log.Println("mbl:", c.BestBuy(), c.BestSell())
+
+	// apply an partial
+	if depth == 0 {
+		return
+	}
+
 	for lvl, ch := range c.channelGroup[Realtime] {
 		if lvl > 0 && depth > lvl {
 			continue
@@ -126,6 +151,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) int {
 		}
 	case models.PartialAction:
 		c.partial(data.Data)
+		return 0
 	default:
 		log.Panicln("Invalid action:", data.Action)
 	}
@@ -167,8 +193,6 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 		idx int
 	)
 
-	// FIXME: delete price in backgroup array
-
 	switch ord.Side {
 	case "Buy":
 		idx, c.bids = utils.PriceRemove(c.bids, ord.Price, false)
@@ -180,7 +204,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 	delete(c.orderCache, ord.Price)
 
-	return idx + 1, nil
+	return idx, nil
 }
 
 func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
@@ -206,7 +230,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 	c.orderCache[ord.Price] = ord
 
-	return idx + 1, nil
+	return idx, nil
 }
 
 func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
@@ -225,7 +249,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		origin.Size = ord.Size
 		origin.ID = ord.ID
 
-		return idx + 1, nil
+		return idx, nil
 	}
 
 	return idx, fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
