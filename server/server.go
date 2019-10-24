@@ -359,9 +359,5 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	go mockTrade(td)
 	go mockMBL(mbl)
 
-	// svr.subCaches["trade"] = td
-	// svr.subCaches["instrument"] = ins
-	// svr.subCaches["orderBookL2"] = mbl
-
 	return &svr
 }
