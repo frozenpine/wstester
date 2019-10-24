@@ -86,8 +86,6 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	var depth int = -1
-
 	mblNotify := kafka.MBLNotify{}
 
 	if err := json.Unmarshal(in.msg, &mblNotify); err != nil {
@@ -100,14 +98,14 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	depth = c.applyData(mblNotify.Content)
+	depth, err := c.applyData(mblNotify.Content)
 
-	if depth < 0 {
+	if err != nil {
 		log.Printf("invalid apply depth[%d] return: %s", depth, string(in.msg))
 		return
 	}
 
-	log.Println("mbl:", c.BestBuy(), c.BestSell())
+	// log.Println("mbl:", c.BestBuy(), c.BestSell())
 
 	// apply an partial
 	if depth == 0 {
@@ -123,9 +121,9 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 	}
 }
 
-func (c *MBLCache) applyData(data *models.MBLResponse) int {
+func (c *MBLCache) applyData(data *models.MBLResponse) (int, error) {
 	var (
-		depth int = -1
+		depth int
 		err   error
 		ord   *ngerest.OrderBookL2
 	)
@@ -151,12 +149,12 @@ func (c *MBLCache) applyData(data *models.MBLResponse) int {
 		}
 	case models.PartialAction:
 		c.partial(data.Data)
-		return 0
+		return 0, nil
 	default:
 		log.Panicln("Invalid action:", data.Action)
 	}
 
-	return depth
+	return depth, err
 }
 
 func (c *MBLCache) initCache() {
@@ -169,8 +167,6 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 	c.initCache()
 
 	for _, mbl := range data {
-		c.orderCache[mbl.Price] = mbl
-
 		switch mbl.Side {
 		case "Buy":
 			c.bids = append(c.bids, mbl.Price)
@@ -178,10 +174,18 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 			c.asks = append(c.asks, mbl.Price)
 		default:
 			log.Println("invalid mbl side:", mbl.Side)
+			continue
 		}
+
+		c.orderCache[mbl.Price] = mbl
 	}
 
 	utils.ReverseFloat64Slice(c.bids)
+
+	snap := c.snapshot(0).GetData()
+	result, _ := json.Marshal(snap)
+
+	log.Println("partial:", string(result))
 }
 
 func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
@@ -190,7 +194,8 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		idx int
+		idx int = -1
+		err error
 	)
 
 	switch ord.Side {
@@ -199,12 +204,16 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	case "Sell":
 		idx, c.asks = utils.PriceRemove(c.asks, ord.Price, true)
 	default:
-		return 0, errors.New("invalid order side: " + ord.Side)
+		err = errors.New("invalid order side: " + ord.Side)
+	}
+
+	if idx < 0 {
+		err = fmt.Errorf("price %f not found on delete %s", ord.Price, ord.Side)
 	}
 
 	delete(c.orderCache, ord.Price)
 
-	return idx, nil
+	return idx, err
 }
 
 func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
@@ -217,6 +226,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 	var (
 		idx int = -1
+		err error
 	)
 
 	switch ord.Side {
@@ -225,16 +235,19 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	case "Sell":
 		idx, c.asks = utils.PriceAdd(c.asks, ord.Price, true)
 	default:
-		return idx, errors.New("invalid order side: " + ord.Side)
+		err = errors.New("invalid order side: " + ord.Side)
 	}
 
 	c.orderCache[ord.Price] = ord
 
-	return idx, nil
+	return idx, err
 }
 
 func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
-	var idx int = -1
+	var (
+		idx int = -1
+		err error
+	)
 
 	if origin, exist := c.orderCache[ord.Price]; exist {
 		switch ord.Side {
@@ -243,16 +256,20 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		case "Sell":
 			idx = utils.PriceSearch(c.asks, ord.Price, true)
 		default:
-			return idx, errors.New("invalid order side: " + ord.Side)
+			err = errors.New("invalid order side: " + ord.Side)
 		}
 
-		origin.Size = ord.Size
-		origin.ID = ord.ID
-
-		return idx, nil
+		if idx < 0 {
+			err = fmt.Errorf("price %f not found on %s", ord.Price, ord.Side)
+		} else {
+			origin.Size = ord.Size
+			origin.ID = ord.ID
+		}
+	} else {
+		err = fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
 	}
 
-	return idx, fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
+	return idx, err
 }
 
 func mockMBL(cache Cache) {

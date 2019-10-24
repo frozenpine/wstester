@@ -356,7 +356,7 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	svr.dataCaches["orderBookL2"] = mbl
 
 	// FIXME: mock的临时方案
-	go mockTrade(td)
+	// go mockTrade(td)
 	go mockMBL(mbl)
 
 	// svr.subCaches["trade"] = td

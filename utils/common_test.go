@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestPriceSort(t *testing.T) {
+func TestPriceAdd(t *testing.T) {
 	listLength := 100
 	basePrice := 8000.0
 	priceTick := 0.5
@@ -57,6 +57,20 @@ func TestPriceSort(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestReadAdd(t *testing.T) {
+	testList := sort.Float64Slice{30000, 9900, 8300, 8160, 7559.5, 7557, 7554, 7553, 7552.5, 7551, 7550, 7548.5, 7548,
+		7546.5, 7545, 7544.5, 7542, 7540.5, 7540, 7539, 7536.5, 7536, 7533.5, 7533, 7532.5, 7530, 7528.5, 7527, 7524.5,
+		7524, 7521, 7520.5, 7518, 7516.5, 7515, 7514, 7512.5, 7512, 7509, 7508.5, 7486, 7485, 7484, 7483, 7482, 7481,
+		7480, 7479, 7478, 7477, 7476, 7475, 7472, 7471, 7469, 7468.5, 7468, 7467.5, 7467, 7466, 7465, 7464.5, 7464,
+		7462.5, 7462, 7461, 7460, 7459.5, 7459, 7458.5, 7458, 7457.5, 7457}
+
+	var idx int
+
+	idx, testList = PriceAdd(testList, 7463.5, true)
+
+	t.Log(idx, testList)
 }
 
 func TestPriceRemove(t *testing.T) {
@@ -145,9 +159,12 @@ func TestPriceSearch(t *testing.T) {
 	t.Log(PriceSearch(bids, 10, false))
 	t.Log(PriceSearch(bids, 0, false))
 	t.Log(PriceSearch(bids, 4, false))
+	t.Log(PriceSearch(bids, 9, false))
+	t.Log(PriceSearch(bids, 1, false))
 
 	asks := sort.Float64Slice{9, 7, 5, 3, 1}
 	t.Log(PriceSearch(asks, 10, true))
 	t.Log(PriceSearch(asks, 0, true))
 	t.Log(PriceSearch(asks, 4, true))
+	t.Log(PriceSearch(asks, 2, true))
 }
