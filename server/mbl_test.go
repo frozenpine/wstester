@@ -28,16 +28,16 @@ func TestSnapshot(t *testing.T) {
 	}
 
 	t.Log(cache.snapshot(3))
-	t.Log(cache.asks)
-	t.Log(cache.bids)
+	t.Log(cache.askPrices)
+	t.Log(cache.bidPrices)
 
 	t.Log(cache.snapshot(6))
-	t.Log(cache.asks)
-	t.Log(cache.bids)
+	t.Log(cache.askPrices)
+	t.Log(cache.bidPrices)
 
 	t.Log(cache.snapshot(9))
-	t.Log(cache.asks)
-	t.Log(cache.bids)
+	t.Log(cache.askPrices)
+	t.Log(cache.bidPrices)
 }
 
 func BenchmarkInsertBuy(b *testing.B) {
