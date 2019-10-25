@@ -96,6 +96,10 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 		dataList[idx] = c.orderCache[price]
 	}
 
+	if depth > 0 {
+		snap.Table = fmt.Sprintf("%s_%d", snap.Table, depth)
+	}
+
 	snap.Data = dataList
 
 	return snap
@@ -150,6 +154,7 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		}
 
 		if rsp, exist := limitRsp[lvl]; exist && len(rsp.Data) > 0 {
+			rsp.Table = fmt.Sprintf("%s_%d", rsp.Table, lvl)
 			ch.PublishData(rsp)
 		}
 	}
@@ -180,8 +185,10 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 				return nil, err
 			}
 
-			if rsp, exist := limitRsp[depth]; exist {
-				rsp.Data = append(rsp.Data, ord)
+			for limit, rsp := range limitRsp {
+				if depth <= limit {
+					rsp.Data = append(rsp.Data, ord)
+				}
 			}
 		}
 	case models.InsertAction:
@@ -190,8 +197,10 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 				return nil, err
 			}
 
-			if rsp, exist := limitRsp[depth]; exist {
-				rsp.Data = append(rsp.Data, ord)
+			for limit, rsp := range limitRsp {
+				if depth <= limit {
+					rsp.Data = append(rsp.Data, ord)
+				}
 			}
 		}
 	case models.UpdateAction:
@@ -200,8 +209,10 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 				return nil, err
 			}
 
-			if rsp, exist := limitRsp[depth]; exist {
-				rsp.Data = append(rsp.Data, ord)
+			for limit, rsp := range limitRsp {
+				if depth <= limit {
+					rsp.Data = append(rsp.Data, ord)
+				}
 			}
 		}
 	case models.PartialAction:
@@ -372,11 +383,11 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 }
 
 func mockMBL(cache Cache) {
-	cfg := client.NewConfig()
-	ins := client.NewClient(cfg)
-	ins.Subscribe("orderBookL2")
-
 	for {
+		cfg := client.NewConfig()
+		ins := client.NewClient(cfg)
+		ins.Subscribe("orderBookL2")
+
 		ctx, cancelFn := context.WithCancel(context.Background())
 
 		ins.Connect(ctx)

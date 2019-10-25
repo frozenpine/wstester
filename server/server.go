@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -176,6 +177,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 		rspList []models.Response
 		cache   Cache
 		exist   bool
+		// topicDepthRegex = regexp.MustCompile(`.+(?:L2_?)?(\d+)?$`)
 	)
 
 	for _, topicStr := range req.GetArgs() {
@@ -188,12 +190,27 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 			// TODO: private flow subscribe
 			// cache.Subscribe() or something like
 
+			depth := 0
+
+			// for _, match := range topicDepthRegex.FindStringSubmatch(topicName) {
+			// 	depth, _ = strconv.Atoi(match)
+			// }
+			if topicName == "orderBookL2_25" {
+				depth = 25
+			}
+
 			go func(cache Cache, chType ChannelType, depth int) {
 				<-waitRsp
 
 				rspChan := cache.GetRspChannel(chType, depth)
 				if rspChan == nil {
-					err := models.ErrResponse{Error: "Fail to get response channel."}
+					err := models.ErrResponse{
+						Error: fmt.Sprintf("Fail to get response Channel for %s on depth %d", topicName, depth),
+						Request: models.OperationRequest{
+							Operation: req.GetOperation(),
+							Args:      req.GetArgs(),
+						},
+					}
 					client.WriteJSONMessage(&err, false)
 					client.Close(-1, err.Error)
 					return
@@ -216,7 +233,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 					client.WriteJSONMessage(data, false)
 				}
-			}(cache, Realtime, 0)
+			}(cache, Realtime, depth)
 		}
 
 		rsp := models.SubscribeResponse{
