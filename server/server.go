@@ -354,6 +354,7 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	svr.dataCaches["trade"] = td
 	// svr.pubChannels["instrument"] = ins
 	svr.dataCaches["orderBookL2"] = mbl
+	svr.dataCaches["orderBookL2_25"] = mbl
 
 	// FIXME: mock的临时方案
 	go mockTrade(td)

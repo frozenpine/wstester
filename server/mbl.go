@@ -126,10 +126,10 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	depth, err := c.applyData(mblNotify.Content)
+	limitRsp, err := c.applyData(mblNotify.Content)
 
 	if err != nil {
-		log.Printf("invalid apply depth[%d] return: %s", depth, string(in.msg))
+		log.Printf("apply data failed: %s, data: %s", err.Error(), string(in.msg))
 		return
 	}
 
@@ -139,54 +139,79 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 	}
 
 	// apply an partial
-	if depth == 0 {
+	if limitRsp == nil {
 		return
 	}
 
 	for lvl, ch := range c.channelGroup[Realtime] {
-		if lvl > 0 && depth > lvl {
+		if lvl == 0 {
+			ch.PublishData(mblNotify.Content)
 			continue
 		}
 
-		ch.PublishData(mblNotify.Content)
+		if rsp, exist := limitRsp[lvl]; exist && len(rsp.Data) > 0 {
+			ch.PublishData(rsp)
+		}
 	}
 }
 
-func (c *MBLCache) applyData(data *models.MBLResponse) (int, error) {
+func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLResponse, error) {
 	var (
-		// TODO: make sure real depth
 		depth int
 		err   error
-		ord   *ngerest.OrderBookL2
 	)
+
+	limitRsp := make(map[int]*models.MBLResponse)
+
+	for depth := range c.channelGroup[Realtime] {
+		if depth != 0 {
+			rsp := models.MBLResponse{}
+			rsp.Table = data.Table
+			rsp.Action = data.Action
+
+			limitRsp[depth] = &rsp
+		}
+	}
 
 	switch data.Action {
 	case models.DeleteAction:
-		for _, ord = range data.Data {
+		for _, ord := range data.Data {
 			if depth, err = c.deleteOrder(ord); err != nil {
-				log.Println(err)
+				return nil, err
+			}
+
+			if rsp, exist := limitRsp[depth]; exist {
+				rsp.Data = append(rsp.Data, ord)
 			}
 		}
 	case models.InsertAction:
-		for _, ord = range data.Data {
+		for _, ord := range data.Data {
 			if depth, err = c.insertOrder(ord); err != nil {
-				log.Println(err)
+				return nil, err
+			}
+
+			if rsp, exist := limitRsp[depth]; exist {
+				rsp.Data = append(rsp.Data, ord)
 			}
 		}
 	case models.UpdateAction:
-		for _, ord = range data.Data {
+		for _, ord := range data.Data {
 			if depth, err = c.updateOrder(ord); err != nil {
-				log.Println(err)
+				return nil, err
+			}
+
+			if rsp, exist := limitRsp[depth]; exist {
+				rsp.Data = append(rsp.Data, ord)
 			}
 		}
 	case models.PartialAction:
 		c.partial(data.Data)
-		return 0, nil
+		return nil, nil
 	default:
-		log.Panicln("Invalid action:", data.Action)
+		return nil, fmt.Errorf("Invalid action: %s", data.Action)
 	}
 
-	return depth, err
+	return limitRsp, err
 }
 
 func (c *MBLCache) initCache() {
@@ -231,24 +256,28 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		// TODO: make sure real depth
-		idx int = -1
-		err error
+		idx   int = -1
+		err   error
+		depth int
 	)
 
 	switch ord.Side {
 	case "Buy":
+		originLen := len(c.bids)
 		idx, c.bids = utils.PriceRemove(c.bids, ord.Price, false)
-		if idx == len(c.bids) {
+		if idx == originLen-1 {
 			c.bidQuote.lastPrice, c.bidQuote.bestPrice = c.bidQuote.bestPrice, c.bids[len(c.bids)-1]
 			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, c.orderCache[c.bidQuote.bestPrice].Size
 		}
+		depth = originLen - idx
 	case "Sell":
+		originLen := len(c.asks)
 		idx, c.asks = utils.PriceRemove(c.asks, ord.Price, true)
-		if idx == len(c.asks) {
+		if idx == originLen-1 {
 			c.askQuote.lastPrice, c.askQuote.bestPrice = c.askQuote.bestPrice, c.asks[len(c.asks)-1]
 			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, c.orderCache[c.askQuote.bestPrice].Size
 		}
+		depth = originLen - idx
 	default:
 		err = errors.New("invalid order side: " + ord.Side)
 	}
@@ -259,7 +288,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 	delete(c.orderCache, ord.Price)
 
-	return idx, err
+	return depth, err
 }
 
 func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
@@ -271,52 +300,60 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		// TODO: make sure real depth
-		idx int = -1
-		err error
+		idx   int = -1
+		err   error
+		depth int
 	)
 
 	switch ord.Side {
 	case "Buy":
 		idx, c.bids = utils.PriceAdd(c.bids, ord.Price, false)
-		if idx == len(c.bids)-1 {
+		newLength := len(c.bids)
+		if idx == newLength-1 {
 			c.bidQuote.lastPrice, c.bidQuote.bestPrice = c.bidQuote.bestPrice, ord.Price
 			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
 		}
+		depth = newLength - idx
 	case "Sell":
 		idx, c.asks = utils.PriceAdd(c.asks, ord.Price, true)
-		c.orderCache[ord.Price] = ord
-		if idx == len(c.asks)-1 {
+		newLength := len(c.asks)
+		if idx == newLength-1 {
 			c.askQuote.lastPrice, c.askQuote.bestPrice = c.askQuote.bestPrice, ord.Price
 			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, ord.Size
 		}
+		depth = newLength - idx
 	default:
 		err = errors.New("invalid order side: " + ord.Side)
 	}
 
 	c.orderCache[ord.Price] = ord
 
-	return idx, err
+	return depth, err
 }
 
 func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 	var (
-		idx int = -1
-		err error
+		idx   int = -1
+		err   error
+		depth int
 	)
 
 	if origin, exist := c.orderCache[ord.Price]; exist {
 		switch ord.Side {
 		case "Buy":
+			length := len(c.bids)
 			idx = utils.PriceSearch(c.bids, ord.Price, false)
-			if idx == len(c.bids)-1 {
+			if idx == length-1 {
 				c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
 			}
+			depth = length - idx
 		case "Sell":
+			length := len(c.asks)
 			idx = utils.PriceSearch(c.asks, ord.Price, true)
-			if idx == len(c.asks)-1 {
+			if idx == length-1 {
 				c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, ord.Size
 			}
+			depth = length - idx
 		default:
 			err = errors.New("invalid order side: " + ord.Side)
 		}
@@ -331,7 +368,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		err = fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
 	}
 
-	return idx, err
+	return depth, err
 }
 
 func mockMBL(cache Cache) {
@@ -389,10 +426,10 @@ func NewMBLCache(ctx context.Context) *MBLCache {
 		log.Panicln(err)
 	}
 
-	// mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx}
-	// if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
-	// 	log.Panicln(err)
-	// }
+	mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx}
+	if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
+		log.Panicln(err)
+	}
 
 	return &mbl
 }
