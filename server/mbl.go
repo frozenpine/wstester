@@ -177,6 +177,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 		}
 	}
 
+	// FIXME: 控制mbl深度，delete后需要增补挡位，add后需要delete挡位
 	switch data.Action {
 	case models.DeleteAction:
 		for _, ord := range data.Data {
