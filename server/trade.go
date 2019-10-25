@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/frozenpine/ngerest"
-	"github.com/frozenpine/wstester/kafka"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 )
@@ -55,7 +54,7 @@ func (c *TradeCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	tdNotify := kafka.TradeNotify{}
+	tdNotify := TradeNotify{}
 
 	if err := json.Unmarshal(in.msg, &tdNotify); err != nil {
 		log.Println(err)
@@ -102,7 +101,7 @@ func mockTrade(cache Cache) {
 		rand.Seed(start.UnixNano())
 		count := rand.Intn(1000)
 
-		tdNotify := kafka.TradeNotify{
+		tdNotify := TradeNotify{
 			Content: &models.TradeResponse{},
 		}
 		tdNotify.Type = "trade"

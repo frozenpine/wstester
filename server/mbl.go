@@ -12,7 +12,6 @@ import (
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/client"
-	"github.com/frozenpine/wstester/kafka"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 )
@@ -118,7 +117,7 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	mblNotify := kafka.MBLNotify{}
+	mblNotify := MBLNotify{}
 
 	if err := json.Unmarshal(in.msg, &mblNotify); err != nil {
 		log.Println(err)
@@ -409,7 +408,7 @@ func mockMBL(cache Cache) {
 						continue
 					}
 
-					notify := kafka.MBLNotify{}
+					notify := MBLNotify{}
 					notify.Type = "orderBookL2"
 					notify.Content = mbl.(*models.MBLResponse)
 
