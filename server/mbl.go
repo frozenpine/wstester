@@ -96,7 +96,7 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 		dataList[idx] = c.orderCache[price]
 	}
 
-	if depth > 0 {
+	if depth > 0 && depth != math.MaxInt64 {
 		snap.Table = fmt.Sprintf("%s_%d", snap.Table, depth)
 	}
 
