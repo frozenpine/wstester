@@ -17,13 +17,14 @@ var (
 	filters map[string]*utils.TableDef
 
 	topicMapper = map[string]interface{}{
-		"trade":       new(ngerest.Trade),
-		"instrument":  new(ngerest.Instrument),
-		"orderBookL2": new(ngerest.OrderBookL2),
-		"order":       new(ngerest.Order),
-		"margin":      new(ngerest.Margin),
-		"position":    new(ngerest.Position),
-		"execution":   new(ngerest.Execution),
+		"trade":          new(ngerest.Trade),
+		"instrument":     new(ngerest.Instrument),
+		"orderBookL2":    new(ngerest.OrderBookL2),
+		"orderBookL2_25": new(ngerest.OrderBookL2),
+		"order":          new(ngerest.Order),
+		"margin":         new(ngerest.Margin),
+		"position":       new(ngerest.Position),
+		"execution":      new(ngerest.Execution),
 	}
 )
 

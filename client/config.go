@@ -17,7 +17,7 @@ var (
 	symbolSubs = []string{"instrument", "orderBookL2", "trade", "order"}
 
 	// PublicTopics public topics for subscribe without authentication
-	PublicTopics = []string{"instrument", "orderBookL2", "trade", "quote"}
+	PublicTopics = []string{"instrument", "orderBookL2", "orderBookL2_25", "trade", "quote"}
 	// PrivateTopics private topics for subscribe must authenticated
 	PrivateTopics = []string{"order", "execution", "position"}
 )

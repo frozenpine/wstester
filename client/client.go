@@ -475,7 +475,7 @@ func (c *client) handleInsMsg(msg []byte) (*models.InstrumentResponse, error) {
 	}
 
 	defer func() {
-		if insChans, exist := c.rspChannelMapper["instrument"]; exist && len(insChans) > 0 {
+		if insChans, exist := c.rspChannelMapper[insRsp.Table]; exist && len(insChans) > 0 {
 			for _, ch := range insChans {
 				ch <- &insRsp
 			}
@@ -493,7 +493,7 @@ func (c *client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
 	}
 
 	defer func() {
-		if tdChans, exist := c.rspChannelMapper["trade"]; exist && len(tdChans) > 0 {
+		if tdChans, exist := c.rspChannelMapper[tdRsp.Table]; exist && len(tdChans) > 0 {
 			for _, ch := range tdChans {
 				ch <- &tdRsp
 			}
@@ -511,7 +511,7 @@ func (c *client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 	}
 
 	defer func() {
-		if mblChans, exist := c.rspChannelMapper["orderBookL2"]; exist && len(mblChans) > 0 {
+		if mblChans, exist := c.rspChannelMapper[mblRsp.Table]; exist && len(mblChans) > 0 {
 			for _, ch := range mblChans {
 				ch <- &mblRsp
 			}
