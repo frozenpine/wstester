@@ -252,7 +252,7 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 
 func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	if _, exist := c.orderCache[ord.Price]; !exist {
-		return 0, fmt.Errorf("%s order[%f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
+		return 0, fmt.Errorf("%s order[%.1f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
 	}
 
 	var (
@@ -294,7 +294,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	if origin, exist := c.orderCache[ord.Price]; exist {
 		return 0, fmt.Errorf(
-			"%s order[%f@%.0f] insert on %s side with already exist order[%f@%.0f %.0f]",
+			"%s order[%.1f@%.0f] insert on %s side with already exist order[%.1f@%.0f %.0f]",
 			origin.Symbol, origin.Price, origin.Size, ord.Side, origin.Price, origin.Size, origin.ID,
 		)
 	}
@@ -365,7 +365,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 			origin.ID = ord.ID
 		}
 	} else {
-		err = fmt.Errorf("%s order[%f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
+		err = fmt.Errorf("%s order[%.1f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
 	}
 
 	return depth, err
@@ -386,6 +386,8 @@ func mockMBL(cache Cache) {
 
 			for {
 				select {
+				case <-ctx.Done():
+					return
 				case mbl, ok := <-mblChan:
 					if !ok {
 						cancelFn()
@@ -408,6 +410,8 @@ func mockMBL(cache Cache) {
 		}()
 
 		<-ins.Closed()
+
+		cancelFn()
 
 		<-time.After(time.Second * 5)
 	}
