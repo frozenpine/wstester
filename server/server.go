@@ -192,6 +192,13 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 				<-waitRsp
 
 				rspChan := cache.GetRspChannel(chType, depth)
+				if rspChan == nil {
+					err := models.ErrResponse{Error: "Fail to get response channel."}
+					client.WriteJSONMessage(&err, false)
+					client.Close(-1, err.Error)
+					return
+				}
+
 				dataChan := rspChan.RetriveData(client)
 
 				partialSend := false
