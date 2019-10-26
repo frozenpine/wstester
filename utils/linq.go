@@ -130,7 +130,7 @@ func GetFieldValue(data interface{}, property string) interface{} {
 
 // GetFieldType get property type in struct
 func GetFieldType(data interface{}, property string) *reflect.StructField {
-	t := reflect.TypeOf(data)
+	t := reflect.TypeOf(reflect.Indirect(reflect.ValueOf(data)).Interface())
 
 	if typ, exist := t.FieldByName(property); exist {
 		return &typ
