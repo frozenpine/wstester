@@ -14,8 +14,6 @@ import (
 	"github.com/frozenpine/wstester/client"
 	"github.com/frozenpine/wstester/utils"
 
-	// _ "net/http/pprof"
-
 	flag "github.com/spf13/pflag"
 )
 
@@ -61,6 +59,8 @@ var (
 
 	apiKey    string
 	apiSecret string
+
+	cacheMap = make(map[string]client.Cache)
 )
 
 func getURL() string {
@@ -236,12 +236,18 @@ func main() {
 		cfg.HeartbeatFailCount = hbFailCount
 		cfg.Symbol = symbol
 
-		ins := client.NewClient(cfg)
+		cacheMap["orderBookL2"] = client.NewMBLCache(ctx)
 
+		ins := client.NewClient(cfg)
 		ins.Subscribe(topics...)
+
+		cacheMap["orderBookL2"].Attatch(ins.GetResponse("orderBookL2"))
+
 		for table := range filters {
-			if ch := ins.GetResponse(table); ch != nil {
-				filter(ctx, table, ch)
+			if cacheChan, exist := cacheMap[table]; exist {
+				filter(ctx, table, cacheChan.GetRspChannel())
+			} else {
+				log.Panicf("table cache for %s is not found.", table)
 			}
 		}
 
