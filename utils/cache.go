@@ -1,4 +1,4 @@
-package server
+package utils
 
 import (
 	"context"
@@ -48,7 +48,7 @@ type Cache interface {
 type CacheInput struct {
 	pubChannels    []Channel
 	breakpointFunc func() models.TableResponse
-	msg            []byte
+	msg            models.TableResponse
 }
 
 // IsBreakPoint to check input is a breakpoint message
@@ -57,7 +57,7 @@ func (in *CacheInput) IsBreakPoint() bool {
 }
 
 // NewCacheInput make a new cache input
-func NewCacheInput(msg []byte) *CacheInput {
+func NewCacheInput(msg models.TableResponse) *CacheInput {
 	input := CacheInput{
 		msg: msg,
 	}

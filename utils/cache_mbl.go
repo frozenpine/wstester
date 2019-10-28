@@ -1,4 +1,4 @@
-package server
+package utils
 
 import (
 	"context"
@@ -8,12 +8,9 @@ import (
 	"log"
 	"math"
 	"sort"
-	"time"
 
 	"github.com/frozenpine/ngerest"
-	"github.com/frozenpine/wstester/client"
 	"github.com/frozenpine/wstester/models"
-	"github.com/frozenpine/wstester/utils"
 )
 
 // MBLCache retrive & store mbl data
@@ -80,15 +77,15 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 
 	sellLength := len(c.askPrices)
 	buyLength := len(c.bidPrices)
-	sellDepth := utils.MinInt(sellLength, depth)
-	buyDepth := utils.MinInt(buyLength, depth)
+	sellDepth := MinInt(sellLength, depth)
+	buyDepth := MinInt(buyLength, depth)
 
 	priceList := make([]float64, sellDepth+buyDepth)
 
 	copy(priceList, c.askPrices[sellLength-sellDepth:])
 	copy(priceList[sellDepth:], c.bidPrices[buyLength-buyDepth:])
 
-	utils.ReverseFloat64Slice(priceList[sellDepth:])
+	ReverseFloat64Slice(priceList[sellDepth:])
 
 	dataList := make([]*ngerest.OrderBookL2, sellDepth+buyDepth)
 	for idx, price := range priceList {
@@ -117,22 +114,15 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	mblNotify := MBLNotify{}
-
-	if err := json.Unmarshal(in.msg, &mblNotify); err != nil {
-		log.Println(err)
+	if in.msg == nil {
+		log.Println("MBL notify content is empty:", in.msg.String())
 		return
 	}
 
-	if mblNotify.Content == nil {
-		log.Println("MBL notify content is empty:", string(in.msg))
-		return
-	}
-
-	limitRsp, err := c.applyData(mblNotify.Content)
+	limitRsp, err := c.applyData(in.msg.(*models.MBLResponse))
 
 	if err != nil {
-		log.Printf("apply data failed: %s, data: %s", err.Error(), string(in.msg))
+		log.Printf("apply data failed: %s, data: %s", err.Error(), in.msg.String())
 		return
 	}
 
@@ -148,7 +138,7 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 
 	for depth, ch := range c.channelGroup[Realtime] {
 		if depth == 0 {
-			ch.PublishData(mblNotify.Content)
+			ch.PublishData(in.msg)
 			continue
 		}
 
@@ -323,7 +313,7 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 		c.l2Cache[mbl.Price] = mbl
 	}
 
-	utils.ReverseFloat64Slice(c.bidPrices)
+	ReverseFloat64Slice(c.bidPrices)
 
 	c.bidQuote.bestPrice = c.bidPrices[len(c.bidPrices)-1]
 	c.bidQuote.bestSize = c.l2Cache[c.bidQuote.bestPrice].Size
@@ -350,7 +340,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	switch ord.Side {
 	case "Buy":
 		originLen := len(c.bidPrices)
-		idx, c.bidPrices = utils.PriceRemove(c.bidPrices, ord.Price, false)
+		idx, c.bidPrices = PriceRemove(c.bidPrices, ord.Price, false)
 		depth = originLen - idx
 
 		if depth == 1 {
@@ -359,7 +349,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 		}
 	case "Sell":
 		originLen := len(c.askPrices)
-		idx, c.askPrices = utils.PriceRemove(c.askPrices, ord.Price, true)
+		idx, c.askPrices = PriceRemove(c.askPrices, ord.Price, true)
 		depth = originLen - idx
 
 		if depth == 1 {
@@ -395,7 +385,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 	switch ord.Side {
 	case "Buy":
-		idx, c.bidPrices = utils.PriceAdd(c.bidPrices, ord.Price, false)
+		idx, c.bidPrices = PriceAdd(c.bidPrices, ord.Price, false)
 		newLength := len(c.bidPrices)
 		depth = newLength - idx
 
@@ -404,7 +394,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
 		}
 	case "Sell":
-		idx, c.askPrices = utils.PriceAdd(c.askPrices, ord.Price, true)
+		idx, c.askPrices = PriceAdd(c.askPrices, ord.Price, true)
 		newLength := len(c.askPrices)
 		depth = newLength - idx
 
@@ -432,7 +422,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		switch ord.Side {
 		case "Buy":
 			length := len(c.bidPrices)
-			idx = utils.PriceSearch(c.bidPrices, ord.Price, false)
+			idx = PriceSearch(c.bidPrices, ord.Price, false)
 			depth = length - idx
 
 			if depth == 1 {
@@ -441,7 +431,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 		case "Sell":
 			length := len(c.askPrices)
-			idx = utils.PriceSearch(c.askPrices, ord.Price, true)
+			idx = PriceSearch(c.askPrices, ord.Price, true)
 			depth = length - idx
 
 			if depth == 1 {
@@ -462,52 +452,6 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	return depth, err
-}
-
-func mockMBL(cache Cache) {
-	for {
-		cfg := client.NewConfig()
-		ins := client.NewClient(cfg)
-		ins.Subscribe("orderBookL2")
-
-		ctx, cancelFn := context.WithCancel(context.Background())
-
-		ins.Connect(ctx)
-
-		go func() {
-			mblChan := ins.GetResponse("orderBookL2")
-
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case mbl, ok := <-mblChan:
-					if !ok {
-						cancelFn()
-						return
-					}
-
-					if mbl == nil {
-						continue
-					}
-
-					notify := MBLNotify{}
-					notify.Type = "orderBookL2"
-					notify.Content = mbl.(*models.MBLResponse)
-
-					result, _ := json.Marshal(notify)
-
-					cache.Append(NewCacheInput(result))
-				}
-			}
-		}()
-
-		<-ins.Closed()
-
-		cancelFn()
-
-		<-time.After(time.Second * 5)
-	}
 }
 
 // NewMBLCache make a new MBL cache.

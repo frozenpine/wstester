@@ -1,4 +1,4 @@
-package server
+package utils
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/frozenpine/wstester/models"
-	"github.com/frozenpine/wstester/utils"
 )
 
 // Channel message channel
@@ -25,14 +24,14 @@ type Channel interface {
 	// PublishData publish data to current channel
 	PublishData(rsp models.Response) error
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData(client Session) <-chan models.Response
+	RetriveData(client string) <-chan models.Response
 }
 
 type rspChannel struct {
 	source chan models.Response
 
-	destinations     map[Session]chan models.Response
-	newDestinations  map[Session]chan models.Response
+	destinations     map[string]chan models.Response
+	newDestinations  map[string]chan models.Response
 	childChannels    []Channel
 	newChildChannels []Channel
 	retriveLock      sync.Mutex
@@ -59,7 +58,7 @@ func (c *rspChannel) PublishData(data models.Response) error {
 	return nil
 }
 
-func (c *rspChannel) RetriveData(client Session) <-chan models.Response {
+func (c *rspChannel) RetriveData(client string) <-chan models.Response {
 	if c.IsClosed {
 		ch := make(chan models.Response, 0)
 		close(ch)
@@ -113,11 +112,11 @@ func (c *rspChannel) Start() error {
 		}
 
 		if c.destinations == nil {
-			c.destinations = make(map[Session]chan models.Response)
+			c.destinations = make(map[string]chan models.Response)
 		}
 
 		if c.newDestinations == nil {
-			c.newDestinations = make(map[Session]chan models.Response)
+			c.newDestinations = make(map[string]chan models.Response)
 		}
 
 		c.IsClosed = false
@@ -180,7 +179,7 @@ func (c *rspChannel) mergeNewDestinations() {
 	c.retriveLock.Lock()
 	defer c.retriveLock.Unlock()
 
-	var merged []Session
+	var merged []string
 
 	for client, dest := range c.newDestinations {
 		c.destinations[client] = dest
@@ -193,18 +192,18 @@ func (c *rspChannel) mergeNewDestinations() {
 }
 
 func (c *rspChannel) dispatchDistinations(data models.Response) {
-	var invalidDest []Session
+	var invalidDest []string
 
 	c.mergeNewDestinations()
 
 	writeTimeout := time.NewTimer(time.Second * 5)
 
 	for client, dest := range c.destinations {
-		if client.IsClosed() {
-			invalidDest = append(invalidDest, client)
-			writeTimeout.Reset(time.Second * 5)
-			continue
-		}
+		// if client.IsClosed() {
+		// 	invalidDest = append(invalidDest, client)
+		// 	writeTimeout.Reset(time.Second * 5)
+		// 	continue
+		// }
 
 		select {
 		case dest <- data:
@@ -212,7 +211,7 @@ func (c *rspChannel) dispatchDistinations(data models.Response) {
 		case <-writeTimeout.C:
 			invalidDest = append(invalidDest, client)
 			writeTimeout = time.NewTimer(time.Second * 5)
-			log.Printf("Dispatch data to client[%s] timeout.", client.GetID())
+			log.Printf("Dispatch data to client[%s] timeout.", client)
 		}
 	}
 
@@ -254,7 +253,7 @@ func (c *rspChannel) dispatchSubChannels(data models.Response) {
 			tmpSlice[idx] = ele
 		}
 
-		tmpSlice = utils.RangeSlice(tmpSlice, invalidSub)
+		tmpSlice = RangeSlice(tmpSlice, invalidSub)
 
 		c.childChannels = make([]Channel, len(tmpSlice))
 

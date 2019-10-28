@@ -236,12 +236,8 @@ func main() {
 		cfg.HeartbeatFailCount = hbFailCount
 		cfg.Symbol = symbol
 
-		cacheMap["orderBookL2"] = client.NewMBLCache(ctx)
-
 		ins := client.NewClient(cfg)
 		ins.Subscribe(topics...)
-
-		cacheMap["orderBookL2"].Attatch(ins.GetResponse("orderBookL2"))
 
 		for table := range filters {
 			if cacheChan, exist := cacheMap[table]; exist {

@@ -1,4 +1,4 @@
-package server
+package utils
 
 // InstrumentCache retrive & store instrument data
 type InstrumentCache struct {

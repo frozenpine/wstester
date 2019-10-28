@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/frozenpine/wstester/mock"
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils"
 	"github.com/gorilla/websocket"
 )
 
@@ -51,7 +53,7 @@ type server struct {
 	statics serverStatics
 
 	clients    map[string]Session
-	dataCaches map[string]Cache
+	dataCaches map[string]utils.Cache
 }
 
 func (s *server) ReloadCfg(cfg *Config) {
@@ -175,7 +177,7 @@ func (s *server) handleAuth(req models.Request, client Session) models.Response 
 func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
 	var (
 		rspList []models.Response
-		cache   Cache
+		cache   utils.Cache
 		exist   bool
 		// topicDepthRegex = regexp.MustCompile(`.+(?:L2_?)?(\d+)?$`)
 	)
@@ -199,7 +201,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 				depth = 25
 			}
 
-			go func(cache Cache, chType ChannelType, depth int) {
+			go func(cache utils.Cache, chType utils.ChannelType, depth int) {
 				<-waitRsp
 
 				rspChan := cache.GetRspChannel(chType, depth)
@@ -216,7 +218,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 					return
 				}
 
-				dataChan := rspChan.RetriveData(client)
+				dataChan := rspChan.RetriveData(client.GetID())
 
 				partialSend := false
 
@@ -233,7 +235,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 					client.WriteJSONMessage(data, false)
 				}
-			}(cache, Realtime, depth)
+			}(cache, utils.Realtime, depth)
 		}
 
 		rsp := models.SubscribeResponse{
@@ -368,12 +370,12 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 		statics: serverStatics{},
 		clients: make(map[string]Session),
 		// subCaches:   make(map[string]sarama.ConsumerGroupHandler),
-		dataCaches: make(map[string]Cache),
+		dataCaches: make(map[string]utils.Cache),
 	}
 
-	td := NewTradeCache(ctx)
+	td := utils.NewTradeCache(ctx)
 	// ins := NewInstrumentCache()
-	mbl := NewMBLCache(ctx)
+	mbl := utils.NewMBLCache(ctx)
 
 	svr.dataCaches["trade"] = td
 	// svr.pubChannels["instrument"] = ins
@@ -381,8 +383,8 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	svr.dataCaches["orderBookL2_25"] = mbl
 
 	// FIXME: mock的临时方案
-	go mockTrade(td)
-	go mockMBL(mbl)
+	go mock.Trade(td)
+	go mock.MBL(mbl)
 
 	return &svr
 }
