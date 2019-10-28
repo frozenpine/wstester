@@ -30,7 +30,7 @@ type MBLCache struct {
 		bestPrice, lastPrice float64
 		bestSize, lastSize   float32
 	}
-	orderCache map[float64]*ngerest.OrderBookL2
+	l2Cache map[float64]*ngerest.OrderBookL2
 }
 
 // BestBidPrice best bid price
@@ -92,7 +92,7 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 
 	dataList := make([]*ngerest.OrderBookL2, sellDepth+buyDepth)
 	for idx, price := range priceList {
-		dataList[idx] = c.orderCache[price]
+		dataList[idx] = c.l2Cache[price]
 	}
 
 	if depth > 0 && depth != math.MaxInt64 {
@@ -202,11 +202,11 @@ func (c *MBLCache) GetOrderOnDepth(side string, depth int) *ngerest.OrderBookL2 
 		return nil
 	}
 
-	if ord, exist := c.orderCache[depthPrice]; exist {
+	if ord, exist := c.l2Cache[depthPrice]; exist {
 		return ord
 	}
 
-	log.Printf("Order of depth price[%.1f] not found in cache: %v\n", depthPrice, c.orderCache)
+	log.Printf("Order of depth price[%.1f] not found in cache: %v\n", depthPrice, c.l2Cache)
 	return nil
 }
 
@@ -271,7 +271,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 				if depth <= limit {
 					rspList[0].Data = append(rspList[0].Data, ord)
 
-					makeupOrd := c.GetOrderOnDepth(ord.Side, limit)
+					makeupOrd := c.GetOrderOnDepth(ord.Side, limit+1)
 					if makeupOrd != nil {
 						rspList[1].Data = append(rspList[1].Data, makeupOrd)
 					}
@@ -301,7 +301,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 }
 
 func (c *MBLCache) initCache() {
-	c.orderCache = make(map[float64]*ngerest.OrderBookL2)
+	c.l2Cache = make(map[float64]*ngerest.OrderBookL2)
 	c.askPrices = sort.Float64Slice{}
 	c.bidPrices = sort.Float64Slice{}
 }
@@ -320,15 +320,15 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 			continue
 		}
 
-		c.orderCache[mbl.Price] = mbl
+		c.l2Cache[mbl.Price] = mbl
 	}
 
 	utils.ReverseFloat64Slice(c.bidPrices)
 
 	c.bidQuote.bestPrice = c.bidPrices[len(c.bidPrices)-1]
-	c.bidQuote.bestSize = c.orderCache[c.bidQuote.bestPrice].Size
+	c.bidQuote.bestSize = c.l2Cache[c.bidQuote.bestPrice].Size
 	c.askQuote.bestPrice = c.askPrices[len(c.askPrices)-1]
-	c.askQuote.bestSize = c.orderCache[c.askQuote.bestPrice].Size
+	c.askQuote.bestSize = c.l2Cache[c.askQuote.bestPrice].Size
 
 	snap := c.snapshot(0).GetData()
 	result, _ := json.Marshal(snap)
@@ -337,7 +337,7 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 }
 
 func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
-	if _, exist := c.orderCache[ord.Price]; !exist {
+	if _, exist := c.l2Cache[ord.Price]; !exist {
 		return 0, fmt.Errorf("%s order[%.1f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
 	}
 
@@ -355,7 +355,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 		if depth == 1 {
 			c.bidQuote.lastPrice, c.bidQuote.bestPrice = c.bidQuote.bestPrice, c.bidPrices[len(c.bidPrices)-1]
-			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, c.orderCache[c.bidQuote.bestPrice].Size
+			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, c.l2Cache[c.bidQuote.bestPrice].Size
 		}
 	case "Sell":
 		originLen := len(c.askPrices)
@@ -364,7 +364,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 		if depth == 1 {
 			c.askQuote.lastPrice, c.askQuote.bestPrice = c.askQuote.bestPrice, c.askPrices[len(c.askPrices)-1]
-			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, c.orderCache[c.askQuote.bestPrice].Size
+			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, c.l2Cache[c.askQuote.bestPrice].Size
 		}
 	default:
 		err = errors.New("invalid order side: " + ord.Side)
@@ -374,13 +374,13 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 		err = fmt.Errorf("price %f not found on delete %s", ord.Price, ord.Side)
 	}
 
-	delete(c.orderCache, ord.Price)
+	delete(c.l2Cache, ord.Price)
 
 	return depth, err
 }
 
 func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
-	if origin, exist := c.orderCache[ord.Price]; exist {
+	if origin, exist := c.l2Cache[ord.Price]; exist {
 		return 0, fmt.Errorf(
 			"%s order[%.1f@%.0f] insert on %s side with already exist order[%.1f@%.0f %.0f]",
 			origin.Symbol, origin.Price, origin.Size, ord.Side, origin.Price, origin.Size, origin.ID,
@@ -416,7 +416,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 		err = errors.New("invalid order side: " + ord.Side)
 	}
 
-	c.orderCache[ord.Price] = ord
+	c.l2Cache[ord.Price] = ord
 
 	return depth, err
 }
@@ -428,7 +428,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		depth int
 	)
 
-	if origin, exist := c.orderCache[ord.Price]; exist {
+	if origin, exist := c.l2Cache[ord.Price]; exist {
 		switch ord.Side {
 		case "Buy":
 			length := len(c.bidPrices)
