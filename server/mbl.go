@@ -146,38 +146,103 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	for lvl, ch := range c.channelGroup[Realtime] {
-		if lvl == 0 {
+	for depth, ch := range c.channelGroup[Realtime] {
+		if depth == 0 {
 			ch.PublishData(mblNotify.Content)
 			continue
 		}
 
-		if rsp, exist := limitRsp[lvl]; exist && len(rsp.Data) > 0 {
-			rsp.Table = fmt.Sprintf("%s_%d", rsp.Table, lvl)
-			ch.PublishData(rsp)
+		if rspList, exist := limitRsp[depth]; exist {
+			for _, rsp := range rspList {
+				if rsp != nil && len(rsp.Data) > 0 {
+					rsp.Table = fmt.Sprintf("%s_%d", rsp.Table, depth)
+					ch.PublishData(rsp)
+				}
+			}
 		}
 	}
 }
 
-func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLResponse, error) {
+// GetDepth get side depth
+func (c *MBLCache) GetDepth(side string) int {
+	switch side {
+	case "Buy":
+		return len(c.bidPrices)
+	case "Sell":
+		return len(c.askPrices)
+	default:
+		log.Println("invalid side in GetDepth:", side)
+		return -1
+	}
+}
+
+// GetOrderOnDepth get mbl order on specified depth
+func (c *MBLCache) GetOrderOnDepth(side string, depth int) *ngerest.OrderBookL2 {
+	var depthPrice float64
+
+	switch side {
+	case "Buy":
+		bidLength := len(c.bidPrices)
+
+		if bidLength < 1 || depth > bidLength {
+			return nil
+		}
+
+		depthPrice = c.bidPrices[bidLength-depth]
+	case "Sell":
+		askLength := len(c.askPrices)
+
+		if askLength < 1 || depth > askLength {
+			return nil
+		}
+
+		depthPrice = c.askPrices[askLength-depth]
+	default:
+		log.Println("invalid side in makeup:", side)
+		return nil
+	}
+
+	if ord, exist := c.orderCache[depthPrice]; exist {
+		return ord
+	}
+
+	log.Printf("Order of depth price[%.1f] not found in cache: %v\n", depthPrice, c.orderCache)
+	return nil
+}
+
+func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLResponse, error) {
 	var (
 		depth int
 		err   error
 	)
 
-	limitRsp := make(map[int]*models.MBLResponse)
+	limitRspMap := make(map[int][2]*models.MBLResponse)
 
 	for depth := range c.channelGroup[Realtime] {
 		if depth != 0 {
-			rsp := models.MBLResponse{}
-			rsp.Table = data.Table
-			rsp.Action = data.Action
+			limitRsp := models.MBLResponse{}
+			limitRsp.Table = data.Table
+			limitRsp.Action = data.Action
 
-			limitRsp[depth] = &rsp
+			var makeupRsp *models.MBLResponse
+			switch data.Action {
+			case "delete":
+				makeupRsp = &models.MBLResponse{}
+				makeupRsp.Action = "insert"
+				makeupRsp.Table = data.Table
+			case "insert":
+				makeupRsp = &models.MBLResponse{}
+				makeupRsp.Action = "delete"
+				makeupRsp.Table = data.Table
+			default:
+				makeupRsp = nil
+			}
+
+			limitRspMap[depth] = [2]*models.MBLResponse{&limitRsp, makeupRsp}
 		}
 	}
 
-	// FIXME: 控制mbl深度，delete后需要增补挡位，add后需要delete挡位
+	// FIXME: 价格挡位丢失
 	switch data.Action {
 	case models.DeleteAction:
 		for _, ord := range data.Data {
@@ -185,9 +250,14 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 				return nil, err
 			}
 
-			for limit, rsp := range limitRsp {
+			for limit, rspList := range limitRspMap {
 				if depth <= limit {
-					rsp.Data = append(rsp.Data, ord)
+					rspList[0].Data = append(rspList[0].Data, ord)
+
+					makeupOrd := c.GetOrderOnDepth(ord.Side, limit)
+					if makeupOrd != nil {
+						rspList[1].Data = append(rspList[1].Data, makeupOrd)
+					}
 				}
 			}
 		}
@@ -197,9 +267,14 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 				return nil, err
 			}
 
-			for limit, rsp := range limitRsp {
+			for limit, rspList := range limitRspMap {
 				if depth <= limit {
-					rsp.Data = append(rsp.Data, ord)
+					rspList[0].Data = append(rspList[0].Data, ord)
+
+					makeupOrd := c.GetOrderOnDepth(ord.Side, limit)
+					if makeupOrd != nil {
+						rspList[1].Data = append(rspList[1].Data, makeupOrd)
+					}
 				}
 			}
 		}
@@ -209,9 +284,9 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 				return nil, err
 			}
 
-			for limit, rsp := range limitRsp {
+			for limit, rspList := range limitRspMap {
 				if depth <= limit {
-					rsp.Data = append(rsp.Data, ord)
+					rspList[0].Data = append(rspList[0].Data, ord)
 				}
 			}
 		}
@@ -222,7 +297,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int]*models.MBLRespo
 		return nil, fmt.Errorf("Invalid action: %s", data.Action)
 	}
 
-	return limitRsp, err
+	return limitRspMap, err
 }
 
 func (c *MBLCache) initCache() {
@@ -276,19 +351,21 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	case "Buy":
 		originLen := len(c.bidPrices)
 		idx, c.bidPrices = utils.PriceRemove(c.bidPrices, ord.Price, false)
-		if idx == originLen-1 {
+		depth = originLen - idx
+
+		if depth == 1 {
 			c.bidQuote.lastPrice, c.bidQuote.bestPrice = c.bidQuote.bestPrice, c.bidPrices[len(c.bidPrices)-1]
 			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, c.orderCache[c.bidQuote.bestPrice].Size
 		}
-		depth = originLen - idx
 	case "Sell":
 		originLen := len(c.askPrices)
 		idx, c.askPrices = utils.PriceRemove(c.askPrices, ord.Price, true)
-		if idx == originLen-1 {
+		depth = originLen - idx
+
+		if depth == 1 {
 			c.askQuote.lastPrice, c.askQuote.bestPrice = c.askQuote.bestPrice, c.askPrices[len(c.askPrices)-1]
 			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, c.orderCache[c.askQuote.bestPrice].Size
 		}
-		depth = originLen - idx
 	default:
 		err = errors.New("invalid order side: " + ord.Side)
 	}
@@ -320,19 +397,21 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	case "Buy":
 		idx, c.bidPrices = utils.PriceAdd(c.bidPrices, ord.Price, false)
 		newLength := len(c.bidPrices)
-		if idx == newLength-1 {
+		depth = newLength - idx
+
+		if depth == 1 {
 			c.bidQuote.lastPrice, c.bidQuote.bestPrice = c.bidQuote.bestPrice, ord.Price
 			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
 		}
-		depth = newLength - idx
 	case "Sell":
 		idx, c.askPrices = utils.PriceAdd(c.askPrices, ord.Price, true)
 		newLength := len(c.askPrices)
-		if idx == newLength-1 {
+		depth = newLength - idx
+
+		if depth == 1 {
 			c.askQuote.lastPrice, c.askQuote.bestPrice = c.askQuote.bestPrice, ord.Price
 			c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, ord.Size
 		}
-		depth = newLength - idx
 	default:
 		err = errors.New("invalid order side: " + ord.Side)
 	}
@@ -354,17 +433,20 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 		case "Buy":
 			length := len(c.bidPrices)
 			idx = utils.PriceSearch(c.bidPrices, ord.Price, false)
-			if idx == length-1 {
+			depth = length - idx
+
+			if depth == 1 {
 				c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
 			}
-			depth = length - idx
+
 		case "Sell":
 			length := len(c.askPrices)
 			idx = utils.PriceSearch(c.askPrices, ord.Price, true)
-			if idx == length-1 {
+			depth = length - idx
+
+			if depth == 1 {
 				c.askQuote.lastSize, c.askQuote.bestSize = c.askQuote.bestSize, ord.Size
 			}
-			depth = length - idx
 		default:
 			err = errors.New("invalid order side: " + ord.Side)
 		}
