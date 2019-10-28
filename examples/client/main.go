@@ -60,7 +60,7 @@ var (
 	apiKey    string
 	apiSecret string
 
-	cacheMap = make(map[string]client.Cache)
+	cacheMap = make(map[string]utils.Cache)
 )
 
 func getURL() string {
@@ -239,11 +239,11 @@ func main() {
 		ins := client.NewClient(cfg)
 		ins.Subscribe(topics...)
 
-		for table := range filters {
-			if cacheChan, exist := cacheMap[table]; exist {
-				filter(ctx, table, cacheChan.GetRspChannel())
+		for tableName := range filters {
+			if rspCache, exist := cacheMap[tableName]; exist {
+				filter(ctx, tableName, rspCache.GetRspChannel(utils.Realtime, 0).RetriveData(tableName))
 			} else {
-				log.Panicf("table cache for %s is not found.", table)
+				log.Panicf("table cache for %s is not found.", tableName)
 			}
 		}
 

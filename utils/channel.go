@@ -11,6 +11,10 @@ import (
 	"github.com/frozenpine/wstester/models"
 )
 
+const (
+	dispatchTimeout = 5
+)
+
 // Channel message channel
 type Channel interface {
 	// Start initialize channel and start a dispatch goroutine
@@ -196,21 +200,27 @@ func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
 
 	c.mergeNewDestinations()
 
-	writeTimeout := time.NewTimer(time.Second * 5)
+	writeTimeout := time.NewTimer(time.Second * dispatchTimeout)
 
 	for client, dest := range c.destinations {
+		// TODO: verify client channel close
 		// if client.IsClosed() {
 		// 	invalidDest = append(invalidDest, client)
 		// 	writeTimeout.Reset(time.Second * 5)
 		// 	continue
 		// }
+		if dest == nil {
+			invalidDest = append(invalidDest, client)
+			log.Println("Destination channel is nil:", client)
+			continue
+		}
 
 		select {
 		case dest <- data:
-			writeTimeout.Reset(time.Second * 5)
+			writeTimeout.Reset(time.Second * dispatchTimeout)
 		case <-writeTimeout.C:
 			invalidDest = append(invalidDest, client)
-			writeTimeout = time.NewTimer(time.Second * 5)
+			writeTimeout = time.NewTimer(time.Second * dispatchTimeout)
 			log.Printf("Dispatch data to client[%s] timeout.", client)
 		}
 	}
