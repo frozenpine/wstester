@@ -22,16 +22,16 @@ type Channel interface {
 	// TODO: Disconnect sub channel
 	// Disconnect(subChan Channel) error
 	// PublishData publish data to current channel
-	PublishData(rsp models.Response) error
+	PublishData(rsp models.TableResponse) error
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData(client string) <-chan models.Response
+	RetriveData(client string) <-chan models.TableResponse
 }
 
 type rspChannel struct {
-	source chan models.Response
+	source chan models.TableResponse
 
-	destinations     map[string]chan models.Response
-	newDestinations  map[string]chan models.Response
+	destinations     map[string]chan models.TableResponse
+	newDestinations  map[string]chan models.TableResponse
 	childChannels    []Channel
 	newChildChannels []Channel
 	retriveLock      sync.Mutex
@@ -44,7 +44,7 @@ type rspChannel struct {
 	closeOnce sync.Once
 }
 
-func (c *rspChannel) PublishData(data models.Response) error {
+func (c *rspChannel) PublishData(data models.TableResponse) error {
 	if c.IsClosed {
 		return fmt.Errorf("channel is already closed")
 	}
@@ -58,9 +58,9 @@ func (c *rspChannel) PublishData(data models.Response) error {
 	return nil
 }
 
-func (c *rspChannel) RetriveData(client string) <-chan models.Response {
+func (c *rspChannel) RetriveData(client string) <-chan models.TableResponse {
 	if c.IsClosed {
-		ch := make(chan models.Response, 0)
+		ch := make(chan models.TableResponse, 0)
 		close(ch)
 
 		return ch
@@ -70,7 +70,7 @@ func (c *rspChannel) RetriveData(client string) <-chan models.Response {
 		c.Start()
 	}
 
-	ch := make(chan models.Response, 1000)
+	ch := make(chan models.TableResponse, 1000)
 
 	c.retriveLock.Lock()
 	c.newDestinations[client] = ch
@@ -108,15 +108,15 @@ func (c *rspChannel) Start() error {
 
 	c.startOnce.Do(func() {
 		if c.source == nil {
-			c.source = make(chan models.Response, 1000)
+			c.source = make(chan models.TableResponse, 1000)
 		}
 
 		if c.destinations == nil {
-			c.destinations = make(map[string]chan models.Response)
+			c.destinations = make(map[string]chan models.TableResponse)
 		}
 
 		if c.newDestinations == nil {
-			c.newDestinations = make(map[string]chan models.Response)
+			c.newDestinations = make(map[string]chan models.TableResponse)
 		}
 
 		c.IsClosed = false
@@ -191,7 +191,7 @@ func (c *rspChannel) mergeNewDestinations() {
 	}
 }
 
-func (c *rspChannel) dispatchDistinations(data models.Response) {
+func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
 	var invalidDest []string
 
 	c.mergeNewDestinations()
@@ -233,7 +233,7 @@ func (c *rspChannel) mergeNewSubChannel() {
 	}
 }
 
-func (c *rspChannel) dispatchSubChannels(data models.Response) {
+func (c *rspChannel) dispatchSubChannels(data models.TableResponse) {
 	var invalidSub []int
 
 	c.mergeNewSubChannel()

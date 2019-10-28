@@ -47,7 +47,7 @@ type client struct {
 	heartbeatChan  chan *models.HeartBeat
 	heartbeatTimer *time.Timer
 
-	rspChannelMapper map[string][]chan models.TableResponse
+	rspCache map[string]utils.Cache
 
 	closeFlag chan struct{}
 	closeOnce sync.Once
@@ -201,6 +201,11 @@ func (c *client) Connect(ctx context.Context) error {
 	var subList []string
 
 	for topic := range c.SubscribedTopics {
+		// FIXME create cache by topic name
+		if topic == "orderBookL2" {
+			c.rspCache["orderBookL2"] = utils.NewMBLCache(ctx)
+		}
+
 		if IsPublicTopic(topic) {
 			subList = append(subList, c.normalizeTopic(topic))
 
@@ -289,13 +294,11 @@ func (c *client) GetResponse(topic string) <-chan models.TableResponse {
 		return nil
 	}
 
-	ch := make(chan models.TableResponse)
+	if cache, exist := c.rspCache[topic]; exist {
+		return cache.GetDefaultChannel().RetriveData("")
+	}
 
-	c.lock.Lock()
-	c.rspChannelMapper[topic] = append(c.rspChannelMapper[topic], ch)
-	c.lock.Unlock()
-
-	return ch
+	return nil
 }
 
 func (c *client) heartbeatHandler() {
@@ -475,10 +478,8 @@ func (c *client) handleInsMsg(msg []byte) (*models.InstrumentResponse, error) {
 	}
 
 	defer func() {
-		if insChans, exist := c.rspChannelMapper[insRsp.Table]; exist && len(insChans) > 0 {
-			for _, ch := range insChans {
-				ch <- &insRsp
-			}
+		if insCache, exist := c.rspCache[insRsp.Table]; exist && insCache != nil {
+			insCache.Append(utils.NewCacheInput(&insRsp))
 		}
 	}()
 
@@ -493,10 +494,8 @@ func (c *client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
 	}
 
 	defer func() {
-		if tdChans, exist := c.rspChannelMapper[tdRsp.Table]; exist && len(tdChans) > 0 {
-			for _, ch := range tdChans {
-				ch <- &tdRsp
-			}
+		if tdCache, exist := c.rspCache[tdRsp.Table]; exist && tdCache != nil {
+			tdCache.Append(utils.NewCacheInput(&tdRsp))
 		}
 	}()
 
@@ -511,10 +510,8 @@ func (c *client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 	}
 
 	defer func() {
-		if mblChans, exist := c.rspChannelMapper[mblRsp.Table]; exist && len(mblChans) > 0 {
-			for _, ch := range mblChans {
-				ch <- &mblRsp
-			}
+		if mblCache, exist := c.rspCache[mblRsp.Table]; exist && mblCache != nil {
+			mblCache.Append(utils.NewCacheInput(&mblRsp))
 		}
 	}()
 
@@ -616,7 +613,7 @@ func NewClient(cfg *Config) Client {
 		closeFlag:     make(chan struct{}, 0),
 
 		SubscribedTopics: make(map[string]*models.SubscribeResponse),
-		rspChannelMapper: make(map[string][]chan models.TableResponse),
+		rspCache:         make(map[string]utils.Cache),
 	}
 
 	return &ins
