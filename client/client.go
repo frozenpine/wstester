@@ -200,7 +200,8 @@ func (c *client) UnSubscribe(topics ...string) {
 }
 
 func (c *client) createCache(topic string) {
-	if _, exist := c.rspCache[topic]; exist {
+	// FIXME: instrument cache not supported yet
+	if _, exist := c.rspCache[topic]; exist || topic == "instrument" {
 		return
 	}
 
