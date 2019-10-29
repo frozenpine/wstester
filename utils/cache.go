@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/frozenpine/wstester/models"
 )
@@ -78,14 +79,15 @@ func NewBreakpoint(breakpointFn func() models.TableResponse, publish ...Channel)
 type tableCache struct {
 	channelGroup [3]map[int]Channel
 
-	pipeline  chan *CacheInput
-	ready     chan struct{}
-	ctx       context.Context
-	startOnce sync.Once
-	IsReady   bool
-	IsClosed  bool
-	stopOnce  sync.Once
-	maxLength int
+	pipeline   chan *CacheInput
+	cacheStart time.Time
+	ready      chan struct{}
+	ctx        context.Context
+	startOnce  sync.Once
+	IsReady    bool
+	IsClosed   bool
+	stopOnce   sync.Once
+	maxLength  int
 
 	snapshotFn    func(int) models.TableResponse
 	handleInputFn func(*CacheInput)
@@ -154,6 +156,7 @@ func (c *tableCache) Start() error {
 		c.IsReady = true
 		c.IsClosed = false
 		close(c.ready)
+		c.cacheStart = time.Now()
 	})
 
 	return nil
