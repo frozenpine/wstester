@@ -455,7 +455,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 }
 
 // NewMBLCache make a new MBL cache.
-func NewMBLCache(ctx context.Context) *MBLCache {
+func NewMBLCache(ctx context.Context) Cache {
 	mbl := MBLCache{}
 	mbl.ctx = ctx
 	mbl.handleInputFn = mbl.handleInput

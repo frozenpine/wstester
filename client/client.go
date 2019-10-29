@@ -16,6 +16,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	cacheMapper = map[string]func(context.Context) utils.Cache{
+		"orderBookL2":    utils.NewMBLCache,
+		"orderBookL2_25": utils.NewMBLCache,
+		"trade":          utils.NewTradeCache,
+	}
+)
+
 // Client client instance
 type Client interface {
 	Host() string
@@ -191,28 +199,37 @@ func (c *client) UnSubscribe(topics ...string) {
 	}
 }
 
+func (c *client) createCache(topic string) {
+	if _, exist := c.rspCache[topic]; exist {
+		return
+	}
+
+	c.rspCache[topic] = cacheMapper[topic](c.ctx)
+}
+
 // Connect to remote host
 func (c *client) Connect(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	c.ctx = ctx
+
 	remote := c.cfg.GetURL()
 
 	var subList []string
 
 	for topic := range c.SubscribedTopics {
-		// FIXME create cache by topic name
-		if topic == "orderBookL2" {
-			c.rspCache["orderBookL2"] = utils.NewMBLCache(ctx)
-		}
-
 		if IsPublicTopic(topic) {
+			c.createCache(topic)
+
 			subList = append(subList, c.normalizeTopic(topic))
 
 			continue
 		}
 
 		if IsPrivateTopic(topic) && c.hasAuth() {
+			c.createCache(topic)
+
 			subList = append(subList, c.normalizeTopic(topic))
 		}
 	}
@@ -223,7 +240,6 @@ func (c *client) Connect(ctx context.Context) error {
 
 	log.Println("Connecting to:", remote.String())
 
-	c.ctx = ctx
 	conn, rsp, err := websocket.DefaultDialer.DialContext(
 		ctx, remote.String(), c.getHeader())
 

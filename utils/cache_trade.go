@@ -69,7 +69,7 @@ func (c *TradeCache) applyData(data *models.TradeResponse) {
 }
 
 // NewTradeCache make a new trade cache.
-func NewTradeCache(ctx context.Context) *TradeCache {
+func NewTradeCache(ctx context.Context) Cache {
 	td := TradeCache{}
 	td.ctx = ctx
 	td.maxLength = defaultTradeLen
