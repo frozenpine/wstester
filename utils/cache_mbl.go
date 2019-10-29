@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"sort"
+	"time"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
@@ -16,6 +16,8 @@ import (
 // MBLCache retrive & store mbl data
 type MBLCache struct {
 	tableCache
+
+	historyCount int64
 
 	askPrices []float64 // in DESC order
 	bidPrices []float64 // in ASC order
@@ -119,37 +121,47 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	limitRsp, err := c.applyData(in.msg.(*models.MBLResponse))
+	if mbl, ok := in.msg.(*models.MBLResponse); ok {
+		c.historyCount += int64(len(mbl.Data))
 
-	if err != nil {
-		log.Printf("apply data failed: %s, data: %s", err.Error(), in.msg.String())
-		return
-	}
+		limitRsp, err := c.applyData(mbl)
 
-	if c.IsQuoteChange() {
-		log.Printf("Best Buy: %.1f@%.0f, Best Sell: %.1f@%.0f\n",
-			c.BestBidPrice(), c.BestBidSize(), c.BestAskPrice(), c.BestAskSize())
-	}
-
-	// apply an partial
-	if limitRsp == nil {
-		return
-	}
-
-	for depth, ch := range c.channelGroup[Realtime] {
-		if depth == 0 {
-			ch.PublishData(in.msg)
-			continue
+		if err != nil {
+			log.Printf("apply data failed: %s, data: %s", err.Error(), in.msg.String())
+			return
 		}
 
-		if rspList, exist := limitRsp[depth]; exist {
-			for _, rsp := range rspList {
-				if rsp != nil && len(rsp.Data) > 0 {
-					rsp.Table = fmt.Sprintf("%s_%d", rsp.Table, depth)
-					ch.PublishData(rsp)
+		if c.IsQuoteChange() {
+			log.Printf("Best Buy: %.1f@%.0f, Best Sell: %.1f@%.0f\n",
+				c.BestBidPrice(), c.BestBidSize(), c.BestAskPrice(), c.BestAskSize())
+		}
+
+		// apply an partial
+		if limitRsp == nil {
+			return
+		}
+
+		log.Printf("Receive count: %d, avg rate: %.2f rps\n", len(mbl.Data), float64(c.historyCount)/time.Now().Sub(c.cacheStart).Seconds())
+
+		c.channelGroup[Realtime][0].PublishData(mbl)
+
+		for depth, ch := range c.channelGroup[Realtime] {
+			if depth == 0 {
+				ch.PublishData(in.msg)
+				continue
+			}
+
+			if rspList, exist := limitRsp[depth]; exist {
+				for _, rsp := range rspList {
+					if rsp != nil && len(rsp.Data) > 0 {
+						rsp.Table = fmt.Sprintf("%s_%d", rsp.Table, depth)
+						ch.PublishData(rsp)
+					}
 				}
 			}
 		}
+	} else {
+		log.Println("Can not convert cache input to MBLResponse.", in.msg.String())
 	}
 }
 
@@ -287,13 +299,15 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 		return nil, fmt.Errorf("Invalid action: %s", data.Action)
 	}
 
+	_ = depth
+
 	return limitRspMap, err
 }
 
 func (c *MBLCache) initCache() {
 	c.l2Cache = make(map[float64]*ngerest.OrderBookL2)
-	c.askPrices = sort.Float64Slice{}
-	c.bidPrices = sort.Float64Slice{}
+	c.askPrices = []float64{}
+	c.bidPrices = []float64{}
 }
 
 func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
@@ -327,8 +341,10 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 }
 
 func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
-	if _, exist := c.l2Cache[ord.Price]; !exist {
+	if origin, exist := c.l2Cache[ord.Price]; !exist {
 		return 0, fmt.Errorf("%s order[%.1f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
+	} else if ord.ID != origin.ID {
+		log.Println("order id miss-match with cache:", ord.ID, origin.ID)
 	}
 
 	var (
@@ -419,6 +435,10 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 	)
 
 	if origin, exist := c.l2Cache[ord.Price]; exist {
+		if ord.ID != origin.ID {
+			log.Println("order id miss-match with cache:", ord.ID, origin.ID)
+		}
+
 		switch ord.Side {
 		case "Buy":
 			length := len(c.bidPrices)
@@ -445,7 +465,7 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 			err = fmt.Errorf("price %f not found on %s", ord.Price, ord.Side)
 		} else {
 			origin.Size = ord.Size
-			origin.ID = ord.ID
+			// origin.ID = ord.ID
 		}
 	} else {
 		err = fmt.Errorf("%s order[%.1f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)
@@ -467,10 +487,10 @@ func NewMBLCache(ctx context.Context) Cache {
 		log.Panicln(err)
 	}
 
-	mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx}
-	if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
-		log.Panicln(err)
-	}
+	// mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx}
+	// if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
+	// 	log.Panicln(err)
+	// }
 
 	return &mbl
 }

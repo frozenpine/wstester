@@ -28,14 +28,14 @@ type Channel interface {
 	// PublishData publish data to current channel
 	PublishData(rsp models.TableResponse) error
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData(client string) <-chan models.TableResponse
+	RetriveData() <-chan models.TableResponse
 }
 
 type rspChannel struct {
 	source chan models.TableResponse
 
-	destinations     map[string]chan models.TableResponse
-	newDestinations  map[string]chan models.TableResponse
+	destinations     []chan<- models.TableResponse
+	newDestinations  []chan<- models.TableResponse
 	childChannels    []Channel
 	newChildChannels []Channel
 	retriveLock      sync.Mutex
@@ -62,7 +62,7 @@ func (c *rspChannel) PublishData(data models.TableResponse) error {
 	return nil
 }
 
-func (c *rspChannel) RetriveData(client string) <-chan models.TableResponse {
+func (c *rspChannel) RetriveData() <-chan models.TableResponse {
 	if c.IsClosed {
 		ch := make(chan models.TableResponse, 0)
 		close(ch)
@@ -77,7 +77,7 @@ func (c *rspChannel) RetriveData(client string) <-chan models.TableResponse {
 	ch := make(chan models.TableResponse, 1000)
 
 	c.retriveLock.Lock()
-	c.newDestinations[client] = ch
+	c.newDestinations = append(c.newDestinations, ch)
 	c.retriveLock.Unlock()
 
 	return ch
@@ -113,14 +113,6 @@ func (c *rspChannel) Start() error {
 	c.startOnce.Do(func() {
 		if c.source == nil {
 			c.source = make(chan models.TableResponse, 1000)
-		}
-
-		if c.destinations == nil {
-			c.destinations = make(map[string]chan models.TableResponse)
-		}
-
-		if c.newDestinations == nil {
-			c.newDestinations = make(map[string]chan models.TableResponse)
 		}
 
 		c.IsClosed = false
@@ -183,35 +175,24 @@ func (c *rspChannel) mergeNewDestinations() {
 	c.retriveLock.Lock()
 	defer c.retriveLock.Unlock()
 
-	var merged []string
+	if len(c.newDestinations) > 0 {
+		c.destinations = append(c.destinations, c.newDestinations...)
 
-	for client, dest := range c.newDestinations {
-		c.destinations[client] = dest
-		merged = append(merged, client)
-	}
-
-	for _, client := range merged {
-		delete(c.newDestinations, client)
+		c.newDestinations = c.newDestinations[len(c.newDestinations):]
 	}
 }
 
 func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
-	var invalidDest []string
+	var invalidDest []int
 
 	c.mergeNewDestinations()
 
 	writeTimeout := time.NewTimer(time.Second * dispatchTimeout)
 
-	for client, dest := range c.destinations {
-		// TODO: verify client channel close
-		// if client.IsClosed() {
-		// 	invalidDest = append(invalidDest, client)
-		// 	writeTimeout.Reset(time.Second * 5)
-		// 	continue
-		// }
+	for idx, dest := range c.destinations {
 		if dest == nil {
-			invalidDest = append(invalidDest, client)
-			log.Println("Destination channel is nil:", client)
+			invalidDest = append(invalidDest, idx)
+			log.Println("Destination channel is nil")
 			continue
 		}
 
@@ -219,16 +200,29 @@ func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
 		case dest <- data:
 			writeTimeout.Reset(time.Second * dispatchTimeout)
 		case <-writeTimeout.C:
-			invalidDest = append(invalidDest, client)
+			invalidDest = append(invalidDest, idx)
 			writeTimeout = time.NewTimer(time.Second * dispatchTimeout)
-			log.Printf("Dispatch data to client[%s] timeout.", client)
+			log.Printf("Dispatch data to client timeout.")
 		}
 	}
 
 	writeTimeout.Stop()
 
-	for _, closedClient := range invalidDest {
-		delete(c.destinations, closedClient)
+	// FIXME: 可能存在未正确处理的destination
+	if len(invalidDest) > 0 {
+		tmpSlice := make([]interface{}, len(c.destinations))
+
+		for idx, ele := range c.destinations {
+			tmpSlice[idx] = ele
+		}
+
+		tmpSlice = RangeSlice(tmpSlice, invalidDest)
+
+		c.destinations = make([]chan<- models.TableResponse, len(tmpSlice))
+
+		for idx, ele := range tmpSlice {
+			c.destinations[idx] = ele.(chan<- models.TableResponse)
+		}
 	}
 }
 

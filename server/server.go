@@ -218,7 +218,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 					return
 				}
 
-				dataChan := rspChan.RetriveData(client.GetID())
+				dataChan := rspChan.RetriveData()
 
 				partialSend := false
 
