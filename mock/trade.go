@@ -24,22 +24,23 @@ func Trade(cache utils.Cache) {
 		priceMin                  = 8100.0
 		hisMaxRate        float64 = 0.0
 
-		lastCount, lastElasped float64
-		totalCount             int
-		appStart               = time.Now()
+		lastCount   int64
+		lastElasped float64
+		totalCount  int64
+		appStart    = time.Now()
 	)
 
 	for {
 		start := time.Now()
 		rand.Seed(start.UnixNano())
 		time.Sleep(time.Second * time.Duration(rand.Intn(3)))
-		count := rand.Intn(100) + 1
+		count := rand.Int63n(100) + 1
 
 		mockTrad := models.TradeResponse{}
 		mockTrad.Table = "trade"
 		mockTrad.Action = "insert"
 
-		for i := 0; i < count; i++ {
+		for i := int64(0); i < count; i++ {
 
 			choice := rand.Intn(1000)
 
@@ -92,15 +93,15 @@ func Trade(cache utils.Cache) {
 
 		end := time.Now()
 
-		elasped := end.Sub(start).Nanoseconds()
+		elasped := end.Sub(start).Seconds()
 		totalSpend := end.Sub(appStart).Seconds()
 
-		rate := (float64(count) + lastCount) * 1000 * 1000 / (float64(elasped) + lastElasped)
+		rate := float64(count+lastCount) / (elasped + lastElasped)
 		totalCount += count
 
 		if math.IsInf(rate, 1) {
-			lastCount += float64(count)
-			lastElasped += float64(elasped)
+			lastCount += count
+			lastElasped += elasped
 		} else {
 			if rate > hisMaxRate {
 				hisMaxRate = rate
@@ -108,7 +109,7 @@ func Trade(cache utils.Cache) {
 
 			log.Printf(
 				"Mock trade send[%d] rate: %.2f rps, history max rate: %.2f rps, Avg rate: %.2f\n",
-				count+int(lastCount), rate, hisMaxRate, float64(totalCount)/float64(totalSpend),
+				count+lastCount, rate, hisMaxRate, float64(totalCount)/totalSpend,
 			)
 
 			lastCount = 0
