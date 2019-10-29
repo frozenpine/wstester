@@ -10,12 +10,11 @@ import (
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
+	uuid "github.com/satori/go.uuid"
 )
 
 // Trade mock trade response
 func Trade(cache utils.Cache) {
-	ticker := time.NewTicker(time.Second)
-
 	var (
 		lastPrice         float64
 		lastTickDirection string
@@ -24,14 +23,17 @@ func Trade(cache utils.Cache) {
 		priceMax                  = 9900.0
 		priceMin                  = 8100.0
 		hisMaxRate        float64 = 0.0
+
+		lastCount, lastElasped float64
+		totalCount             int
+		appStart               = time.Now()
 	)
 
 	for {
-		<-ticker.C
-
 		start := time.Now()
 		rand.Seed(start.UnixNano())
-		count := rand.Intn(1000)
+		time.Sleep(time.Second * time.Duration(rand.Intn(3)))
+		count := rand.Intn(100) + 1
 
 		mockTrad := models.TradeResponse{}
 		mockTrad.Table = "trade"
@@ -78,6 +80,7 @@ func Trade(cache utils.Cache) {
 				Price:         price,
 				Timestamp:     ngerest.NGETime(time.Now()),
 				TickDirection: tickDirection,
+				TrdMatchID:    uuid.NewV4().String(),
 			}
 
 			lastPrice = td.Price
@@ -87,12 +90,29 @@ func Trade(cache utils.Cache) {
 
 		cache.Append(utils.NewCacheInput(&mockTrad))
 
-		elasped := time.Now().Sub(start).Nanoseconds()
-		rate := float64(count) * 1000.0 / float64(elasped/1000)
-		if rate > hisMaxRate && !math.IsInf(rate, 1) {
-			hisMaxRate = rate
-		}
+		end := time.Now()
 
-		log.Printf("Mock trade send rate: %.2f rps, history max rate: %.2f rps\n", rate, hisMaxRate)
+		elasped := end.Sub(start).Nanoseconds()
+		totalSpend := end.Sub(appStart).Seconds()
+
+		rate := (float64(count) + lastCount) * 1000 * 1000 / (float64(elasped) + lastElasped)
+		totalCount += count
+
+		if math.IsInf(rate, 1) {
+			lastCount += float64(count)
+			lastElasped += float64(elasped)
+		} else {
+			if rate > hisMaxRate {
+				hisMaxRate = rate
+			}
+
+			log.Printf(
+				"Mock trade send[%d] rate: %.2f rps, history max rate: %.2f rps, Avg rate: %.2f\n",
+				count+int(lastCount), rate, hisMaxRate, float64(totalCount)/float64(totalSpend),
+			)
+
+			lastCount = 0
+			lastElasped = 0
+		}
 	}
 }

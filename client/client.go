@@ -14,6 +14,7 @@ import (
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
 	"github.com/gorilla/websocket"
+	uuid "github.com/satori/go.uuid"
 )
 
 var (
@@ -312,7 +313,7 @@ func (c *client) GetResponse(topic string) <-chan models.TableResponse {
 	}
 
 	if cache, exist := c.rspCache[topic]; exist {
-		return cache.GetDefaultChannel().RetriveData("")
+		return cache.GetDefaultChannel().RetriveData(c.Host() + uuid.NewV4().String())
 	}
 
 	return nil
