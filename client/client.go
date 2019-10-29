@@ -495,7 +495,11 @@ func (c *client) handleInsMsg(msg []byte) (*models.InstrumentResponse, error) {
 
 	defer func() {
 		if insCache, exist := c.rspCache[insRsp.Table]; exist && insCache != nil {
-			insCache.Append(utils.NewCacheInput(&insRsp))
+			if !c.cfg.disableCache {
+				insCache.Append(utils.NewCacheInput(&insRsp))
+			} else {
+				insCache.GetDefaultChannel().PublishData(&insRsp)
+			}
 		}
 	}()
 
@@ -511,7 +515,11 @@ func (c *client) handleTdMsg(msg []byte) (*models.TradeResponse, error) {
 
 	defer func() {
 		if tdCache, exist := c.rspCache[tdRsp.Table]; exist && tdCache != nil {
-			tdCache.Append(utils.NewCacheInput(&tdRsp))
+			if !c.cfg.disableCache {
+				tdCache.Append(utils.NewCacheInput(&tdRsp))
+			} else {
+				tdCache.GetDefaultChannel().PublishData(&tdRsp)
+			}
 		}
 	}()
 
@@ -527,7 +535,11 @@ func (c *client) handleMblMsg(msg []byte) (*models.MBLResponse, error) {
 
 	defer func() {
 		if mblCache, exist := c.rspCache[mblRsp.Table]; exist && mblCache != nil {
-			mblCache.Append(utils.NewCacheInput(&mblRsp))
+			if !c.cfg.disableCache {
+				mblCache.Append(utils.NewCacheInput(&mblRsp))
+			} else {
+				mblCache.GetDefaultChannel().PublishData(&mblRsp)
+			}
 		}
 	}()
 

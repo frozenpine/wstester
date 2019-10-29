@@ -39,6 +39,7 @@ type Config struct {
 	HeartbeatInterval  int
 	ReversHeartbeat    bool
 	HeartbeatFailCount int
+	disableCache       bool
 }
 
 // ChangeHost change configuration's host
@@ -75,6 +76,11 @@ func (c *Config) GetURL() *url.URL {
 	return &remote
 }
 
+// DisableCache disable cache
+func (c *Config) DisableCache() {
+	c.disableCache = true
+}
+
 // NewConfig to make a default new config
 func NewConfig() *Config {
 	cfg := Config{
@@ -85,6 +91,7 @@ func NewConfig() *Config {
 		HeartbeatInterval:  15,
 		ReversHeartbeat:    false,
 		HeartbeatFailCount: 3,
+		disableCache:       false,
 	}
 
 	return &cfg

@@ -12,6 +12,7 @@ import (
 func MBL(cache utils.Cache) {
 	for {
 		cfg := client.NewConfig()
+		cfg.DisableCache()
 		ins := client.NewClient(cfg)
 		ins.Subscribe("orderBookL2")
 
