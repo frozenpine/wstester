@@ -53,9 +53,13 @@ func (c *TradeCache) handleInput(in *CacheInput) {
 		return
 	}
 
-	c.applyData(in.msg.(*models.TradeResponse))
+	if td, ok := in.msg.(*models.TradeResponse); ok {
+		c.applyData(td)
 
-	c.channelGroup[Realtime][0].PublishData(in.msg)
+		c.channelGroup[Realtime][0].PublishData(td)
+	} else {
+		log.Println("Can not convert cache input to TradeResponse:", in.msg.String())
+	}
 }
 
 func (c *TradeCache) applyData(data *models.TradeResponse) {
