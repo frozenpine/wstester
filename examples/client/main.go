@@ -239,14 +239,6 @@ func main() {
 		ins := client.NewClient(cfg)
 		ins.Subscribe(topics...)
 
-		for tableName := range filters {
-			if rspCache, exist := cacheMap[tableName]; exist {
-				filter(ctx, tableName, rspCache.GetRspChannel(utils.Realtime, 0).RetriveData(tableName))
-			} else {
-				log.Panicf("table cache for %s is not found.", tableName)
-			}
-		}
-
 		start := time.Now()
 		if err := ins.Connect(ctx); err != nil {
 			log.Println(err)
@@ -254,6 +246,10 @@ func main() {
 			failCount++
 
 			continue
+		}
+
+		for tableName := range filters {
+			filter(ctx, tableName, ins.GetResponse(tableName))
 		}
 
 		failCount = 0
