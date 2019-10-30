@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -36,11 +37,12 @@ const (
 )
 
 var (
-	symbol string
-	scheme string
-	host   string
-	port   int
-	uri    string
+	symbol    string
+	scheme    string
+	host      string
+	port      int
+	uriString string
+	urlString string
 
 	defaultTopics = []string{"trade", "orderBookL2", "instrument"}
 	topics        []string
@@ -64,6 +66,35 @@ var (
 )
 
 func getURL() string {
+	if urlString != "" {
+		parsed, err := url.Parse(urlString)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		scheme = parsed.Scheme
+		host = parsed.Hostname()
+
+		switch parsed.Port() {
+		case "":
+			switch scheme {
+			case "http":
+				fallthrough
+			case "ws":
+				port = 80
+			case "https":
+				fallthrough
+			case "wss":
+				port = 443
+			default:
+				log.Panicln("unsupported scheme:", scheme)
+			}
+		default:
+			port, _ = strconv.Atoi(parsed.Port())
+		}
+		uriString = parsed.Path
+	}
+
 	var hostString string
 
 	if port == 80 || port == 443 {
@@ -72,7 +103,7 @@ func getURL() string {
 		hostString = fmt.Sprintf("%s:%d", host, port)
 	}
 
-	return scheme + "://" + strings.Join([]string{hostString, strings.TrimLeft(uri, "/")}, "/")
+	return strings.Replace(scheme, "http", "ws", 1) + "://" + strings.Join([]string{hostString, strings.TrimLeft(uriString, "/")}, "/")
 }
 
 func humanReadNum(num int) string {
@@ -106,7 +137,8 @@ func init() {
 		&host, "host", "H", defaultHost, "Host addreses to connect.")
 	flag.IntVarP(
 		&port, "port", "p", defaultPort, "Host port to connect.")
-	flag.StringVar(&uri, "uri", defaultURI, "URI for realtime push data.")
+	flag.StringVar(&uriString, "uri", defaultURI, "URI for realtime push data.")
+	flag.StringVar(&urlString, "url", "", "Connection URL.")
 
 	flag.StringSliceVar(
 		&topics, "topics", defaultTopics,
