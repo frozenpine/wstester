@@ -388,14 +388,15 @@ func parseColumns(tbl *TableDef, stmt *sqlparser.Select) (map[string]*ColumnDef,
 }
 
 func parseInt(left interface{}, right *sqlparser.SQLVal) (int64, int64) {
-	leftValue := left.(int64)
+	leftValue := reflect.ValueOf(left).Convert(reflect.TypeOf(int64(1))).Interface().(int64)
 	rightValue, _ := strconv.ParseInt(string(right.Val), 10, 64)
 
 	return leftValue, rightValue
 }
 
 func parseFloat(left interface{}, right *sqlparser.SQLVal) (float64, float64) {
-	leftValue := left.(float64)
+	leftValue := reflect.ValueOf(left).Convert(reflect.TypeOf(float64(1))).Interface().(float64)
+
 	rightValue, _ := strconv.ParseFloat(string(right.Val), 64)
 
 	return leftValue, rightValue
@@ -415,6 +416,9 @@ func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool,
 	}
 
 	leftName := strings.Title(left.Name.String())
+	if leftName == "Id" {
+		leftName = "ID"
+	}
 
 	right, ok := compare.Right.(*sqlparser.SQLVal)
 	if !ok {
