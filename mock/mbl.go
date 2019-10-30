@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/frozenpine/wstester/client"
@@ -43,6 +44,8 @@ func MBL(cache utils.Cache) {
 		}()
 
 		<-ins.Closed()
+
+		log.Println("Mock MBL upstream closed.")
 
 		cancelFn()
 

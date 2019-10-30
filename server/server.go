@@ -366,10 +366,9 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 				return true
 			},
 		},
-		ctx:     ctx,
-		statics: serverStatics{},
-		clients: make(map[string]Session),
-		// subCaches:   make(map[string]sarama.ConsumerGroupHandler),
+		ctx:        ctx,
+		statics:    serverStatics{},
+		clients:    make(map[string]Session),
 		dataCaches: make(map[string]utils.Cache),
 	}
 

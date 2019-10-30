@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"log"
+	"sync"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
@@ -79,6 +80,11 @@ func NewTradeCache(ctx context.Context) Cache {
 	td.maxLength = defaultTradeLen
 	td.handleInputFn = td.handleInput
 	td.snapshotFn = td.snapshot
+	td.pipeline = make(chan *CacheInput, 1000)
+	td.ready = make(chan struct{})
+	td.channelGroup[Realtime] = map[int]Channel{
+		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
+	}
 
 	if err := td.Start(); err != nil {
 		log.Panicln(err)

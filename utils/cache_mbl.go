@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/frozenpine/ngerest"
@@ -143,11 +144,9 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 
 		log.Printf("Receive count: %d, avg rate: %.2f rps\n", len(mbl.Data), float64(c.historyCount)/time.Now().Sub(c.cacheStart).Seconds())
 
-		c.channelGroup[Realtime][0].PublishData(mbl)
-
 		for depth, ch := range c.channelGroup[Realtime] {
 			if depth == 0 {
-				ch.PublishData(in.msg)
+				ch.PublishData(mbl)
 				continue
 			}
 
@@ -476,21 +475,28 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 
 // NewMBLCache make a new MBL cache.
 func NewMBLCache(ctx context.Context) Cache {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	mbl := MBLCache{}
 	mbl.ctx = ctx
 	mbl.handleInputFn = mbl.handleInput
 	mbl.snapshotFn = mbl.snapshot
-
-	mbl.initCache()
+	mbl.pipeline = make(chan *CacheInput, 1000)
+	mbl.ready = make(chan struct{})
+	mbl.channelGroup[Realtime] = map[int]Channel{
+		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
+	}
 
 	if err := mbl.Start(); err != nil {
 		log.Panicln(err)
 	}
 
-	// mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx}
-	// if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
-	// 	log.Panicln(err)
-	// }
+	mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}}
+	if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
+		log.Panicln(err)
+	}
 
 	return &mbl
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/frozenpine/wstester/models"
@@ -83,10 +82,8 @@ type tableCache struct {
 	cacheStart time.Time
 	ready      chan struct{}
 	ctx        context.Context
-	startOnce  sync.Once
 	IsReady    bool
 	IsClosed   bool
-	stopOnce   sync.Once
 	maxLength  int
 
 	snapshotFn    func(int) models.TableResponse
@@ -102,62 +99,44 @@ func (c *tableCache) Start() error {
 		return errors.New("cache is already closed")
 	}
 
-	c.startOnce.Do(func() {
-		if c.ctx == nil {
-			c.ctx = context.Background()
+	for _, chGroup := range c.channelGroup {
+		if chGroup == nil {
+			continue
 		}
 
-		if c.pipeline == nil {
-			c.pipeline = make(chan *CacheInput, 1000)
+		for _, rspChan := range chGroup {
+			rspChan.Start()
 		}
+	}
 
-		if c.ready == nil {
-			c.ready = make(chan struct{})
-		}
-
-		c.channelGroup[Realtime] = map[int]Channel{
-			0: &rspChannel{ctx: c.ctx},
-		}
-
-		for _, chGroup := range c.channelGroup {
-			if chGroup == nil {
-				continue
-			}
-
-			for _, rspChan := range chGroup {
-				rspChan.Start()
-			}
-		}
-
-		go func() {
-			defer func() {
-				c.IsReady = false
-				c.IsClosed = true
-			}()
-
-			for {
-				select {
-				case <-c.ctx.Done():
-					return
-				case obj := <-c.pipeline:
-					if obj == nil {
-						continue
-					}
-
-					if c.handleInputFn == nil {
-						log.Panicln("handleInputFn is nil.")
-					}
-
-					c.handleInputFn(obj)
-				}
-			}
+	go func() {
+		defer func() {
+			c.IsReady = false
+			c.IsClosed = true
 		}()
 
-		c.IsReady = true
-		c.IsClosed = false
-		close(c.ready)
-		c.cacheStart = time.Now()
-	})
+		for {
+			select {
+			case <-c.ctx.Done():
+				return
+			case obj := <-c.pipeline:
+				if obj == nil {
+					continue
+				}
+
+				if c.handleInputFn == nil {
+					log.Panicln("handleInputFn is nil.")
+				}
+
+				c.handleInputFn(obj)
+			}
+		}
+	}()
+
+	c.IsReady = true
+	c.IsClosed = false
+	close(c.ready)
+	c.cacheStart = time.Now()
 
 	return nil
 }
@@ -170,17 +149,15 @@ func (c *tableCache) Stop() error {
 		return errors.New("cache is not ready")
 	}
 
-	c.stopOnce.Do(func() {
-		c.IsClosed = true
-		c.IsReady = false
-		close(c.pipeline)
+	c.IsClosed = true
+	c.IsReady = false
+	close(c.pipeline)
 
-		for _, chGroup := range c.channelGroup {
-			for _, rspChan := range chGroup {
-				rspChan.Close()
-			}
+	for _, chGroup := range c.channelGroup {
+		for _, rspChan := range chGroup {
+			rspChan.Close()
 		}
-	})
+	}
 
 	return nil
 }

@@ -41,11 +41,9 @@ type rspChannel struct {
 	retriveLock      sync.Mutex
 	connectLock      sync.Mutex
 
-	ctx       context.Context
-	IsReady   bool
-	startOnce sync.Once
-	IsClosed  bool
-	closeOnce sync.Once
+	ctx      context.Context
+	IsReady  bool
+	IsClosed bool
 }
 
 func (c *rspChannel) PublishData(data models.TableResponse) error {
@@ -53,9 +51,9 @@ func (c *rspChannel) PublishData(data models.TableResponse) error {
 		return fmt.Errorf("channel is already closed")
 	}
 
-	if !c.IsReady {
-		c.Start()
-	}
+	// if !c.IsReady {
+	// 	c.Start()
+	// }
 
 	c.source <- data
 
@@ -64,17 +62,14 @@ func (c *rspChannel) PublishData(data models.TableResponse) error {
 
 func (c *rspChannel) RetriveData() <-chan models.TableResponse {
 	if c.IsClosed {
-		ch := make(chan models.TableResponse, 0)
-		close(ch)
-
-		return ch
+		return nil
 	}
 
-	if !c.IsReady {
-		c.Start()
-	}
+	// if !c.IsReady {
+	// 	c.Start()
+	// }
 
-	ch := make(chan models.TableResponse, 1000)
+	ch := make(chan models.TableResponse, 1)
 
 	c.retriveLock.Lock()
 	c.newDestinations = append(c.newDestinations, ch)
@@ -110,37 +105,35 @@ func (c *rspChannel) Start() error {
 		return errors.New("channel is already closed")
 	}
 
-	c.startOnce.Do(func() {
-		if c.source == nil {
-			c.source = make(chan models.TableResponse, 1000)
-		}
+	if c.source == nil {
+		c.source = make(chan models.TableResponse, 1000)
+	}
 
-		c.IsClosed = false
+	c.IsClosed = false
 
-		go func() {
-			defer c.Close()
+	go func() {
+		defer c.Close()
 
-			for {
-				select {
-				case <-c.ctx.Done():
+		for {
+			select {
+			case <-c.ctx.Done():
+				return
+			case data, ok := <-c.source:
+				if !ok {
 					return
-				case data, ok := <-c.source:
-					if !ok {
-						return
-					}
-
-					if data == nil {
-						continue
-					}
-
-					c.dispatchDistinations(data)
-					c.dispatchSubChannels(data)
 				}
-			}
-		}()
 
-		c.IsReady = true
-	})
+				if data == nil {
+					continue
+				}
+
+				c.dispatchDistinations(data)
+				c.dispatchSubChannels(data)
+			}
+		}
+	}()
+
+	c.IsReady = true
 
 	return nil
 }
@@ -154,19 +147,17 @@ func (c *rspChannel) Close() error {
 		return fmt.Errorf("channel is already closed")
 	}
 
-	c.closeOnce.Do(func() {
-		c.IsReady = false
+	c.IsReady = false
 
-		close(c.source)
+	close(c.source)
 
-		c.IsClosed = true
+	c.IsClosed = true
 
-		for _, ch := range c.destinations {
-			close(ch)
-		}
+	for _, ch := range c.destinations {
+		close(ch)
+	}
 
-		log.Println("channel closed.")
-	})
+	log.Println("channel closed.")
 
 	return nil
 }
@@ -178,7 +169,7 @@ func (c *rspChannel) mergeNewDestinations() {
 	if len(c.newDestinations) > 0 {
 		c.destinations = append(c.destinations, c.newDestinations...)
 
-		c.newDestinations = c.newDestinations[len(c.newDestinations):]
+		c.newDestinations = []chan<- models.TableResponse{}
 	}
 }
 
@@ -233,7 +224,7 @@ func (c *rspChannel) mergeNewSubChannel() {
 	if len(c.newChildChannels) > 0 {
 		c.childChannels = append(c.childChannels, c.newChildChannels...)
 
-		c.newChildChannels = c.newChildChannels[len(c.newChildChannels):]
+		c.newChildChannels = []Channel{}
 	}
 }
 
