@@ -309,6 +309,7 @@ func (c *MBLCache) initCache() {
 
 func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 	if len(c.l2Cache) > 0 {
+		// TODO: 比较与旧的快照的不同，发送增量通知弥合与客户端的不同，实现后可不强制断连客户端
 		for _, chanGroup := range c.channelGroup {
 			for _, ch := range chanGroup {
 				ch.Close()
