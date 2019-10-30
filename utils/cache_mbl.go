@@ -245,7 +245,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 	switch data.Action {
 	case models.DeleteAction:
 		for _, ord := range data.Data {
-			if depth, err = c.deleteOrder(ord); err != nil {
+			if depth, err = c.handleDelete(ord); err != nil {
 				return nil, err
 			}
 
@@ -262,7 +262,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 		}
 	case models.InsertAction:
 		for _, ord := range data.Data {
-			if depth, err = c.insertOrder(ord); err != nil {
+			if depth, err = c.handleInsert(ord); err != nil {
 				return nil, err
 			}
 
@@ -279,7 +279,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 		}
 	case models.UpdateAction:
 		for _, ord := range data.Data {
-			if depth, err = c.updateOrder(ord); err != nil {
+			if depth, err = c.handleUpdate(ord); err != nil {
 				return nil, err
 			}
 
@@ -290,7 +290,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 			}
 		}
 	case models.PartialAction:
-		c.partial(data.Data)
+		c.handlePartial(data.Data)
 		return nil, nil
 	default:
 		return nil, fmt.Errorf("Invalid action: %s", data.Action)
@@ -307,7 +307,7 @@ func (c *MBLCache) initCache() {
 	c.bidPrices = []float64{}
 }
 
-func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
+func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 	if len(c.l2Cache) > 0 {
 		// TODO: 比较与旧的快照的不同，发送增量通知弥合与客户端的不同，实现后可不强制断连客户端
 		for _, chanGroup := range c.channelGroup {
@@ -346,7 +346,7 @@ func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
 	log.Println("MBL partial:", string(result))
 }
 
-func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
+func (c *MBLCache) handleDelete(ord *ngerest.OrderBookL2) (int, error) {
 	if origin, exist := c.l2Cache[ord.Price]; !exist {
 		return 0, fmt.Errorf("%s order[%.1f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
 	} else if ord.ID != origin.ID {
@@ -391,7 +391,7 @@ func (c *MBLCache) deleteOrder(ord *ngerest.OrderBookL2) (int, error) {
 	return depth, err
 }
 
-func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
+func (c *MBLCache) handleInsert(ord *ngerest.OrderBookL2) (int, error) {
 	if origin, exist := c.l2Cache[ord.Price]; exist {
 		return 0, fmt.Errorf(
 			"%s order[%.1f@%.0f] insert on %s side with already exist order[%.1f@%.0f %.0f]",
@@ -433,7 +433,7 @@ func (c *MBLCache) insertOrder(ord *ngerest.OrderBookL2) (int, error) {
 	return depth, err
 }
 
-func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
+func (c *MBLCache) handleUpdate(ord *ngerest.OrderBookL2) (int, error) {
 	var (
 		idx   int = -1
 		err   error

@@ -13,14 +13,14 @@ func TestSnapshot(t *testing.T) {
 	t.Log(cache.snapshot(0))
 
 	for _, ask := range []float64{9995, 9996, 9997, 9998, 9999, 10000, 10001} {
-		cache.insertOrder(&ngerest.OrderBookL2{
+		cache.handleInsert(&ngerest.OrderBookL2{
 			Price: float64(ask),
 			Size:  float32(ask),
 			Side:  "Sell",
 		})
 	}
 	for _, bid := range []float64{9990, 9991, 9992, 9993, 9994} {
-		cache.insertOrder(&ngerest.OrderBookL2{
+		cache.handleInsert(&ngerest.OrderBookL2{
 			Price: float64(bid),
 			Size:  float32(bid),
 			Side:  "Buy",
@@ -45,7 +45,7 @@ func BenchmarkInsertBuy(b *testing.B) {
 	cache.initCache()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := cache.insertOrder(&ngerest.OrderBookL2{
+		if _, err := cache.handleInsert(&ngerest.OrderBookL2{
 			Price: float64(i),
 			Size:  float32(i),
 			Side:  "Buy",
@@ -60,7 +60,7 @@ func BenchmarkInsertSell(b *testing.B) {
 	cache.initCache()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := cache.insertOrder(&ngerest.OrderBookL2{
+		if _, err := cache.handleInsert(&ngerest.OrderBookL2{
 			Price: float64(b.N - i),
 			Size:  float32(i),
 			Side:  "Sell",
