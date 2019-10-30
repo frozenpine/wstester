@@ -51,10 +51,6 @@ func (c *rspChannel) PublishData(data models.TableResponse) error {
 		return fmt.Errorf("channel is already closed")
 	}
 
-	// if !c.IsReady {
-	// 	c.Start()
-	// }
-
 	c.source <- data
 
 	return nil
@@ -159,14 +155,16 @@ func (c *rspChannel) Close() error {
 }
 
 func (c *rspChannel) mergeNewDestinations() {
-	c.retriveLock.Lock()
-	defer c.retriveLock.Unlock()
-
-	if len(c.newDestinations) > 0 {
-		c.destinations = append(c.destinations, c.newDestinations...)
-
-		c.newDestinations = []chan<- models.TableResponse{}
+	if len(c.newDestinations) < 1 {
+		return
 	}
+
+	c.retriveLock.Lock()
+
+	c.destinations = append(c.destinations, c.newDestinations...)
+	c.newDestinations = []chan<- models.TableResponse{}
+
+	c.retriveLock.Unlock()
 }
 
 func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
@@ -215,14 +213,16 @@ func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
 }
 
 func (c *rspChannel) mergeNewSubChannel() {
-	c.connectLock.Lock()
-	defer c.connectLock.Unlock()
-
-	if len(c.newChildChannels) > 0 {
-		c.childChannels = append(c.childChannels, c.newChildChannels...)
-
-		c.newChildChannels = []Channel{}
+	if len(c.newChildChannels) < 1 {
+		return
 	}
+
+	c.connectLock.Lock()
+
+	c.childChannels = append(c.childChannels, c.newChildChannels...)
+	c.newChildChannels = []Channel{}
+
+	c.connectLock.Unlock()
 }
 
 func (c *rspChannel) dispatchSubChannels(data models.TableResponse) {
