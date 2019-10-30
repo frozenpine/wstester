@@ -37,12 +37,12 @@ const (
 )
 
 var (
-	symbol    string
-	scheme    string
-	host      string
-	port      int
-	uriString string
-	urlString string
+	symbol string
+	scheme string
+	host   string
+	port   int
+	uriStr string
+	urlStr string
 
 	defaultTopics = []string{"trade", "orderBookL2", "instrument"}
 	topics        []string
@@ -66,8 +66,8 @@ var (
 )
 
 func getURL() string {
-	if urlString != "" {
-		parsed, err := url.Parse(urlString)
+	if urlStr != "" {
+		parsed, err := url.Parse(urlStr)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -92,7 +92,7 @@ func getURL() string {
 		default:
 			port, _ = strconv.Atoi(parsed.Port())
 		}
-		uriString = parsed.Path
+		uriStr = parsed.Path
 	}
 
 	var hostString string
@@ -103,7 +103,7 @@ func getURL() string {
 		hostString = fmt.Sprintf("%s:%d", host, port)
 	}
 
-	return strings.Replace(scheme, "http", "ws", 1) + "://" + strings.Join([]string{hostString, strings.TrimLeft(uriString, "/")}, "/")
+	return strings.Replace(scheme, "http", "ws", 1) + "://" + strings.Join([]string{hostString, strings.TrimLeft(uriStr, "/")}, "/")
 }
 
 func humanReadNum(num int) string {
@@ -137,8 +137,8 @@ func init() {
 		&host, "host", "H", defaultHost, "Host addreses to connect.")
 	flag.IntVarP(
 		&port, "port", "p", defaultPort, "Host port to connect.")
-	flag.StringVar(&uriString, "uri", defaultURI, "URI for realtime push data.")
-	flag.StringVar(&urlString, "url", "", "Connection URL.")
+	flag.StringVar(&uriStr, "uri", defaultURI, "URI for realtime push data.")
+	flag.StringVar(&urlStr, "url", "", "Connection URL.")
 
 	flag.StringSliceVar(
 		&topics, "topics", defaultTopics,
