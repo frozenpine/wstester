@@ -339,7 +339,7 @@ func parseTable(stmt *sqlparser.Select) (*TableDef, error) {
 	tableDefine.define = reflect.TypeOf(reflect.Indirect(reflect.ValueOf(model)).Interface())
 
 	for colName, col := range GetFieldTypes(reflect.Indirect(reflect.ValueOf(model)).Interface(), "*") {
-		tableDefine.columns[colName] = &ColumnDef{
+		tableDefine.columns[strings.ToLower(colName)] = &ColumnDef{
 			name:   colName,
 			define: col,
 		}
@@ -364,7 +364,7 @@ func parseColumns(tbl *TableDef, stmt *sqlparser.Select) (map[string]*ColumnDef,
 		case *sqlparser.AliasedExpr:
 			colName, _ := col.Expr.(*sqlparser.ColName)
 
-			key := strings.Title(colName.Name.String())
+			key := strings.ToLower(colName.Name.String())
 
 			colDef, exist := tbl.columns[key]
 			if !exist {
@@ -409,16 +409,18 @@ func parseStr(left interface{}, right *sqlparser.SQLVal) (string, string) {
 	return leftValue, rightValue
 }
 
-func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool, error) {
+func parseComparison(compare *sqlparser.ComparisonExpr, table *TableDef) (func(interface{}) bool, error) {
 	left, ok := compare.Left.(*sqlparser.ColName)
 	if !ok {
 		return nil, errors.New("left side must be a property of struct")
 	}
 
-	leftName := strings.Title(left.Name.String())
-	if leftName == "Id" {
-		leftName = "ID"
+	colDef, exist := table.columns[strings.ToLower(left.Name.String())]
+	if !exist {
+		return nil, errors.New("column name in condition is invalid: " + left.Name.String())
 	}
+
+	leftName := colDef.GetName()
 
 	right, ok := compare.Right.(*sqlparser.SQLVal)
 	if !ok {
@@ -439,18 +441,18 @@ func parseComparison(compare *sqlparser.ComparisonExpr) (func(interface{}) bool,
 	}, nil
 }
 
-func parseCondition(expr sqlparser.Expr) (func(v interface{}) bool, error) {
+func parseCondition(expr sqlparser.Expr, table *TableDef) (func(v interface{}) bool, error) {
 	switch condition := expr.(type) {
 	case *sqlparser.ComparisonExpr:
 		// 条件比较的最小单元
-		return parseComparison(condition)
+		return parseComparison(condition, table)
 	case *sqlparser.AndExpr:
-		leftFn, err := parseCondition(condition.Left)
+		leftFn, err := parseCondition(condition.Left, table)
 		if err != nil {
 			return nil, err
 		}
 
-		rightFn, err := parseCondition(condition.Right)
+		rightFn, err := parseCondition(condition.Right, table)
 		if err != nil {
 			return nil, err
 		}
@@ -458,12 +460,12 @@ func parseCondition(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 			return leftFn(v) && rightFn(v)
 		}, nil
 	case *sqlparser.OrExpr:
-		leftFn, err := parseCondition(condition.Left)
+		leftFn, err := parseCondition(condition.Left, table)
 		if err != nil {
 			return nil, err
 		}
 
-		rightFn, err := parseCondition(condition.Right)
+		rightFn, err := parseCondition(condition.Right, table)
 		if err != nil {
 			return nil, err
 		}
@@ -472,7 +474,7 @@ func parseCondition(expr sqlparser.Expr) (func(v interface{}) bool, error) {
 			return leftFn(v) || rightFn(v)
 		}, nil
 	case *sqlparser.ParenExpr:
-		return parseCondition(condition.Expr)
+		return parseCondition(condition.Expr, table)
 	default:
 		return nil, errors.New("unsupported condition: " + sqlparser.String(condition))
 	}
@@ -500,7 +502,7 @@ func ParseSQL(sql string) (map[string]*TableDef, error) {
 		}
 
 		if sel.Where != nil {
-			conditionFn, err := parseCondition(sel.Where.Expr)
+			conditionFn, err := parseCondition(sel.Where.Expr, tblDefine)
 			if err != nil {
 				return nil, err
 			}
