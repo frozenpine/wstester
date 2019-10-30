@@ -235,6 +235,16 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 					client.WriteJSONMessage(data, false)
 				}
+
+				client.WriteJSONMessage(&models.ErrResponse{
+					Error: "Upstream data channel closed.",
+					Request: models.OperationRequest{
+						Operation: req.GetOperation(),
+						Args:      req.GetArgs(),
+					},
+				}, false)
+
+				client.Close(-1, "Upstream data channel closed.")
 			}(cache, utils.Realtime, depth)
 		}
 

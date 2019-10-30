@@ -32,18 +32,18 @@ type Session interface {
 	// GetID to get session's unique id
 	GetID() string
 	// Close to close current session
-	Close(int, string) error
+	Close(code int, msg string) error
 	// Authorize to authorize current session as logged in
-	Authorize(string, string)
+	Authorize(key, secret string)
 	// IsAuthorized to specify wether current session is authrozied
 	IsAuthorized() bool
 
 	// ReadMessage receive message from client session
 	ReadMessage() ([]byte, error)
 	// WriteTextMessage send text message to client
-	WriteTextMessage(string, bool) error
+	WriteTextMessage(msg string, isSync bool) error
 	// WriteJSONMessage send json object to client
-	WriteJSONMessage(interface{}, bool) error
+	WriteJSONMessage(obj interface{}, isSync bool) error
 }
 
 type message struct {

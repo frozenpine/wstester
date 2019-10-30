@@ -142,8 +142,6 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 			return
 		}
 
-		// log.Printf("Receive count: %d, avg rate: %.2f rps\n", len(mbl.Data), float64(c.historyCount)/time.Now().Sub(c.cacheStart).Seconds())
-
 		for depth, ch := range c.channelGroup[Realtime] {
 			if depth == 0 {
 				ch.PublishData(mbl)
