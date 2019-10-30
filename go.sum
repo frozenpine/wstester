@@ -10,6 +10,8 @@ github.com/ahmetb/go-linq/v3 v3.1.0 h1:E/eoLrVELxU42gINTWgbj+jK2Z+wXJqt0wsk1NTu4
 github.com/ahmetb/go-linq/v3 v3.1.0/go.mod h1:haQ3JfOeWK8HpVxMtHHEMPVgBKiYyQ+f1/kLZh/cj9U=
 github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6 h1:uZuxRZCz65cG1o6K/xUqImNcYKtmk9ylqaH0itMSvzA=
 github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6/go.mod h1:V8iCPQYkqmusNa815XgQio277wI47sdRh1dUOLdyC6Q=
+github.com/antihax/optional v1.0.0 h1:xK2lYat7ZLaVVcIuj82J8kIro4V6kDe0AUDFboUCwcg=
+github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -33,6 +35,8 @@ github.com/frozenpine/ngerest v0.0.0-20191009161310-cc30a2d71a3f h1:xOR+H3+5iT6s
 github.com/frozenpine/ngerest v0.0.0-20191009161310-cc30a2d71a3f/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
 github.com/frozenpine/ngerest v0.0.0-20191009170459-baa0e525c1f3 h1:QsIxs3ijJeSA3S2e5nijPeUX8jJit1zvuF4PKVqIZoY=
 github.com/frozenpine/ngerest v0.0.0-20191009170459-baa0e525c1f3/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191030054745-6e9097c2311f h1:ZTi2KGfIUXBEv6VOOmPie+udf9NJOEPMhvtnCjzjQjA=
+github.com/frozenpine/ngerest v0.0.0-20191030054745-6e9097c2311f/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47 h1:tWqgWN6j76sCw1oPdQ1BdHfR4YYEK0kgLNC89dx3bNY=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47/go.mod h1:2bwRXM6GR9VZwJ5m0aSFo/7HHMnJLuvCoUk2cEZTt54=
 github.com/frozenpine/pkcs8 v0.0.0-20190413084423-a8374dc8920d h1:FDLukDoNCbo/cLcJ2YumDWbs72gOZCS7MmkbpBVOxzM=

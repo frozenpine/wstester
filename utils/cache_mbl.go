@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"sync"
-	"time"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
@@ -143,7 +142,7 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 			return
 		}
 
-		log.Printf("Receive count: %d, avg rate: %.2f rps\n", len(mbl.Data), float64(c.historyCount)/time.Now().Sub(c.cacheStart).Seconds())
+		// log.Printf("Receive count: %d, avg rate: %.2f rps\n", len(mbl.Data), float64(c.historyCount)/time.Now().Sub(c.cacheStart).Seconds())
 
 		for depth, ch := range c.channelGroup[Realtime] {
 			if depth == 0 {
@@ -435,10 +434,6 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 	)
 
 	if origin, exist := c.l2Cache[ord.Price]; exist {
-		if ord.ID != origin.ID {
-			log.Println("order id miss-match with cache:", ord.ID, origin.ID)
-		}
-
 		switch ord.Side {
 		case "Buy":
 			length := len(c.bidPrices)
@@ -465,7 +460,6 @@ func (c *MBLCache) updateOrder(ord *ngerest.OrderBookL2) (int, error) {
 			err = fmt.Errorf("price %f not found on %s", ord.Price, ord.Side)
 		} else {
 			origin.Size = ord.Size
-			// origin.ID = ord.ID
 		}
 	} else {
 		err = fmt.Errorf("%s order[%.1f@%.0f] update on %s side not exist", ord.Symbol, ord.Price, ord.Size, ord.Side)

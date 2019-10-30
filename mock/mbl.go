@@ -38,6 +38,10 @@ func MBL(cache utils.Cache) {
 						continue
 					}
 
+					if mbl.GetAction() == "partial" {
+						log.Println(mbl.String())
+					}
+
 					cache.Append(utils.NewCacheInput(mbl))
 				}
 			}

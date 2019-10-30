@@ -46,7 +46,7 @@ type NGETime time.Time
 
 // FromTimestamp convert from timestamp(ms)
 func (t *NGETime) FromTimestamp(timestamp int64) {
-	sec := int64(timestamp / 1000)
+	sec := timestamp / 1000
 	nsec := (timestamp - sec*1000) * 1e6
 	tm := time.Unix(sec, nsec)
 	*t = NGETime(tm)
