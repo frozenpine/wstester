@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	dispatchTimeout = 5
+	dispatchTimeout = 3
 )
 
 // Channel message channel
@@ -65,11 +65,7 @@ func (c *rspChannel) RetriveData() <-chan models.TableResponse {
 		return nil
 	}
 
-	// if !c.IsReady {
-	// 	c.Start()
-	// }
-
-	ch := make(chan models.TableResponse, 1)
+	ch := make(chan models.TableResponse, 1000)
 
 	c.retriveLock.Lock()
 	c.newDestinations = append(c.newDestinations, ch)
