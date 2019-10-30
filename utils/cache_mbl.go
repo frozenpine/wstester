@@ -137,6 +137,7 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 				c.BestBidPrice(), c.BestBidSize(), c.BestAskPrice(), c.BestAskSize())
 		}
 
+		// TODO：fix partial miss-match with client side caused by upstream disconnect.
 		// apply an partial
 		if limitRsp == nil {
 			return
@@ -488,6 +489,7 @@ func NewMBLCache(ctx context.Context) Cache {
 	mbl.channelGroup[Realtime] = map[int]Channel{
 		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
 	}
+	mbl.initCache()
 
 	if err := mbl.Start(); err != nil {
 		log.Panicln(err)

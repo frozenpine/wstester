@@ -191,6 +191,7 @@ func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
 		case dest <- data:
 			writeTimeout.Reset(time.Second * dispatchTimeout)
 		case <-writeTimeout.C:
+			close(dest)
 			invalidDest = append(invalidDest, idx)
 			writeTimeout = time.NewTimer(time.Second * dispatchTimeout)
 			log.Printf("Dispatch data to client timeout.")
@@ -235,6 +236,7 @@ func (c *rspChannel) dispatchSubChannels(data models.TableResponse) {
 
 	for idx, subChan := range c.childChannels {
 		if err := subChan.PublishData(data); err != nil {
+			subChan.Close()
 			invalidSub = append(invalidSub, idx)
 			log.Println(err)
 			continue
