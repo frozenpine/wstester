@@ -310,6 +310,14 @@ func (c *MBLCache) initCache() {
 }
 
 func (c *MBLCache) partial(data []*ngerest.OrderBookL2) {
+	if len(c.l2Cache) > 0 {
+		for _, chanGroup := range c.channelGroup {
+			for _, ch := range chanGroup {
+				ch.Close()
+			}
+		}
+	}
+
 	c.initCache()
 
 	for _, mbl := range data {
@@ -483,7 +491,7 @@ func NewMBLCache(ctx context.Context) Cache {
 	mbl.channelGroup[Realtime] = map[int]Channel{
 		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
 	}
-	mbl.initCache()
+	// mbl.initCache()
 
 	if err := mbl.Start(); err != nil {
 		log.Panicln(err)
