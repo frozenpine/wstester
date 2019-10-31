@@ -193,9 +193,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 			depth := 0
 
-			// for _, match := range topicDepthRegex.FindStringSubmatch(topicName) {
-			// 	depth, _ = strconv.Atoi(match)
-			// }
+			// TODO: parse topic depth from topic name
 			if topicName == "orderBookL2_25" {
 				depth = 25
 			}

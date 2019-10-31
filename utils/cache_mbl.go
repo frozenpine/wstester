@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"sync"
 
 	"github.com/frozenpine/ngerest"
@@ -71,16 +70,24 @@ func (c *MBLCache) IsQuoteChange() bool {
 }
 
 func (c *MBLCache) snapshot(depth int) models.TableResponse {
-	if depth < 1 {
-		depth = math.MaxInt64
-	}
+	var (
+		sellLength, buyLength, sellDepth, buyDepth int
+	)
 
 	snap := models.NewMBLPartial()
 
-	sellLength := len(c.askPrices)
-	buyLength := len(c.bidPrices)
-	sellDepth := MinInt(sellLength, depth)
-	buyDepth := MinInt(buyLength, depth)
+	sellLength = len(c.askPrices)
+	buyLength = len(c.bidPrices)
+
+	if depth > 0 {
+		sellDepth = MinInt(sellLength, depth)
+		buyDepth = MinInt(buyLength, depth)
+
+		snap.Table = fmt.Sprintf("%s_%d", snap.Table, depth)
+	} else {
+		sellDepth = sellLength
+		buyDepth = buyLength
+	}
 
 	priceList := make([]float64, sellDepth+buyDepth)
 
@@ -92,10 +99,6 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 	dataList := make([]*ngerest.OrderBookL2, sellDepth+buyDepth)
 	for idx, price := range priceList {
 		dataList[idx] = c.l2Cache[price]
-	}
-
-	if depth > 0 && depth != math.MaxInt64 {
-		snap.Table = fmt.Sprintf("%s_%d", snap.Table, depth)
 	}
 
 	snap.Data = dataList
@@ -136,7 +139,6 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 				c.BestBidPrice(), c.BestBidSize(), c.BestAskPrice(), c.BestAskSize())
 		}
 
-		// TODO：fix partial miss-match with client side caused by upstream disconnect.
 		// apply an partial
 		if limitRsp == nil {
 			return
@@ -241,7 +243,6 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 		}
 	}
 
-	// FIXME: 价格挡位丢失
 	switch data.Action {
 	case models.DeleteAction:
 		for _, ord := range data.Data {
@@ -309,7 +310,7 @@ func (c *MBLCache) initCache() {
 
 func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 	if len(c.l2Cache) > 0 {
-		// TODO: 比较与旧的快照的不同，发送增量通知弥合与客户端的不同，实现后可不强制断连客户端
+		// TODO: 比较与旧的快照的不同，发送增量通知弥合与客户端的不同，实现后可不强制断连客户端，目前强制断连实现存在问题
 		for _, chanGroup := range c.channelGroup {
 			for _, ch := range chanGroup {
 				ch.Close()
