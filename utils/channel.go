@@ -200,8 +200,6 @@ func (c *rspChannel) Close() error {
 		close(ch)
 	}
 
-	log.Println("channel closed.")
-
 	return nil
 }
 

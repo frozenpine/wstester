@@ -39,7 +39,10 @@ func (c *InstrumentCache) handleInput(input *CacheInput) {
 }
 
 func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
-
+	switch ins.Action {
+	case models.PartialAction:
+		c.instrument = ins.Data[0]
+	}
 }
 
 // NewInstrumentCache make a new instrument cache.

@@ -268,10 +268,6 @@ func (tbl *TableDef) GetFilter() LinqFilter {
 		}
 
 		query.Select(func(v interface{}) interface{} {
-			if reflect.Indirect(reflect.ValueOf(v)).Interface() == nil {
-				return v
-			}
-
 			result := make(map[string]interface{})
 
 			for _, col := range tbl.selected {
