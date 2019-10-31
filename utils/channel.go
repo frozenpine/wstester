@@ -38,8 +38,10 @@ type Channel interface {
 	// PublishData publish data to current channel
 	PublishData(rsp models.TableResponse) error
 
+	// PublishDataToDestination publish data to specified destination
 	PublishDataToDestination(rsp models.TableResponse, idx int) error
 
+	// PublishDataToSubChan publish data to specified sub channel
 	PublishDataToSubChan(rsp models.TableResponse, idx int) error
 
 	// RetriveData to get an chan to retrive data in current channel
@@ -245,7 +247,11 @@ func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 			handleInput(idx, dest, writeTimeout)
 		}
 	} else {
-		handleInput(data.dstIdx, c.destinations[data.dstIdx], writeTimeout)
+		if data.dstIdx < len(c.destinations) {
+			handleInput(data.dstIdx, c.destinations[data.dstIdx], writeTimeout)
+		} else {
+			log.Printf("Invalid destination index[%d] specified, max index is %d\n", data.dstIdx, len(c.destinations)-1)
+		}
 	}
 	writeTimeout.Stop()
 
@@ -297,7 +303,12 @@ func (c *rspChannel) dispatchSubChannels(data *ChannelInput) {
 			handleInput(idx, subChan)
 		}
 	} else {
-		handleInput(data.childChanIdx, c.childChannels[data.childChanIdx])
+		if data.childChanIdx < len(c.childChannels) {
+			handleInput(data.childChanIdx, c.childChannels[data.childChanIdx])
+		} else {
+			log.Printf("Invalid sub channel index[%d] specified, max index is %d\n",
+				data.dstIdx, len(c.childChannels)-1)
+		}
 	}
 
 	if len(invalidSub) > 0 {

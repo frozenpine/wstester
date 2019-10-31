@@ -25,21 +25,27 @@ const (
 type Cache interface {
 	// Start start cache backgroud loop.
 	Start() error
+
 	// Stop stop cache backgroud loop.
 	Stop() error
+
 	// Ready wait for cache ready.
 	Ready() <-chan struct{}
+
 	// TakeSnapshot take snapshot for cache,
 	// depth <= 0 means all available depth level,
 	// publish means wether publish snapshot in channel,
 	// this is an async to sync operation, snapshot operation queued in cache pipeline and
 	// return util queued operation finished.
 	TakeSnapshot(depth int, publish Channel, idx int) models.TableResponse
+
 	// Append append data to cache
 	// this is an async operation if cache pipeline not full.
 	Append(in *CacheInput)
+
 	// GetRspChannel get response channel
 	GetRspChannel(chType ChannelType, depth int) Channel
+
 	// GetDefaultChannel get default channel with realtime all depth notify
 	GetDefaultChannel() Channel
 }
