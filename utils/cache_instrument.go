@@ -1,6 +1,10 @@
 package utils
 
 import (
+	"context"
+	"log"
+	"sync"
+
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 )
@@ -12,32 +16,52 @@ type InstrumentCache struct {
 	instrument *ngerest.Instrument
 }
 
-func (ins *InstrumentCache) snapshot(depth int) models.TableResponse {
+func (c *InstrumentCache) snapshot(depth int) models.TableResponse {
 	rsp := models.NewInstrumentPartial()
 
-	rsp.Data = append(rsp.Data, ins.instrument)
+	rsp.Data = append(rsp.Data, c.instrument)
 
 	return rsp
 }
 
-func (ins *InstrumentCache) handleInput(in *CacheInput) {
-	if in.IsBreakPoint() {
-		rsp := in.breakpointFunc()
-		if rsp == nil {
-			return
-		}
-
-		if in.pubChannel != nil {
-			in.pubChannel.PublishDataToDestination(rsp, in.dstIdx)
-		}
-
+func (c *InstrumentCache) handleInput(input *CacheInput) {
+	if c.handleBreakpoint(input) {
 		return
+	}
+
+	if ins, ok := input.msg.(*models.InstrumentResponse); ok {
+		c.applyData(ins)
+
+		c.channelGroup[Realtime][0].PublishData(ins)
+	} else {
+		log.Println("Can not convert cache input to InstrumentResponse:", input.msg.String())
 	}
 }
 
+func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
+
+}
+
 // NewInstrumentCache make a new instrument cache.
-func NewInstrumentCache() *InstrumentCache {
+func NewInstrumentCache(ctx context.Context, symbol string) Cache {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	ins := InstrumentCache{}
+	ins.Symbol = symbol
+	ins.ctx = ctx
+	ins.handleInputFn = ins.handleInput
+	ins.snapshotFn = ins.snapshot
+	ins.pipeline = make(chan *CacheInput, 1000)
+	ins.ready = make(chan struct{})
+	ins.channelGroup[Realtime] = map[int]Channel{
+		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
+	}
+
+	if err := ins.Start(); err != nil {
+		log.Panicln(err)
+	}
 
 	return &ins
 }

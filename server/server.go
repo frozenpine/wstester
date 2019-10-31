@@ -370,11 +370,11 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	}
 
 	td := utils.NewTradeCache(ctx, "XBTUSD")
-	// ins := NewInstrumentCache()
+	ins := utils.NewInstrumentCache(ctx, "XBTUSD")
 	mbl := utils.NewMBLCache(ctx, "XBTUSD")
 
 	svr.dataCaches["trade"] = td
-	// svr.pubChannels["instrument"] = ins
+	svr.dataCaches["instrument"] = ins
 	svr.dataCaches["orderBookL2"] = mbl
 	if err := mbl.(*utils.MBLCache).NewDepthChannel(25); err != nil {
 		log.Panicln(err)
@@ -386,6 +386,7 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	go mock.Upstream(map[string]utils.Cache{
 		"orderBookL2": mbl,
 		"trade":       td,
+		"instrument":  ins,
 	})
 
 	return &svr

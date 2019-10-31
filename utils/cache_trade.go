@@ -38,7 +38,7 @@ func (c *TradeCache) snapshot(depth int) models.TableResponse {
 
 func (c *TradeCache) handleInput(input *CacheInput) {
 	if input.IsBreakPoint() {
-		c.tableCache.handleBreakpoint(input)
+		c.handleBreakpoint(input)
 
 		return
 	}

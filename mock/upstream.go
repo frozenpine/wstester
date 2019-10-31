@@ -10,7 +10,7 @@ import (
 	"github.com/frozenpine/wstester/utils"
 )
 
-// Upstream mock mbl response
+// Upstream get mbl|trade|instrument response from upstream www.btcmex.com
 func Upstream(caches map[string]utils.Cache) {
 	for {
 		cfg := client.NewConfig()

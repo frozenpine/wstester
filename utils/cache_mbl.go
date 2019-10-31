@@ -135,7 +135,7 @@ func (c *MBLCache) dispatchRsp(mbl *models.MBLResponse, limitRsp map[int][2]*mod
 }
 
 func (c *MBLCache) handleInput(input *CacheInput) {
-	if c.tableCache.handleBreakpoint(input) {
+	if c.handleBreakpoint(input) {
 		return
 	}
 

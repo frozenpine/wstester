@@ -21,6 +21,7 @@ var (
 		"orderBookL2":    utils.NewMBLCache,
 		"orderBookL2_25": utils.NewMBLCache,
 		"trade":          utils.NewTradeCache,
+		"instrument":     utils.NewInstrumentCache,
 	}
 )
 
@@ -200,8 +201,7 @@ func (c *client) UnSubscribe(topics ...string) {
 }
 
 func (c *client) createCache(topic string) {
-	// FIXME: instrument cache not supported yet
-	if _, exist := c.rspCache[topic]; exist || topic == "instrument" {
+	if _, exist := c.rspCache[topic]; exist {
 		return
 	}
 
