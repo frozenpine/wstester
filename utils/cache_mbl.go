@@ -106,6 +106,34 @@ func (c *MBLCache) snapshot(depth int) models.TableResponse {
 	return snap
 }
 
+func (c *MBLCache) dispatchRsp(mbl *models.MBLResponse, limitRsp map[int][2]*models.MBLResponse) {
+	if c.IsQuoteChange() {
+		log.Printf("Best Buy: %.1f@%.0f, Best Sell: %.1f@%.0f\n",
+			c.BestBidPrice(), c.BestBidSize(), c.BestAskPrice(), c.BestAskSize())
+	}
+
+	// apply an partial
+	if limitRsp == nil {
+		return
+	}
+
+	for depth, ch := range c.channelGroup[Realtime] {
+		if depth == 0 {
+			ch.PublishData(mbl)
+			continue
+		}
+
+		if rspList, exist := limitRsp[depth]; exist {
+			for _, rsp := range rspList {
+				if rsp != nil && len(rsp.Data) > 0 {
+					rsp.Table = fmt.Sprintf("%s_%d", rsp.Table, depth)
+					ch.PublishData(rsp)
+				}
+			}
+		}
+	}
+}
+
 func (c *MBLCache) handleInput(in *CacheInput) {
 	if in.IsBreakPoint() {
 		rsp := in.breakpointFunc()
@@ -136,31 +164,7 @@ func (c *MBLCache) handleInput(in *CacheInput) {
 			return
 		}
 
-		if c.IsQuoteChange() {
-			log.Printf("Best Buy: %.1f@%.0f, Best Sell: %.1f@%.0f\n",
-				c.BestBidPrice(), c.BestBidSize(), c.BestAskPrice(), c.BestAskSize())
-		}
-
-		// apply an partial
-		if limitRsp == nil {
-			return
-		}
-
-		for depth, ch := range c.channelGroup[Realtime] {
-			if depth == 0 {
-				ch.PublishData(mbl)
-				continue
-			}
-
-			if rspList, exist := limitRsp[depth]; exist {
-				for _, rsp := range rspList {
-					if rsp != nil && len(rsp.Data) > 0 {
-						rsp.Table = fmt.Sprintf("%s_%d", rsp.Table, depth)
-						ch.PublishData(rsp)
-					}
-				}
-			}
-		}
+		c.dispatchRsp(mbl, limitRsp)
 	} else {
 		log.Println("Can not convert cache input to MBLResponse.", in.msg.String())
 	}
