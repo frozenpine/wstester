@@ -42,6 +42,10 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
 	switch ins.Action {
 	case models.PartialAction:
 		c.instrument = ins.Data[0]
+	case models.UpdateAction:
+		// TODO: UPDATE action handle
+	default:
+		log.Println("Invalid action for instrument cache:", ins.Action)
 	}
 }
 
