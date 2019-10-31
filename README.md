@@ -18,8 +18,9 @@
 >
 >   > ```bash
 >   > # 指定程序运行 5 小时后退出，支持的周期字段 h, m, s
+>   > $ cd examples/client
 >   > $ go run *.go --deadline 5h
->   > ```
+> > ```
 >   
 >   1. h 小时
 >   2. m 分钟
@@ -28,7 +29,7 @@
 ### HELP
 
 ```bash
-$ cd example/client
+$ cd examples/client
 $ go run *.go --help
 Usage of /tmp/go-build247188547/b001/exe/filter:
       --append              Wether append topic list to default subscrib.
@@ -60,6 +61,8 @@ exit status 2
 > - [ngerest](https://github.com/frozenpine/ngerest) 为  [BitMEX/api-connectors](https://github.com/BitMEX/api-connectors/tree/master/auto-generated/go)  工程的一个 Fork，修正了部分 NGE 中同字段不同数据类型的兼容性
 
 ```bash
+$ cd examples/client
+
 # Example for trade
 # 输出显示 trade 数据流中的指定字段
 $ go run *.go --output 'SELECT symbol,price,side,size,tickDirection,timestamp FROM trade'
@@ -96,4 +99,11 @@ $ go run *.go --output 'SELECT indicativeSettlePrice, markPrice FROM instrument 
    > $ curl -s localhost:9988/status
    > {"startup":"2019-10-31T07:09:04.2256833Z","clients":2,"uptime":"3h47m35.6323026s"}
    > ```
+
+### STARTUP EXAMPLE
+
+```bash
+$ cd examples/server
+$ go run main.go
+```
 
