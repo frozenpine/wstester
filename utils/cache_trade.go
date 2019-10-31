@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultTradeLen int = 200
+	maxTradeLen int = 200
 )
 
 // TradeCache retrive & store trade data
@@ -21,15 +21,16 @@ type TradeCache struct {
 }
 
 func (c *TradeCache) snapshot(depth int) models.TableResponse {
-	if depth < 1 {
-		depth = c.maxLength
-	}
-
 	snap := models.NewTradePartial()
 
 	hisLen := len(c.historyTrade)
 
-	trimLen := MinInts(c.maxLength, hisLen, depth)
+	var trimLen int
+	if depth < 1 {
+		trimLen = MinInt(hisLen, maxTradeLen)
+	} else {
+		trimLen = MinInts(maxTradeLen, hisLen, depth)
+	}
 
 	snap.Data = c.historyTrade[hisLen-trimLen:]
 
@@ -60,10 +61,8 @@ func (c *TradeCache) handleInput(input *CacheInput) {
 func (c *TradeCache) applyData(data *models.TradeResponse) {
 	c.historyTrade = append(c.historyTrade, data.Data...)
 
-	if hisLen := len(c.historyTrade); hisLen > c.maxLength*3 {
-		trimLen := int(float64(c.maxLength) * 1.5)
-
-		c.historyTrade = c.historyTrade[hisLen-trimLen:]
+	if hisLen := len(c.historyTrade); hisLen > maxTradeLen*maxMultiple {
+		c.historyTrade = c.historyTrade[hisLen-maxTradeLen*maxMultiple/2:]
 	}
 }
 
@@ -76,7 +75,6 @@ func NewTradeCache(ctx context.Context, symbol string) Cache {
 	td := TradeCache{}
 	td.Symbol = symbol
 	td.ctx = ctx
-	td.maxLength = defaultTradeLen
 	td.handleInputFn = td.handleInput
 	td.snapshotFn = td.snapshot
 	td.pipeline = make(chan *CacheInput, 1000)

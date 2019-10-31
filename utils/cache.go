@@ -9,6 +9,10 @@ import (
 	"github.com/frozenpine/wstester/models"
 )
 
+const (
+	maxMultiple int = 3
+)
+
 // ChannelType limited cache types
 type ChannelType int
 
@@ -94,7 +98,6 @@ type tableCache struct {
 	ctx        context.Context
 	IsReady    bool
 	IsClosed   bool
-	maxLength  int
 
 	snapshotFn    func(int) models.TableResponse
 	handleInputFn func(*CacheInput)

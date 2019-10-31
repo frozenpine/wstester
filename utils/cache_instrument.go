@@ -9,9 +9,22 @@ import (
 	"github.com/frozenpine/wstester/models"
 )
 
+const (
+	maxInsLength int = (3600 / 5) * 24
+)
+
+// WAP weighted average price for both side
+type WAP struct {
+	Buy, Sell float64
+}
+
 // InstrumentCache retrive & store instrument data
 type InstrumentCache struct {
 	tableCache
+
+	wapPriceList        []*WAP
+	indicativePriceList []float64
+	markPriceList       []float64
 
 	instrument *ngerest.Instrument
 }
@@ -38,12 +51,30 @@ func (c *InstrumentCache) handleInput(input *CacheInput) {
 	}
 }
 
+func (c *InstrumentCache) applyInsPrice(indPrice, markPrice float64) {
+	c.indicativePriceList = append(c.indicativePriceList, indPrice)
+	c.markPriceList = append(c.markPriceList, markPrice)
+
+	if length := len(c.indicativePriceList); length > maxInsLength*maxMultiple {
+		c.indicativePriceList = c.indicativePriceList[length-maxInsLength*maxMultiple/2:]
+	}
+
+	if length := len(c.markPriceList); length > maxInsLength*maxMultiple {
+		c.markPriceList = c.markPriceList[length-maxInsLength*maxMultiple/2:]
+	}
+}
+
 func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
+	data := ins.Data[0]
+
 	switch ins.Action {
 	case models.PartialAction:
-		c.instrument = ins.Data[0]
+		c.instrument = data
 	case models.UpdateAction:
 		// TODO: UPDATE action handle
+		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
+			c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
+		}
 	default:
 		log.Println("Invalid action for instrument cache:", ins.Action)
 	}
