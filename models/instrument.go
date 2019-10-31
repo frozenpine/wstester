@@ -15,6 +15,21 @@ type InstrumentResponse struct {
 	Data []*ngerest.Instrument `json:"data"`
 }
 
+// NewInstrumentPartial create an new instrument partial response
+func NewInstrumentPartial() *InstrumentResponse {
+	partial := InstrumentResponse{}
+
+	partial.Table = "instrument"
+	partial.Action = PartialAction
+	partial.Keys = []string{}
+	partial.Types = make(map[string]string)
+	partial.ForeignKeys = make(map[string]string)
+	partial.Attributes = make(map[string]string)
+	partial.Filter = make(map[string]string)
+
+	return &partial
+}
+
 // String get structure's string format
 func (ins *InstrumentResponse) String() string {
 	result, _ := json.Marshal(ins)

@@ -100,6 +100,20 @@ type tableCache struct {
 	handleInputFn func(*CacheInput)
 }
 
+func (c *tableCache) handleBreakpoint(in *CacheInput) bool {
+	if !in.IsBreakPoint() {
+		return false
+	}
+
+	rsp := in.breakpointFunc()
+
+	if rsp != nil && in.pubChannel != nil {
+		in.pubChannel.PublishDataToDestination(rsp, in.dstIdx)
+	}
+
+	return true
+}
+
 func (c *tableCache) Start() error {
 	if c.IsReady {
 		return errors.New("cache is already started")

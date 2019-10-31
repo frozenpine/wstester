@@ -36,32 +36,24 @@ func (c *TradeCache) snapshot(depth int) models.TableResponse {
 	return snap
 }
 
-func (c *TradeCache) handleInput(in *CacheInput) {
-	if in.IsBreakPoint() {
-		rsp := in.breakpointFunc()
-
-		if rsp == nil {
-			return
-		}
-
-		if in.pubChannel != nil {
-			in.pubChannel.PublishDataToDestination(rsp, in.dstIdx)
-		}
+func (c *TradeCache) handleInput(input *CacheInput) {
+	if input.IsBreakPoint() {
+		c.tableCache.handleBreakpoint(input)
 
 		return
 	}
 
-	if in.msg == nil {
-		log.Println("Trade notify content is empty:", in.msg.String())
+	if input.msg == nil {
+		log.Println("Trade notify content is empty:", input.msg.String())
 		return
 	}
 
-	if td, ok := in.msg.(*models.TradeResponse); ok {
+	if td, ok := input.msg.(*models.TradeResponse); ok {
 		c.applyData(td)
 
 		c.channelGroup[Realtime][0].PublishData(td)
 	} else {
-		log.Println("Can not convert cache input to TradeResponse:", in.msg.String())
+		log.Println("Can not convert cache input to TradeResponse:", input.msg.String())
 	}
 }
 

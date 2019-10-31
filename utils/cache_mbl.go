@@ -134,39 +134,29 @@ func (c *MBLCache) dispatchRsp(mbl *models.MBLResponse, limitRsp map[int][2]*mod
 	}
 }
 
-func (c *MBLCache) handleInput(in *CacheInput) {
-	if in.IsBreakPoint() {
-		rsp := in.breakpointFunc()
-
-		if rsp == nil {
-			return
-		}
-
-		if in.pubChannel != nil {
-			in.pubChannel.PublishDataToDestination(rsp, in.dstIdx)
-		}
-
+func (c *MBLCache) handleInput(input *CacheInput) {
+	if c.tableCache.handleBreakpoint(input) {
 		return
 	}
 
-	if in.msg == nil {
-		log.Println("MBL notify content is empty:", in.msg.String())
+	if input.msg == nil {
+		log.Println("MBL notify content is empty:", input.msg.String())
 		return
 	}
 
-	if mbl, ok := in.msg.(*models.MBLResponse); ok {
+	if mbl, ok := input.msg.(*models.MBLResponse); ok {
 		c.historyCount += int64(len(mbl.Data))
 
 		limitRsp, err := c.applyData(mbl)
 
 		if err != nil {
-			log.Printf("apply data failed: %s, data: %s", err.Error(), in.msg.String())
+			log.Printf("apply data failed: %s, data: %s", err.Error(), input.msg.String())
 			return
 		}
 
 		c.dispatchRsp(mbl, limitRsp)
 	} else {
-		log.Println("Can not convert cache input to MBLResponse.", in.msg.String())
+		log.Println("Can not convert cache input to MBLResponse.", input.msg.String())
 	}
 }
 
