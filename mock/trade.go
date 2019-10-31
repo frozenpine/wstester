@@ -33,7 +33,7 @@ func Trade(cache utils.Cache) {
 	for {
 		start := time.Now()
 		rand.Seed(start.UnixNano())
-		time.Sleep(time.Second * time.Duration(rand.Intn(3)))
+		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
 		count := rand.Int63n(100) + 1
 
 		mockTrad := models.TradeResponse{}

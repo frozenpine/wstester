@@ -382,13 +382,16 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 		dataCaches: make(map[string]utils.Cache),
 	}
 
-	td := utils.NewTradeCache(ctx)
+	td := utils.NewTradeCache(ctx, "XBTUSD")
 	// ins := NewInstrumentCache()
-	mbl := utils.NewMBLCache(ctx)
+	mbl := utils.NewMBLCache(ctx, "XBTUSD")
 
 	svr.dataCaches["trade"] = td
 	// svr.pubChannels["instrument"] = ins
 	svr.dataCaches["orderBookL2"] = mbl
+	if err := mbl.(*utils.MBLCache).NewDepthChannel(25); err != nil {
+		log.Panicln(err)
+	}
 	svr.dataCaches["orderBookL2_25"] = mbl
 
 	// FIXME: mock的临时方案

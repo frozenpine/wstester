@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	cacheMapper = map[string]func(context.Context) utils.Cache{
+	cacheMapper = map[string]func(context.Context, string) utils.Cache{
 		"orderBookL2":    utils.NewMBLCache,
 		"orderBookL2_25": utils.NewMBLCache,
 		"trade":          utils.NewTradeCache,
@@ -205,7 +205,7 @@ func (c *client) createCache(topic string) {
 		return
 	}
 
-	c.rspCache[topic] = cacheMapper[topic](c.ctx)
+	c.rspCache[topic] = cacheMapper[topic](c.ctx, c.cfg.Symbol)
 }
 
 // Connect to remote host

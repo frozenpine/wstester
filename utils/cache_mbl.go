@@ -394,7 +394,7 @@ func (c *MBLCache) handleDelete(ord *ngerest.OrderBookL2) (int, error) {
 func (c *MBLCache) handleInsert(ord *ngerest.OrderBookL2) (int, error) {
 	if origin, exist := c.l2Cache[ord.Price]; exist {
 		return 0, fmt.Errorf(
-			"%s order[%.1f@%.0f] insert on %s side with already exist order[%.1f@%.0f %.0f]",
+			"%s order[%.1f@%.0f] insert on %s side with already exist order[%.1f@%.0f %d]",
 			origin.Symbol, origin.Price, origin.Size, ord.Side, origin.Price, origin.Size, origin.ID,
 		)
 	}
@@ -475,13 +475,25 @@ func (c *MBLCache) handleUpdate(ord *ngerest.OrderBookL2) (int, error) {
 	return depth, err
 }
 
+// NewDepthChannel create an new depth channel in cache
+func (c *MBLCache) NewDepthChannel(depth int) error {
+	c.channelGroup[Realtime][depth] = &rspChannel{ctx: c.ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}}
+
+	if err := c.channelGroup[Realtime][25].Start(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // NewMBLCache make a new MBL cache.
-func NewMBLCache(ctx context.Context) Cache {
+func NewMBLCache(ctx context.Context, symbol string) Cache {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	mbl := MBLCache{}
+	mbl.Symbol = symbol
 	mbl.ctx = ctx
 	mbl.handleInputFn = mbl.handleInput
 	mbl.snapshotFn = mbl.snapshot
@@ -490,14 +502,8 @@ func NewMBLCache(ctx context.Context) Cache {
 	mbl.channelGroup[Realtime] = map[int]Channel{
 		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
 	}
-	// mbl.initCache()
 
 	if err := mbl.Start(); err != nil {
-		log.Panicln(err)
-	}
-
-	mbl.channelGroup[Realtime][25] = &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}}
-	if err := mbl.channelGroup[Realtime][25].Start(); err != nil {
 		log.Panicln(err)
 	}
 

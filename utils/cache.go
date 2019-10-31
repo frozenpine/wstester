@@ -78,6 +78,7 @@ func NewBreakpoint(breakpointFn func() models.TableResponse, publish ...Channel)
 type tableCache struct {
 	channelGroup [3]map[int]Channel
 
+	Symbol     string
 	pipeline   chan *CacheInput
 	cacheStart time.Time
 	ready      chan struct{}

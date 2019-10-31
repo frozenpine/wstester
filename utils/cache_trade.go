@@ -74,8 +74,13 @@ func (c *TradeCache) applyData(data *models.TradeResponse) {
 }
 
 // NewTradeCache make a new trade cache.
-func NewTradeCache(ctx context.Context) Cache {
+func NewTradeCache(ctx context.Context, symbol string) Cache {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	td := TradeCache{}
+	td.Symbol = symbol
 	td.ctx = ctx
 	td.maxLength = defaultTradeLen
 	td.handleInputFn = td.handleInput
