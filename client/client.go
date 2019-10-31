@@ -312,7 +312,8 @@ func (c *client) GetResponse(topic string) <-chan models.TableResponse {
 	}
 
 	if cache, exist := c.rspCache[topic]; exist {
-		return cache.GetDefaultChannel().RetriveData()
+		_, ch := cache.GetDefaultChannel().RetriveData()
+		return ch
 	}
 
 	return nil

@@ -15,24 +15,39 @@ const (
 	dispatchTimeout = 3
 )
 
+// ChannelInput channel input structure
+type ChannelInput struct {
+	dstIdx, childChanIdx int
+	rsp                  models.TableResponse
+}
+
 // Channel message channel
 type Channel interface {
 	// Start initialize channel and start a dispatch goroutine
 	Start() error
+
 	// Close close channel input
 	Close() error
+
 	// Connect connect child channel, child channel will get dispatched data from current channel
-	Connect(subChan Channel) error
+	Connect(subChan Channel) (int, error)
+
 	// TODO: Disconnect sub channel
 	// Disconnect(subChan Channel) error
+
 	// PublishData publish data to current channel
 	PublishData(rsp models.TableResponse) error
+
+	PublishDataToDestination(rsp models.TableResponse, idx int) error
+
+	PublishDataToSubChan(rsp models.TableResponse, idx int) error
+
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData() <-chan models.TableResponse
+	RetriveData() (int, <-chan models.TableResponse)
 }
 
 type rspChannel struct {
-	source chan models.TableResponse
+	source chan *ChannelInput
 
 	destinations     []chan<- models.TableResponse
 	newDestinations  []chan<- models.TableResponse
@@ -51,28 +66,61 @@ func (c *rspChannel) PublishData(data models.TableResponse) error {
 		return fmt.Errorf("channel is already closed")
 	}
 
-	c.source <- data
+	c.source <- &ChannelInput{
+		dstIdx:       -1,
+		childChanIdx: -1,
+		rsp:          data,
+	}
 
 	return nil
 }
 
-func (c *rspChannel) RetriveData() <-chan models.TableResponse {
+func (c *rspChannel) PublishDataToDestination(data models.TableResponse, idx int) error {
 	if c.IsClosed {
-		return nil
+		return fmt.Errorf("channel is already closed")
+	}
+
+	c.source <- &ChannelInput{
+		dstIdx:       idx,
+		childChanIdx: -1,
+		rsp:          data,
+	}
+
+	return nil
+}
+
+func (c *rspChannel) PublishDataToSubChan(data models.TableResponse, idx int) error {
+	if c.IsClosed {
+		return fmt.Errorf("channel is already closed")
+	}
+
+	c.source <- &ChannelInput{
+		dstIdx:       -1,
+		childChanIdx: idx,
+		rsp:          data,
+	}
+
+	return nil
+}
+
+func (c *rspChannel) RetriveData() (int, <-chan models.TableResponse) {
+	if c.IsClosed {
+		return -1, nil
 	}
 
 	ch := make(chan models.TableResponse, 1000)
 
 	c.retriveLock.Lock()
 	c.newDestinations = append(c.newDestinations, ch)
+	idx := len(c.newDestinations) - 1 + len(c.destinations)
 	c.retriveLock.Unlock()
 
-	return ch
+	return idx, ch
 }
 
-func (c *rspChannel) Connect(child Channel) error {
+func (c *rspChannel) Connect(child Channel) (int, error) {
 	if c.IsClosed {
-		return fmt.Errorf("channel is already closed")
+		return -1, fmt.Errorf("channel is already closed")
 	}
 
 	if !c.IsReady {
@@ -81,11 +129,12 @@ func (c *rspChannel) Connect(child Channel) error {
 
 	c.connectLock.Lock()
 	c.newChildChannels = append(c.newChildChannels, child)
+	idx := len(c.newChildChannels) - 1 + len(c.childChannels)
 	c.connectLock.Unlock()
 
 	child.Start()
 
-	return nil
+	return idx, nil
 }
 
 func (c *rspChannel) Start() error {
@@ -98,7 +147,7 @@ func (c *rspChannel) Start() error {
 	}
 
 	if c.source == nil {
-		c.source = make(chan models.TableResponse, 1000)
+		c.source = make(chan *ChannelInput, 1000)
 	}
 
 	c.IsClosed = false
@@ -110,17 +159,17 @@ func (c *rspChannel) Start() error {
 			select {
 			case <-c.ctx.Done():
 				return
-			case data, ok := <-c.source:
+			case input, ok := <-c.source:
 				if !ok {
 					return
 				}
 
-				if data == nil {
+				if input == nil {
 					continue
 				}
 
-				c.dispatchDistinations(data)
-				c.dispatchSubChannels(data)
+				c.dispatchDistinations(input)
+				c.dispatchSubChannels(input)
 			}
 		}
 	}()
@@ -167,22 +216,20 @@ func (c *rspChannel) mergeNewDestinations() {
 	c.retriveLock.Unlock()
 }
 
-func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
+func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 	var invalidDest []int
 
 	c.mergeNewDestinations()
 
-	writeTimeout := time.NewTimer(time.Second * dispatchTimeout)
-
-	for idx, dest := range c.destinations {
+	handleInput := func(idx int, dest chan<- models.TableResponse, writeTimeout *time.Timer) {
 		if dest == nil {
 			invalidDest = append(invalidDest, idx)
 			log.Println("Destination channel is nil")
-			continue
+			return
 		}
 
 		select {
-		case dest <- data:
+		case dest <- data.rsp:
 			writeTimeout.Reset(time.Second * dispatchTimeout)
 		case <-writeTimeout.C:
 			close(dest)
@@ -192,9 +239,16 @@ func (c *rspChannel) dispatchDistinations(data models.TableResponse) {
 		}
 	}
 
+	writeTimeout := time.NewTimer(time.Second * dispatchTimeout)
+	if data.dstIdx < 0 {
+		for idx, dest := range c.destinations {
+			handleInput(idx, dest, writeTimeout)
+		}
+	} else {
+		handleInput(data.dstIdx, c.destinations[data.dstIdx], writeTimeout)
+	}
 	writeTimeout.Stop()
 
-	// FIXME: 可能存在未正确处理的destination
 	if len(invalidDest) > 0 {
 		tmpSlice := make([]interface{}, len(c.destinations))
 
@@ -225,18 +279,25 @@ func (c *rspChannel) mergeNewSubChannel() {
 	c.connectLock.Unlock()
 }
 
-func (c *rspChannel) dispatchSubChannels(data models.TableResponse) {
+func (c *rspChannel) dispatchSubChannels(data *ChannelInput) {
 	var invalidSub []int
 
 	c.mergeNewSubChannel()
 
-	for idx, subChan := range c.childChannels {
-		if err := subChan.PublishData(data); err != nil {
+	handleInput := func(idx int, subChan Channel) {
+		if err := subChan.PublishData(data.rsp); err != nil {
 			subChan.Close()
 			invalidSub = append(invalidSub, idx)
 			log.Println(err)
-			continue
 		}
+	}
+
+	if data.childChanIdx < 0 {
+		for idx, subChan := range c.childChannels {
+			handleInput(idx, subChan)
+		}
+	} else {
+		handleInput(data.childChanIdx, c.childChannels[data.childChanIdx])
 	}
 
 	if len(invalidSub) > 0 {

@@ -38,12 +38,14 @@ func (c *TradeCache) snapshot(depth int) models.TableResponse {
 
 func (c *TradeCache) handleInput(in *CacheInput) {
 	if in.IsBreakPoint() {
-		if rsp := in.breakpointFunc(); rsp != nil {
-			if in.pubChannels != nil && len(in.pubChannels) > 0 {
-				for _, ch := range in.pubChannels {
-					ch.PublishData(rsp)
-				}
-			}
+		rsp := in.breakpointFunc()
+
+		if rsp == nil {
+			return
+		}
+
+		if in.pubChannel != nil {
+			in.pubChannel.PublishDataToDestination(rsp, in.dstIdx)
 		}
 
 		return

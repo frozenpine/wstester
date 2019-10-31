@@ -34,7 +34,7 @@ type Cache interface {
 	// publish means wether publish snapshot in channel,
 	// this is an async to sync operation, snapshot operation queued in cache pipeline and
 	// return util queued operation finished.
-	TakeSnapshot(depth int, publish ...Channel) models.TableResponse
+	TakeSnapshot(depth int, publish Channel, idx int) models.TableResponse
 	// Append append data to cache
 	// this is an async operation if cache pipeline not full.
 	Append(in *CacheInput)
@@ -46,7 +46,8 @@ type Cache interface {
 
 // CacheInput wrapper structure for table response
 type CacheInput struct {
-	pubChannels    []Channel
+	pubChannel     Channel
+	dstIdx         int
 	breakpointFunc func() models.TableResponse
 	msg            models.TableResponse
 }
@@ -59,16 +60,18 @@ func (in *CacheInput) IsBreakPoint() bool {
 // NewCacheInput make a new cache input
 func NewCacheInput(msg models.TableResponse) *CacheInput {
 	input := CacheInput{
-		msg: msg,
+		dstIdx: -1,
+		msg:    msg,
 	}
 
 	return &input
 }
 
 // NewBreakpoint make a new cache breakpoint
-func NewBreakpoint(breakpointFn func() models.TableResponse, publish ...Channel) *CacheInput {
+func NewBreakpoint(breakpointFn func() models.TableResponse, publish Channel, idx int) *CacheInput {
 	input := CacheInput{
-		pubChannels:    publish,
+		pubChannel:     publish,
+		dstIdx:         idx,
 		breakpointFunc: breakpointFn,
 	}
 
@@ -167,7 +170,7 @@ func (c *tableCache) Ready() <-chan struct{} {
 	return c.ready
 }
 
-func (c *tableCache) TakeSnapshot(depth int, publish ...Channel) models.TableResponse {
+func (c *tableCache) TakeSnapshot(depth int, publish Channel, idx int) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
 
 	snapFn := func() models.TableResponse {
@@ -183,7 +186,7 @@ func (c *tableCache) TakeSnapshot(depth int, publish ...Channel) models.TableRes
 		return snap
 	}
 
-	c.pipeline <- NewBreakpoint(snapFn, publish...)
+	c.pipeline <- NewBreakpoint(snapFn, publish, idx)
 
 	return <-ch
 }

@@ -215,21 +215,11 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 					return
 				}
 
-				dataChan := rspChan.RetriveData()
+				idx, dataChan := rspChan.RetriveData()
 
-				partialSend := false
-
-				cache.TakeSnapshot(depth, rspChan)
+				cache.TakeSnapshot(depth, rspChan, idx)
 
 				for data := range dataChan {
-					if data.IsPartialResponse() {
-						if partialSend {
-							continue
-						}
-
-						partialSend = true
-					}
-
 					client.WriteJSONMessage(data, false)
 				}
 
