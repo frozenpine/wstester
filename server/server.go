@@ -57,7 +57,6 @@ type server struct {
 }
 
 func (s *server) ReloadCfg(cfg *Config) {
-	// TODO: 确认是否为值拷贝
 	*s.cfg = *cfg
 }
 
@@ -395,8 +394,11 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	svr.dataCaches["orderBookL2_25"] = mbl
 
 	// FIXME: mock的临时方案
-	go mock.Trade(td)
-	go mock.MBL(mbl)
+	// go mock.Trade(td)
+	go mock.Upstream(map[string]utils.Cache{
+		"orderBookL2": mbl,
+		"trade":       td,
+	})
 
 	return &svr
 }
