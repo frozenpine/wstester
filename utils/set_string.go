@@ -15,6 +15,16 @@ type stringSet struct {
 	values map[string]exist
 }
 
+func (ss *stringSet) copy() *stringSet {
+	new := stringSet{
+		values: map[string]exist{},
+	}
+
+	new.Append(ss.Values()...)
+
+	return &new
+}
+
 func (ss *stringSet) Append(elements ...string) {
 	for _, str := range elements {
 		ss.values[str] = exist{}
@@ -37,55 +47,65 @@ func (ss *stringSet) Exist(v string) bool {
 	return exist
 }
 
+func (ss *stringSet) Len() int {
+	return len(ss.values)
+}
+
 func checkStringSet(b Set) *stringSet {
-	if _, isNil := b.(NilSet); isNil {
+	if b.Len() < 1 {
 		return nil
 	}
 
-	other, ok := b.(stringSet)
+	other, ok := b.(*stringSet)
 
 	if !ok {
 		panic("invalid type for StringSet")
 	}
 
-	return &other
+	return other
 }
 
-func (ss stringSet) Add(b Set) Set {
+func (ss *stringSet) Add(b Set) Set {
+	new := ss.copy()
+
 	if other := checkStringSet(b); other != nil {
 		for k := range other.values {
-			ss.values[k] = exist{}
+			new.values[k] = exist{}
 		}
 	}
 
-	return &ss
+	return new
 }
 
-func (ss stringSet) Join(b Set) Set {
+func (ss *stringSet) Join(b Set) Set {
+	new := ss.copy()
+
 	if other := checkStringSet(b); other != nil {
 		for k := range other.values {
 			if !ss.Exist(k) {
-				delete(ss.values, k)
+				delete(new.values, k)
 			}
 		}
 	}
 
-	return &ss
+	return new
 }
 
-func (ss stringSet) Sub(b Set) Set {
+func (ss *stringSet) Sub(b Set) Set {
+	new := ss.copy()
+
 	if other := checkStringSet(b); other != nil {
 		for k := range other.values {
 			if ss.Exist(k) {
-				delete(ss.values, k)
+				delete(new.values, k)
 			}
 		}
 	}
 
-	return &ss
+	return new
 }
 
-func (ss stringSet) Contain(b Set) bool {
+func (ss *stringSet) Contain(b Set) bool {
 	contain := true
 
 	if other := checkStringSet(b); other != nil {

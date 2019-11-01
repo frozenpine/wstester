@@ -1,8 +1,5 @@
 package utils
 
-// NilSet is an empty set
-type NilSet Set
-
 type exist struct{}
 
 // Set uniqueue
@@ -15,4 +12,6 @@ type Set interface {
 	Sub(Set) Set
 	// Contain 是否为子集
 	Contain(Set) bool
+	// Len set length
+	Len() int
 }
