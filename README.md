@@ -20,8 +20,7 @@
 >   > # 指定程序运行 5 小时后退出，支持的周期字段 h, m, s
 >   > $ cd examples/client
 >   > $ go run *.go --deadline 5h
-> > ```
->   
+>   > ```
 >   1. h 小时
 >   2. m 分钟
 >   3. s 秒
