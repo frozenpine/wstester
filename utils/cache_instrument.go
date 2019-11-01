@@ -43,9 +43,9 @@ func (c *InstrumentCache) handleInput(input *CacheInput) {
 	}
 
 	if ins, ok := input.msg.(*models.InstrumentResponse); ok {
-		c.applyData(ins)
-
-		c.channelGroup[Realtime][0].PublishData(ins)
+		if c.applyData(ins) {
+			c.channelGroup[Realtime][0].PublishData(ins)
+		}
 	} else {
 		log.Println("Can not convert cache input to InstrumentResponse:", input.msg.String())
 	}
@@ -64,7 +64,7 @@ func (c *InstrumentCache) applyInsPrice(indPrice, markPrice float64) {
 	}
 }
 
-func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
+func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 	data := ins.Data[0]
 
 	switch ins.Action {
@@ -74,11 +74,26 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
 		// TODO: UPDATE action handle
 		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
 			c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
+
+			return true
 		}
 
 		if data.BidPrice > 0 {
-			c.instrument.BidPrice = data.BidPrice
-			c.instrument.AskPrice = data.AskPrice
+			changed := false
+
+			if c.instrument.BidPrice != data.BidPrice {
+				c.instrument.BidPrice = data.BidPrice
+
+				changed = true
+			}
+
+			if c.instrument.AskPrice != data.AskPrice {
+				c.instrument.AskPrice = data.AskPrice
+
+				changed = true
+			}
+
+			return changed
 		}
 
 		if data.LastPrice > 0 {
@@ -93,10 +108,14 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
 			c.instrument.Turnover24h = data.Turnover24h
 			c.instrument.TotalTurnover = data.TotalTurnover
 			c.instrument.PrevTotalTurnover = data.PrevTotalTurnover
+
+			return true
 		}
 	default:
 		log.Println("Invalid action for instrument cache:", ins.Action)
 	}
+
+	return false
 }
 
 // NewInstrumentCache make a new instrument cache.
