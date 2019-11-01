@@ -305,84 +305,119 @@ func (c *MBLCache) initCache() {
 }
 
 func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
-	if len(c.l2Cache) > 0 {
-		// TODO: 比较与旧的快照的不同，发送增量通知弥合与客户端的不同，实现后可不强制断连客户端，目前强制断连实现存在问题
-		// for _, chanGroup := range c.channelGroup {
-		// 	for _, ch := range chanGroup {
-		// 		ch.Close()
-		// 	}
-		// }
+	if len(c.l2Cache) < 1 {
+		c.initCache()
 
-		originPriceSet := NewFloat64Set(nil)
-		for price := range c.l2Cache {
-			originPriceSet.Append(price)
-		}
-
-		newPriceSet := NewFloat64Set(nil)
-		for _, ord := range data {
-			newPriceSet.Append(ord.Price)
-		}
-
-		addPriceSet := newPriceSet.Sub(originPriceSet).(Float64Set)
-		insertRsp := models.MBLResponse{}
-		insertRsp.Table = "orderBookL2"
-		insertRsp.Action = models.InsertAction
-		for _, ord := range data {
-			if addPriceSet.Exist(ord.Price) {
-				insertRsp.Data = append(insertRsp.Data, ord)
+		for _, mbl := range data {
+			switch mbl.Side {
+			case "Buy":
+				c.bidPrices = append(c.bidPrices, mbl.Price)
+			case "Sell":
+				c.askPrices = append(c.askPrices, mbl.Price)
+			default:
+				log.Println("invalid mbl side:", mbl.Side)
+				continue
 			}
+
+			c.l2Cache[mbl.Price] = mbl
 		}
 
+		ReverseFloat64Slice(c.bidPrices)
+
+		c.bidQuote.bestPrice = c.bidPrices[len(c.bidPrices)-1]
+		c.bidQuote.bestSize = c.l2Cache[c.bidQuote.bestPrice].Size
+		c.askQuote.bestPrice = c.askPrices[len(c.askPrices)-1]
+		c.askQuote.bestSize = c.l2Cache[c.askQuote.bestPrice].Size
+
+		snap := c.snapshot(0).GetData()
+		result, _ := json.Marshal(snap)
+
+		log.Println("MBL partial:", string(result))
+
+		return
+	}
+
+	newSellSet := NewFloat64Set(nil)
+	newBuySet := NewFloat64Set(nil)
+
+	for _, ord := range data {
+		if ord.Side == "Sell" {
+			newSellSet.Append(ord.Price)
+		}
+
+		if ord.Side == "Buy" {
+			newBuySet.Append(ord.Price)
+		}
+	}
+
+	originSellSet := NewFloat64Set(c.askPrices)
+	originBuySet := NewFloat64Set(c.bidPrices)
+
+	sellAddSet := newSellSet.Sub(originSellSet).(Float64Set)
+	buyAddSet := newBuySet.Sub(originBuySet).(Float64Set)
+
+	sellDelSet := originSellSet.Sub(newSellSet).(Float64Set)
+	buyDelSet := originBuySet.Sub(newBuySet).(Float64Set)
+
+	sellUpdSet := originSellSet.Join(newSellSet).(Float64Set)
+	buyUpdSet := originBuySet.Join(newBuySet).(Float64Set)
+
+	insertRsp := models.MBLResponse{}
+	insertRsp.Table = "orderBookL2"
+	insertRsp.Action = models.InsertAction
+
+	deleteRsp := models.MBLResponse{}
+	deleteRsp.Table = "orderBookL2"
+	deleteRsp.Action = models.DeleteAction
+
+	updateRsp := models.MBLResponse{}
+	updateRsp.Table = "orderBookL2"
+	updateRsp.Action = models.UpdateAction
+
+	for _, price := range sellDelSet.Add(buyDelSet).(Float64Set).Values() {
+		deleteRsp.Data = append(deleteRsp.Data, c.l2Cache[price])
+	}
+
+	if len(deleteRsp.Data) > 0 {
+		limitRsp, err := c.applyData(&deleteRsp)
+		if err != nil {
+			log.Println("Merge new partial delete failed:", err)
+		} else {
+			c.dispatchRsp(&deleteRsp, limitRsp)
+			log.Println("New parital delete merged:", deleteRsp.String())
+		}
+	}
+
+	for _, ord := range data {
+		if sellAddSet.Exist(ord.Price) || buyAddSet.Exist(ord.Price) {
+			insertRsp.Data = append(insertRsp.Data, ord)
+		}
+
+		if (sellUpdSet.Exist(ord.Price) && c.l2Cache[ord.Price].Size != ord.Size) ||
+			(buyUpdSet.Exist(ord.Price) && c.l2Cache[ord.Price].Size != ord.Size) {
+			updateRsp.Data = append(updateRsp.Data, ord)
+		}
+	}
+
+	if len(insertRsp.Data) > 0 {
 		limitRsp, err := c.applyData(&insertRsp)
 		if err != nil {
-			log.Println("Merge new partial failed:", err)
-			return
+			log.Println("Merge new partial insert failed:", err)
+		} else {
+			c.dispatchRsp(&insertRsp, limitRsp)
+			log.Println("New parital insert merged:", insertRsp.String())
 		}
-		c.dispatchRsp(&insertRsp, limitRsp)
+	}
 
-		delPriceSet := originPriceSet.Sub(newPriceSet).(Float64Set)
-		deleteRsp := models.MBLResponse{}
-		deleteRsp.Table = "orderBookL2"
-		deleteRsp.Action = models.DeleteAction
-		for _, price := range delPriceSet.Values() {
-			deleteRsp.Data = append(deleteRsp.Data, c.l2Cache[price])
-		}
-
-		limitRsp, err = c.applyData(&deleteRsp)
+	if len(updateRsp.Data) > 0 {
+		limitRsp, err := c.applyData(&updateRsp)
 		if err != nil {
-			log.Println("Merge new partial failed:", err)
-			return
+			log.Println("Merge new partial update failed:", err)
+		} else {
+			c.dispatchRsp(&updateRsp, limitRsp)
+			log.Println("New parital update merged:", updateRsp.String())
 		}
-		c.dispatchRsp(&deleteRsp, limitRsp)
 	}
-
-	c.initCache()
-
-	for _, mbl := range data {
-		switch mbl.Side {
-		case "Buy":
-			c.bidPrices = append(c.bidPrices, mbl.Price)
-		case "Sell":
-			c.askPrices = append(c.askPrices, mbl.Price)
-		default:
-			log.Println("invalid mbl side:", mbl.Side)
-			continue
-		}
-
-		c.l2Cache[mbl.Price] = mbl
-	}
-
-	ReverseFloat64Slice(c.bidPrices)
-
-	c.bidQuote.bestPrice = c.bidPrices[len(c.bidPrices)-1]
-	c.bidQuote.bestSize = c.l2Cache[c.bidQuote.bestPrice].Size
-	c.askQuote.bestPrice = c.askPrices[len(c.askPrices)-1]
-	c.askQuote.bestSize = c.l2Cache[c.askQuote.bestPrice].Size
-
-	snap := c.snapshot(0).GetData()
-	result, _ := json.Marshal(snap)
-
-	log.Println("MBL partial:", string(result))
 }
 
 func (c *MBLCache) handleDelete(ord *ngerest.OrderBookL2) (int, error) {

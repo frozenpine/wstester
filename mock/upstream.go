@@ -25,7 +25,14 @@ func Upstream(caches map[string]utils.Cache) {
 
 		ctx, cancelFn := context.WithCancel(context.Background())
 
-		ins.Connect(ctx)
+		err := ins.Connect(ctx)
+		if err != nil {
+			log.Println(err)
+
+			time.Sleep(time.Second * 3)
+
+			continue
+		}
 
 		go func() {
 			mblChan := ins.GetResponse("orderBookL2")
