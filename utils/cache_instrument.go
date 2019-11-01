@@ -75,6 +75,25 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) {
 		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
 			c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
 		}
+
+		if data.BidPrice > 0 {
+			c.instrument.BidPrice = data.BidPrice
+			c.instrument.AskPrice = data.AskPrice
+		}
+
+		if data.LastPrice > 0 {
+			c.instrument.LastPrice = data.LastPrice
+
+			c.instrument.Volume = data.Volume
+			c.instrument.Volume24h = data.Volume24h
+			c.instrument.TotalVolume = data.TotalVolume
+			c.instrument.PrevTotalVolume = data.PrevTotalVolume
+
+			c.instrument.Turnover = data.Turnover
+			c.instrument.Turnover24h = data.Turnover24h
+			c.instrument.TotalTurnover = data.TotalTurnover
+			c.instrument.PrevTotalTurnover = data.PrevTotalTurnover
+		}
 	default:
 		log.Println("Invalid action for instrument cache:", ins.Action)
 	}
