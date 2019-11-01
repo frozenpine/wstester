@@ -307,11 +307,53 @@ func (c *MBLCache) initCache() {
 func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 	if len(c.l2Cache) > 0 {
 		// TODO: 比较与旧的快照的不同，发送增量通知弥合与客户端的不同，实现后可不强制断连客户端，目前强制断连实现存在问题
-		for _, chanGroup := range c.channelGroup {
-			for _, ch := range chanGroup {
-				ch.Close()
+		// for _, chanGroup := range c.channelGroup {
+		// 	for _, ch := range chanGroup {
+		// 		ch.Close()
+		// 	}
+		// }
+
+		originPriceSet := NewFloat64Set(nil)
+		for price := range c.l2Cache {
+			originPriceSet.Append(price)
+		}
+
+		newPriceSet := NewFloat64Set(nil)
+		for _, ord := range data {
+			newPriceSet.Append(ord.Price)
+		}
+
+		addPriceSet := newPriceSet.Sub(originPriceSet).(Float64Set)
+		insertRsp := models.MBLResponse{}
+		insertRsp.Table = "orderBookL2"
+		insertRsp.Action = models.InsertAction
+		for _, ord := range data {
+			if addPriceSet.Exist(ord.Price) {
+				insertRsp.Data = append(insertRsp.Data, ord)
 			}
 		}
+
+		limitRsp, err := c.applyData(&insertRsp)
+		if err != nil {
+			log.Println("Merge new partial failed:", err)
+			return
+		}
+		c.dispatchRsp(&insertRsp, limitRsp)
+
+		delPriceSet := originPriceSet.Sub(newPriceSet).(Float64Set)
+		deleteRsp := models.MBLResponse{}
+		deleteRsp.Table = "orderBookL2"
+		deleteRsp.Action = models.DeleteAction
+		for _, price := range delPriceSet.Values() {
+			deleteRsp.Data = append(deleteRsp.Data, c.l2Cache[price])
+		}
+
+		limitRsp, err = c.applyData(&deleteRsp)
+		if err != nil {
+			log.Println("Merge new partial failed:", err)
+			return
+		}
+		c.dispatchRsp(&deleteRsp, limitRsp)
 	}
 
 	c.initCache()

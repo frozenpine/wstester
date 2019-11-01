@@ -50,13 +50,6 @@ func MinInts(numbers ...int) int {
 
 // PriceSearch search price in price list, -1 returned if price not found.
 func PriceSearch(priceList []float64, price float64, reverse bool) (idx int) {
-	// FIXME: debug output
-	defer func() {
-		if idx < 0 {
-			log.Println(priceList, price, idx, reverse)
-		}
-	}()
-
 	originLen := len(priceList)
 
 	idx = -1
@@ -68,6 +61,8 @@ func PriceSearch(priceList []float64, price float64, reverse bool) (idx int) {
 	}
 
 	if idx >= originLen || priceList[idx] != price {
+		// TODO: debug output
+		log.Println(priceList, price, idx, reverse)
 		return -1
 	}
 
@@ -76,11 +71,6 @@ func PriceSearch(priceList []float64, price float64, reverse bool) (idx int) {
 
 // PriceAdd insert price in price list, origin price list must be sorted, and has unique price
 func PriceAdd(priceList []float64, price float64, reverse bool) (idx int, rtn []float64) {
-	// FIXME: debug level log
-	// defer func() {
-	// 	log.Println("price sorted:", rtn, idx, price, reverse)
-	// }()
-
 	originLen := len(priceList)
 
 	if originLen < 1 {
