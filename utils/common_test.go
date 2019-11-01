@@ -27,7 +27,7 @@ func TestPriceAdd(t *testing.T) {
 
 		for _, price := range priceList {
 			originLen := acs.Len()
-			idx, acs = PriceAdd(acs, price, false)
+			idx, acs = UniPriceAdd(acs, price, false)
 			addLen := acs.Len()
 
 			if addLen-originLen != 1 {
@@ -43,7 +43,7 @@ func TestPriceAdd(t *testing.T) {
 
 		for _, price := range priceList {
 			originLen := desc.Len()
-			idx, desc = PriceAdd(desc, price, false)
+			idx, desc = UniPriceAdd(desc, price, false)
 			addLen := desc.Len()
 
 			if addLen-originLen != 1 {
@@ -68,7 +68,7 @@ func TestReadAdd(t *testing.T) {
 
 	var idx int
 
-	idx, testList = PriceAdd(testList, 7463.5, true)
+	idx, testList = UniPriceAdd(testList, 7463.5, true)
 
 	t.Log(idx, testList)
 }
@@ -99,7 +99,7 @@ func TestPriceRemove(t *testing.T) {
 
 		for _, price := range priceList {
 			originLen := acs.Len()
-			idx, acs = PriceRemove(acs, price, false)
+			idx, acs = UniPriceRemove(acs, price, false)
 			removeLen := acs.Len()
 
 			if originLen-removeLen != 1 {
@@ -128,7 +128,7 @@ func TestPriceRemove(t *testing.T) {
 
 		for _, price := range priceList {
 			originLen := desc.Len()
-			idx, desc = PriceRemove(desc, price, true)
+			idx, desc = UniPriceRemove(desc, price, true)
 			removeLen := desc.Len()
 
 			if originLen-removeLen != 1 {
@@ -156,15 +156,15 @@ func TestPriceRemove(t *testing.T) {
 
 func TestPriceSearch(t *testing.T) {
 	bids := sort.Float64Slice{1, 3, 5, 7, 9}
-	t.Log(PriceSearch(bids, 10, false))
-	t.Log(PriceSearch(bids, 0, false))
-	t.Log(PriceSearch(bids, 4, false))
-	t.Log(PriceSearch(bids, 9, false))
-	t.Log(PriceSearch(bids, 1, false))
+	t.Log(UniPriceSearch(bids, 10, false))
+	t.Log(UniPriceSearch(bids, 0, false))
+	t.Log(UniPriceSearch(bids, 4, false))
+	t.Log(UniPriceSearch(bids, 9, false))
+	t.Log(UniPriceSearch(bids, 1, false))
 
 	asks := sort.Float64Slice{9, 7, 5, 3, 1}
-	t.Log(PriceSearch(asks, 10, true))
-	t.Log(PriceSearch(asks, 0, true))
-	t.Log(PriceSearch(asks, 4, true))
-	t.Log(PriceSearch(asks, 2, true))
+	t.Log(UniPriceSearch(asks, 10, true))
+	t.Log(UniPriceSearch(asks, 0, true))
+	t.Log(UniPriceSearch(asks, 4, true))
+	t.Log(UniPriceSearch(asks, 2, true))
 }

@@ -436,7 +436,7 @@ func (c *MBLCache) handleDelete(ord *ngerest.OrderBookL2) (int, error) {
 	switch ord.Side {
 	case "Buy":
 		originLen := len(c.bidPrices)
-		idx, c.bidPrices = PriceRemove(c.bidPrices, ord.Price, false)
+		idx, c.bidPrices = UniPriceRemove(c.bidPrices, ord.Price, false)
 		depth = originLen - idx
 
 		if depth == 1 {
@@ -445,7 +445,7 @@ func (c *MBLCache) handleDelete(ord *ngerest.OrderBookL2) (int, error) {
 		}
 	case "Sell":
 		originLen := len(c.askPrices)
-		idx, c.askPrices = PriceRemove(c.askPrices, ord.Price, true)
+		idx, c.askPrices = UniPriceRemove(c.askPrices, ord.Price, true)
 		depth = originLen - idx
 
 		if depth == 1 {
@@ -481,7 +481,7 @@ func (c *MBLCache) handleInsert(ord *ngerest.OrderBookL2) (int, error) {
 
 	switch ord.Side {
 	case "Buy":
-		idx, c.bidPrices = PriceAdd(c.bidPrices, ord.Price, false)
+		idx, c.bidPrices = UniPriceAdd(c.bidPrices, ord.Price, false)
 		newLength := len(c.bidPrices)
 		depth = newLength - idx
 
@@ -490,7 +490,7 @@ func (c *MBLCache) handleInsert(ord *ngerest.OrderBookL2) (int, error) {
 			c.bidQuote.lastSize, c.bidQuote.bestSize = c.bidQuote.bestSize, ord.Size
 		}
 	case "Sell":
-		idx, c.askPrices = PriceAdd(c.askPrices, ord.Price, true)
+		idx, c.askPrices = UniPriceAdd(c.askPrices, ord.Price, true)
 		newLength := len(c.askPrices)
 		depth = newLength - idx
 
@@ -518,7 +518,7 @@ func (c *MBLCache) handleUpdate(ord *ngerest.OrderBookL2) (int, error) {
 		switch ord.Side {
 		case "Buy":
 			length := len(c.bidPrices)
-			idx = PriceSearch(c.bidPrices, ord.Price, false)
+			idx = UniPriceSearch(c.bidPrices, ord.Price, false)
 			depth = length - idx
 
 			if depth == 1 {
@@ -527,7 +527,7 @@ func (c *MBLCache) handleUpdate(ord *ngerest.OrderBookL2) (int, error) {
 
 		case "Sell":
 			length := len(c.askPrices)
-			idx = PriceSearch(c.askPrices, ord.Price, true)
+			idx = UniPriceSearch(c.askPrices, ord.Price, true)
 			depth = length - idx
 
 			if depth == 1 {
