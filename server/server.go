@@ -170,6 +170,7 @@ func (s *server) parseOperation(msg []byte) (*models.OperationRequest, error) {
 }
 
 func (s *server) handleAuth(req models.Request, client Session) models.Response {
+	// TODO: client authentication & authorization
 	return nil
 }
 
@@ -360,6 +361,7 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 			WriteBufferSize:   4096,
 			EnableCompression: true,
 			CheckOrigin: func(r *http.Request) bool {
+				// TODO: websocket origin check policy
 				return true
 			},
 		},
