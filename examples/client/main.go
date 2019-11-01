@@ -201,9 +201,8 @@ func normalizeTopicTable() (err error) {
 	if appendTopics {
 		topics = append(topics, defaultTopics...)
 	}
-	topicSet := utils.NewStringSet(topics).(utils.Set)
-
-	topics = topicSet.(utils.StringSet).Values()
+	topicSet := utils.NewStringSet(topics)
+	topics = topicSet.Values()
 
 	for _, topic := range topics {
 		utils.RegisterTableModel(topic, topicMapper[topic])
