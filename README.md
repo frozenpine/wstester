@@ -80,19 +80,20 @@ $ go run *.go --output 'SELECT indicativeSettlePrice, markPrice FROM instrument 
 
 > - 支持 orderBookL2、orderBookL2_25、instrument、trade 的公有流数据传输
 >
-> - 支持 trade 数据流的 Mock（暂时需通过调整代码实现，详见 server/server.go 中的 FIXME）
+> - 支持 trade 数据流的 Mock（随机成交数据，暂时需通过调整代码实现，详见 server/server.go 中的 FIXME）
 >
-> - orderBook 及 instrument 数据流目前仅支持通过 Upstream 级联上级数据源
+> - orderBook 及 instrument 数据流目前仅支持通过 Upstream 级联上级数据源，instrument 支持过滤上游推送的重复数据
 >
 >   > 后续版本将引入 orderbook 模块用于支持模拟撮合，将实现所有公有流数据的mock
+>
 
 ### HELP
 
-目前未加入命令行参数的支持，程序默认监听 0.0.0.0:9988，支持两个 endpoint：
+目前未加入命令行参数的支持，程序默认监听 **0.0.0.0:9988**，支持两个 **endpoint**：
 
-1. /realtime websocket入口点
+1. ***/realtime*** websocket入口点
 
-2. /status 服务端简单的状态信息
+2. ***/status*** 服务端简单的状态信息
 
    > ```bash
    > $ curl -s localhost:9988/status
