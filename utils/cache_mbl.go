@@ -332,7 +332,7 @@ func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 		snap := c.snapshot(0).GetData()
 		result, _ := json.Marshal(snap)
 
-		log.Info("MBL partial:", string(result))
+		log.Debug("MBL partial:", string(result))
 
 		return
 	}
