@@ -71,7 +71,7 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 	case models.PartialAction:
 		c.instrument = data
 	case models.UpdateAction:
-		// TODO: UPDATE action handle
+		// TODO: check if there have missing columns in instrument table
 		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
 			c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
 
