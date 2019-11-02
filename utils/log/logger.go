@@ -1,13 +1,11 @@
 package log
 
 import (
-	"fmt"
 	"os"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // TODO: 检查全部模块的log输出，以新的zap框架封装代替原log输出
@@ -23,15 +21,17 @@ func TimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 
 func init() {
 	atom = zap.NewAtomicLevel()
-	fileName := fmt.Sprintf("./log/%04d-%02d-%02d.log", time.Now().Year(), time.Now().Month(), time.Now().Day())
-	syncWriter := zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(&lumberjack.Logger{
-		Filename:   fileName,
-		MaxSize:    1024, // megabytes
-		MaxBackups: 10,
-		MaxAge:     30, // days
-		LocalTime:  true,
-		Compress:   true,
-	}))
+	// TODO: 可自定义的文件滚动大小和保留策略
+	// fileName := fmt.Sprintf("./log/%04d-%02d-%02d.log", time.Now().Year(), time.Now().Month(), time.Now().Day())
+	// syncWriter := zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(&lumberjack.Logger{
+	// 	Filename:   fileName,
+	// 	MaxSize:    1024, // megabytes
+	// 	MaxBackups: 10,
+	// 	MaxAge:     30, // days
+	// 	LocalTime:  true,
+	// 	Compress:   true,
+	// }))
+	syncWriter := zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout))
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "T",
 		LevelKey:       "L",
