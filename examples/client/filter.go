@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
-	"github.com/frozenpine/wstester/utils/log"
 	flag "github.com/spf13/pflag"
 )
 
@@ -53,7 +53,7 @@ func filter(ctx context.Context, table string, ch <-chan models.TableResponse) e
 				for _, data := range tableDef.GetFilter()(rsp.GetData()) {
 					result, _ := json.Marshal(data)
 
-					log.Info(tableName, rsp.GetAction(), "<-", string(result))
+					log.Println(tableName, rsp.GetAction(), "<-", string(result))
 				}
 			}
 		}

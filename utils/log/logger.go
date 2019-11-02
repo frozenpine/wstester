@@ -1,6 +1,7 @@
 package log
 
 import (
+	"math"
 	"os"
 	"time"
 
@@ -8,10 +9,14 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// TraceLevel trace level for log
+const TraceLevel = zapcore.Level(math.MaxInt8)
+
 // TODO: 检查全部模块的log输出，以新的zap框架封装代替原log输出
 var (
-	errorLogger *zap.SugaredLogger
-	atom        zap.AtomicLevel
+	errorLogger  *zap.SugaredLogger
+	atom         zap.AtomicLevel
+	IsTraceLevel bool
 )
 
 // TimeEncoder time encoder
@@ -56,6 +61,10 @@ func init() {
 
 // SetLogLevel set log level
 func SetLogLevel(level zapcore.Level) {
+	if level == TraceLevel {
+		IsTraceLevel = true
+		level = zapcore.DebugLevel
+	}
 	atom.SetLevel(level)
 }
 

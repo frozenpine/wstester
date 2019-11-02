@@ -328,10 +328,12 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		log.Debug("<-", clientSenssion.GetID(), req.String())
+		if log.IsTraceLevel {
+			log.Debug("<-", clientSenssion.GetID(), req.String())
 
-		for _, rsp := range rspList {
-			log.Debug("->", clientSenssion.GetID(), rsp.String())
+			for _, rsp := range rspList {
+				log.Debug("->", clientSenssion.GetID(), rsp.String())
+			}
 		}
 	}
 }
