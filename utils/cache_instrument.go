@@ -2,11 +2,11 @@ package utils
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils/log"
 )
 
 const (
@@ -47,7 +47,7 @@ func (c *InstrumentCache) handleInput(input *CacheInput) {
 			c.channelGroup[Realtime][0].PublishData(ins)
 		}
 	} else {
-		log.Println("Can not convert cache input to InstrumentResponse:", input.msg.String())
+		log.Error("Can not convert cache input to InstrumentResponse:", input.msg.String())
 	}
 }
 
@@ -112,7 +112,7 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 			return true
 		}
 	default:
-		log.Println("Invalid action for instrument cache:", ins.Action)
+		log.Error("Invalid action for instrument cache:", ins.Action)
 	}
 
 	return false
@@ -136,7 +136,7 @@ func NewInstrumentCache(ctx context.Context, symbol string) Cache {
 	}
 
 	if err := ins.Start(); err != nil {
-		log.Panicln(err)
+		log.Panic(err)
 	}
 
 	return &ins

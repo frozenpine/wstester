@@ -3,10 +3,10 @@ package utils
 import (
 	"context"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils/log"
 )
 
 const (
@@ -152,7 +152,7 @@ func (c *tableCache) Start() error {
 				}
 
 				if c.handleInputFn == nil {
-					log.Panicln("handleInputFn is nil.")
+					log.Panic("handleInputFn is nil.")
 				}
 
 				c.handleInputFn(obj)
@@ -198,7 +198,7 @@ func (c *tableCache) TakeSnapshot(depth int, publish Channel, idx int) models.Ta
 
 	snapFn := func() models.TableResponse {
 		if c.snapshotFn == nil {
-			log.Panicln("snapshotFn is nil.")
+			log.Panic("snapshotFn is nil.")
 		}
 
 		snap := c.snapshotFn(depth)

@@ -2,11 +2,11 @@ package utils
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils/log"
 )
 
 const (
@@ -45,7 +45,7 @@ func (c *TradeCache) handleInput(input *CacheInput) {
 	}
 
 	if input.msg == nil {
-		log.Println("Trade notify content is empty:", input.msg.String())
+		log.Error("Trade notify content is empty:", input.msg.String())
 		return
 	}
 
@@ -54,7 +54,7 @@ func (c *TradeCache) handleInput(input *CacheInput) {
 
 		c.channelGroup[Realtime][0].PublishData(td)
 	} else {
-		log.Println("Can not convert cache input to TradeResponse:", input.msg.String())
+		log.Error("Can not convert cache input to TradeResponse:", input.msg.String())
 	}
 }
 
@@ -84,7 +84,7 @@ func NewTradeCache(ctx context.Context, symbol string) Cache {
 	}
 
 	if err := td.Start(); err != nil {
-		log.Panicln(err)
+		log.Panic(err)
 	}
 
 	return &td

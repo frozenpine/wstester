@@ -1,7 +1,6 @@
 package mock
 
 import (
-	"log"
 	"math"
 	"math/rand"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
+	"github.com/frozenpine/wstester/utils/log"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -107,7 +107,7 @@ func Trade(cache utils.Cache) {
 				hisMaxRate = rate
 			}
 
-			log.Printf(
+			log.Infof(
 				"Mock trade send[%d] rate: %.2f rps, history max rate: %.2f rps, Avg rate: %.2f\n",
 				count+lastCount, rate, hisMaxRate, float64(totalCount)/totalSpend,
 			)

@@ -3,12 +3,12 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
 
 	linq "github.com/ahmetb/go-linq"
+	"github.com/frozenpine/wstester/utils/log"
 	"github.com/xwb1989/sqlparser"
 )
 
@@ -122,7 +122,7 @@ func RegisterTableModel(name string, tbl interface{}) error {
 // GetFieldValue get property value in struct
 func GetFieldValue(data interface{}, property string) interface{} {
 	if property == "" {
-		log.Panicln("property name can not be null")
+		log.Panic("property name can not be null")
 	}
 
 	return reflect.Indirect(reflect.ValueOf(data)).FieldByName(property).Interface()

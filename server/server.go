@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,12 +14,13 @@ import (
 	"github.com/frozenpine/wstester/mock"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
+	"github.com/frozenpine/wstester/utils/log"
 	"github.com/gorilla/websocket"
 )
 
 var (
-	version  = "wstester mock server v0.1"
-	logLevel int
+	version = "wstester mock server v0.1"
+	// logLevel int
 
 	opPattern = []byte(`"op"`)
 )
@@ -81,7 +81,7 @@ func (s *server) incClients(conn *websocket.Conn, req *http.Request) Session {
 	session := NewSession(clientCtx, conn, req)
 
 	if err := session.Welcome(); err != nil {
-		log.Println(err)
+		log.Error(err)
 		session.Close(-1, "Send welcom message failed.")
 
 		return nil
@@ -89,7 +89,7 @@ func (s *server) incClients(conn *websocket.Conn, req *http.Request) Session {
 
 	s.clients[session.GetID()] = session
 	atomic.AddInt64(&s.statics.Clients, 1)
-	log.Printf("Client session[%s] connected from: %s.\n", session.GetID(), session.GetAddr().String())
+	log.Infof("Client session[%s] connected from: %s.", session.GetID(), session.GetAddr().String())
 
 	return session
 }
@@ -115,7 +115,7 @@ func (s *server) decClients(session interface{}) {
 	delete(s.clients, client.GetID())
 	atomic.AddInt64(&s.statics.Clients, -1)
 
-	log.Printf("Client session[%s] disconnected.\n", client.GetID())
+	log.Infof("Client session[%s] disconnected.", client.GetID())
 }
 
 func (s *server) getReqAuth(r *http.Request) error {
@@ -151,7 +151,7 @@ func (s *server) getReqSubscribe(r *http.Request, c Session) *models.OperationRe
 			op.Args = append(op.Args, strings.Split(topicStr, ",")...)
 		}
 
-		log.Printf("Client session[%s] request subscirbe:%s\n", c.GetID(), op.String())
+		log.Infof("Client session[%s] request subscirbe:%s", c.GetID(), op.String())
 
 		return &op
 	}
@@ -258,7 +258,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err = s.getReqAuth(r); err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -282,7 +282,7 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 	if headerSub := s.getReqSubscribe(r, clientSenssion); headerSub != nil {
 		if subRsp := s.handleSubscribe(headerSub, clientSenssion); subRsp != nil {
 			for _, rsp := range subRsp {
-				log.Printf("-> [%s] %s\n", clientSenssion.GetID(), rsp.String())
+				log.Infof("-> [%s] %s", clientSenssion.GetID(), rsp.String())
 			}
 		}
 	}
@@ -301,39 +301,37 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case bytes.Contains(msg, opPattern):
 				if req, err = s.parseOperation(msg); err != nil {
-					log.Println("Fail to parse request operation:", err, string(msg))
+					log.Error("Fail to parse request operation:", err, string(msg))
 					continue
 				}
 			default:
-				log.Println("Unknow request:", string(msg))
+				log.Error("Unknow request:", string(msg))
 				continue
 			}
 
 			switch req.GetOperation() {
 			case "subscribe":
-				log.Printf("Client session[%s] operation subscribe: %s\n", clientSenssion.GetID(), req.String())
+				log.Infof("Client session[%s] operation subscribe: %s\n", clientSenssion.GetID(), req.String())
 
 				if subRsp := s.handleSubscribe(req, clientSenssion); subRsp != nil {
 					rspList = append(rspList, subRsp...)
 				}
 			case "auth":
-				log.Printf("Client session[%s] operation auth: %s\n", clientSenssion.GetID(), req.String())
+				log.Infof("Client session[%s] operation auth: %s\n", clientSenssion.GetID(), req.String())
 
 				if authRsp := s.handleAuth(req, clientSenssion); authRsp != nil {
 					rspList = append(rspList, authRsp)
 				}
 			default:
-				log.Println("Unkown request operation:", req.String())
+				log.Error("Unkown request operation:", req.String())
 				continue
 			}
 		}
 
-		if logLevel >= 2 {
-			log.Println("<-", clientSenssion.GetID(), req.String())
+		log.Debug("<-", clientSenssion.GetID(), req.String())
 
-			for _, rsp := range rspList {
-				log.Println("->", clientSenssion.GetID(), rsp.String())
-			}
+		for _, rsp := range rspList {
+			log.Debug("->", clientSenssion.GetID(), rsp.String())
 		}
 	}
 }
@@ -379,7 +377,7 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	svr.dataCaches["instrument"] = ins
 	svr.dataCaches["orderBookL2"] = mbl
 	if err := mbl.(*utils.MBLCache).NewDepthChannel(25); err != nil {
-		log.Panicln(err)
+		log.Panic(err)
 	}
 	svr.dataCaches["orderBookL2_25"] = mbl
 

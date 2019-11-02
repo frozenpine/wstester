@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils/log"
 )
 
 const (
@@ -224,7 +224,7 @@ func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 	handleInput := func(idx int, dest chan<- models.TableResponse, writeTimeout *time.Timer) {
 		if dest == nil {
 			invalidDest = append(invalidDest, idx)
-			log.Println("Destination channel is nil")
+			log.Error("Destination channel is nil")
 			return
 		}
 
@@ -236,7 +236,7 @@ func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 			close(dest)
 			invalidDest = append(invalidDest, idx)
 			writeTimeout = time.NewTimer(time.Second * dispatchTimeout)
-			log.Printf("Dispatch data to client timeout.")
+			log.Warn("Dispatch data to client timeout.")
 		}
 	}
 
@@ -249,7 +249,7 @@ func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 		if data.dstIdx < len(c.destinations) {
 			handleInput(data.dstIdx, c.destinations[data.dstIdx], writeTimeout)
 		} else {
-			log.Printf("Invalid destination index[%d] specified, max index is %d\n", data.dstIdx, len(c.destinations)-1)
+			log.Errorf("Invalid destination index[%d] specified, max index is %d", data.dstIdx, len(c.destinations)-1)
 		}
 	}
 	writeTimeout.Stop()
@@ -293,7 +293,7 @@ func (c *rspChannel) dispatchSubChannels(data *ChannelInput) {
 		if err := subChan.PublishData(data.rsp); err != nil {
 			subChan.Close()
 			invalidSub = append(invalidSub, idx)
-			log.Println(err)
+			log.Error(err)
 		}
 	}
 
@@ -305,7 +305,7 @@ func (c *rspChannel) dispatchSubChannels(data *ChannelInput) {
 		if data.childChanIdx < len(c.childChannels) {
 			handleInput(data.childChanIdx, c.childChannels[data.childChanIdx])
 		} else {
-			log.Printf("Invalid sub channel index[%d] specified, max index is %d\n",
+			log.Errorf("Invalid sub channel index[%d] specified, max index is %d\n",
 				data.dstIdx, len(c.childChannels)-1)
 		}
 	}

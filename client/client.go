@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
+	"github.com/frozenpine/wstester/utils/log"
 	"github.com/gorilla/websocket"
 )
 
@@ -166,12 +166,12 @@ func (c *client) Subscribe(topics ...string) {
 
 	for _, topic := range topics {
 		if !IsValidTopic(topic) {
-			log.Println("Invalid topic name:", topic)
+			log.Warn("Invalid topic name:", topic)
 			continue
 		}
 
 		if c.isSubscribed(topic) {
-			log.Printf("Topic[%s] already subscirbed.\n", topic)
+			log.Warnf("Topic[%s] already subscirbed.", topic)
 			continue
 		}
 
@@ -185,12 +185,12 @@ func (c *client) Subscribe(topics ...string) {
 func (c *client) UnSubscribe(topics ...string) {
 	for _, topic := range topics {
 		if !IsValidTopic(topic) {
-			log.Println("Invalid topic name:", topic)
+			log.Warn("Invalid topic name:", topic)
 			continue
 		}
 
 		if !c.isSubscribed(topic) {
-			log.Printf("Topic[%s] is not subscribed.\n", topic)
+			log.Warnf("Topic[%s] is not subscribed.\n", topic)
 			continue
 		}
 
@@ -239,7 +239,7 @@ func (c *client) Connect(ctx context.Context) error {
 		remote.RawQuery = "subscribe=" + strings.Join(subList, ",")
 	}
 
-	log.Println("Connecting to:", remote.String())
+	log.Info("Connecting to:", remote.String())
 
 	conn, rsp, err := websocket.DefaultDialer.DialContext(
 		ctx, remote.String(), c.getHeader())
@@ -274,7 +274,7 @@ func (c *client) closeHandler(code int, msg string) error {
 	c.connected = false
 	c.authencated = false
 
-	log.Printf("Websocket closed with code[%d]: %s\n", code, msg)
+	log.Infof("Websocket closed with code[%d]: %s", code, msg)
 
 	return nil
 }
@@ -307,7 +307,7 @@ func (c *client) SetSubHandler(fn func(*models.SubscribeResponse)) {
 
 func (c *client) GetResponse(topic string) <-chan models.TableResponse {
 	if _, exist := c.SubscribedTopics[topic]; !exist {
-		log.Printf("Topic[%s] not subscribed.\n", topic)
+		log.Infof("Topic[%s] not subscribed.", topic)
 		return nil
 	}
 
@@ -359,10 +359,8 @@ func (c *client) heartbeatHandler() {
 					return
 				}
 
-				if logLevel >= 1 {
-					log.Println("<-", hb.String())
-					log.Println("->", models.NewPong().String())
-				}
+				log.Debug("<-", hb.String())
+				log.Debug("->", models.NewPong().String())
 			} else {
 				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping")); err != nil {
 					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
@@ -371,18 +369,14 @@ func (c *client) heartbeatHandler() {
 
 				heartbeatCounter += hb.Value()
 
-				if logLevel >= 1 {
-					log.Println("->", hb.String())
-				}
+				log.Debug("->", hb.String())
 			}
 		case "Pong":
 			heartbeatCounter += hb.Value()
 
-			if logLevel > 0 {
-				log.Println("<-", hb.String())
-			}
+			log.Debug("<-", hb.String())
 		default:
-			log.Println("Invalid heartbeat type: ", hb.String())
+			log.Error("Invalid heartbeat type: ", hb.String())
 
 			continue
 		}
@@ -437,7 +431,7 @@ func (c *client) handleInfoMsg(msg []byte) (*models.InfoResponse, error) {
 		if c.infoHandler != nil {
 			c.infoHandler(&info)
 		} else {
-			log.Println("Info:", info.String())
+			log.Info("Info:", info.String())
 		}
 	}()
 
@@ -456,7 +450,7 @@ func (c *client) handleAuthMsg(msg []byte) (*models.AuthResponse, error) {
 			c.authencated = true
 		}
 
-		log.Println("Auth:", auth.String())
+		log.Info("Auth:", auth.String())
 	}()
 
 	return &auth, nil
@@ -481,7 +475,7 @@ func (c *client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
 		if c.subHandler != nil {
 			c.subHandler(&sub)
 		} else {
-			log.Println("Subscribe:", sub.String())
+			log.Info("Subscribe:", sub.String())
 		}
 	}()
 
@@ -559,7 +553,7 @@ func (c *client) handleErrMsg(msg []byte) (*models.ErrResponse, error) {
 		if c.errHandler != nil {
 			c.errHandler(&errRsp)
 		} else {
-			log.Println(errRsp.String())
+			log.Warn(errRsp.String())
 		}
 	}()
 
@@ -587,50 +581,48 @@ func (c *client) messageHandler() {
 			switch {
 			case models.InfoPattern.Match(msg):
 				if rsp, err = c.handleInfoMsg(msg); err != nil {
-					log.Println("Fail to parse info msg:", err, string(msg))
+					log.Error("Fail to parse info msg:", err, string(msg))
 				}
 
 				continue
 			case models.SubPattern.Match(msg):
 				if rsp, err = c.handlSubMsg(msg); err != nil {
-					log.Println("Fail to parse subscribe response:", err, string(msg))
+					log.Error("Fail to parse subscribe response:", err, string(msg))
 				}
 
 				continue
 			case models.ErrPattern.Match(msg):
 				if rsp, err = c.handleErrMsg(msg); err != nil {
-					log.Println("Fail to parse error response:", err, string(msg))
+					log.Error("Fail to parse error response:", err, string(msg))
 				}
 
 				continue
 			case models.AuthPattern.Match(msg):
 				if rsp, err = c.handleAuthMsg(msg); err != nil {
-					log.Println("Fail to parse authentication response:", err, string(msg))
+					log.Error("Fail to parse authentication response:", err, string(msg))
 					continue
 				}
 			case models.InstrumentPattern.Match(msg):
 				if rsp, err = c.handleInsMsg(msg); err != nil {
-					log.Println("Fail to parse instrument response:", err, string(msg))
+					log.Error("Fail to parse instrument response:", err, string(msg))
 					continue
 				}
 			case models.MBLPattern.Match(msg):
 				if rsp, err = c.handleMblMsg(msg); err != nil {
-					log.Println("Fail to parse MBL response:", err, string(msg))
+					log.Error("Fail to parse MBL response:", err, string(msg))
 					continue
 				}
 			case models.TradePattern.Match(msg):
 				if rsp, err = c.handleTdMsg(msg); err != nil {
-					log.Println("Fail to parse trade response:", err, string(msg))
+					log.Error("Fail to parse trade response:", err, string(msg))
 					continue
 				}
 			default:
-				log.Println("Unkonw response type:", string(msg))
+				log.Error("Unkonw response type:", string(msg))
 				continue
 			}
 
-			if logLevel >= 2 {
-				log.Println("<-", rsp.String())
-			}
+			log.Debug("<-", rsp.String())
 		}
 	}
 }

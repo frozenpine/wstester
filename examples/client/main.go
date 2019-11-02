@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"net/url"
 	"os"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/frozenpine/wstester/client"
 	"github.com/frozenpine/wstester/utils"
+	"github.com/frozenpine/wstester/utils/log"
 
 	flag "github.com/spf13/pflag"
 )
@@ -87,7 +87,7 @@ func getURL() string {
 			case "wss":
 				port = 443
 			default:
-				log.Panicln("unsupported scheme:", scheme)
+				log.Panic("unsupported scheme:", scheme)
 			}
 		default:
 			port, _ = strconv.Atoi(parsed.Port())
@@ -174,7 +174,7 @@ func init() {
 	flag.StringVar(&apiKey, "key", "", "API Key for authentication request.")
 	flag.StringVar(&apiSecret, "secret", "", "API Secret for authentication request.")
 
-	log.SetFlags(log.Lmicroseconds | log.Ldate)
+	// log.SetFlags(log.Lmicroseconds | log.Ldate)
 }
 
 func getContext(deadline time.Duration) (context.Context, context.CancelFunc) {
@@ -222,7 +222,7 @@ func main() {
 		panic(err)
 	}
 
-	client.SetLogLevel(dbgLevel)
+	// client.SetLogLevel(dbgLevel)
 
 	roundCount := 1
 	failCount := 0
@@ -246,7 +246,7 @@ func main() {
 			delay := expectBackoff(failCount, maxDelayCount, reconnectDelay)
 			delay += time.Millisecond * time.Duration(rand.Intn(100))
 
-			log.Println("Reconnect after:", delay)
+			log.Warn("Reconnect after:", delay)
 
 			select {
 			case <-time.After(delay):
@@ -260,7 +260,7 @@ func main() {
 
 		cfg := client.NewConfig()
 		if err := cfg.ChangeHost(getURL()); err != nil {
-			log.Println(err)
+			log.Error(err)
 			return
 		}
 		cfg.HeartbeatInterval = hbInterval
@@ -272,7 +272,7 @@ func main() {
 
 		start := time.Now()
 		if err := ins.Connect(ctx); err != nil {
-			log.Println(err)
+			log.Error(err)
 
 			failCount++
 
@@ -287,7 +287,7 @@ func main() {
 
 		select {
 		case <-ctx.Done():
-			log.Println(ctx.Err())
+			log.Info(ctx.Err())
 			running = false
 		case <-ins.Closed():
 			// gracefully quit heartbeatHandler and other goroutine
@@ -302,7 +302,7 @@ func main() {
 		if last > maxLast {
 			maxLast = last
 		}
-		log.Printf(
+		log.Infof(
 			"Program starts at [%v], %s round connection last %v long, max connection time in history is %v.",
 			progStart, humanReadNum(roundCount), last, maxLast,
 		)

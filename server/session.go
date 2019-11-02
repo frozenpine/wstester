@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
+	"github.com/frozenpine/wstester/utils/log"
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 )
@@ -107,7 +107,7 @@ func (c *clientSession) Close(code int, reason string) error {
 		c.conn.Close()
 	})
 
-	log.Printf("Client session[%s] closed with code[%d]: %s\n", c.GetID(), code, reason)
+	log.Infof("Client session[%s] closed with code[%d]: %s", c.GetID(), code, reason)
 
 	return nil
 }
@@ -175,7 +175,7 @@ func (c *clientSession) heartbeatLoop() {
 		case "Pong":
 			hbCounter += hb.Value()
 		default:
-			log.Println("Invalid heartbeat type: ", hb.String())
+			log.Error("Invalid heartbeat type: ", hb.String())
 
 			continue
 		}

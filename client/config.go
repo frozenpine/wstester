@@ -9,8 +9,6 @@ import (
 type contextKey string
 
 var (
-	logLevel int
-
 	// ContextAPIKey takes an APIKeyAuth as authentication for websocket
 	ContextAPIKey = contextKey("apikey")
 
@@ -97,10 +95,10 @@ func NewConfig() *Config {
 	return &cfg
 }
 
-// SetLogLevel set log level to display more detailed log info
-func SetLogLevel(lvl int) {
-	logLevel = lvl
-}
+// // SetLogLevel set log level to display more detailed log info
+// func SetLogLevel(lvl int) {
+// 	logLevel = lvl
+// }
 
 // IsPublicTopic valid topic name in non case-sensitive
 func IsPublicTopic(topic string) bool {

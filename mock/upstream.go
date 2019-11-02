@@ -2,12 +2,12 @@ package mock
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/frozenpine/wstester/client"
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils"
+	"github.com/frozenpine/wstester/utils/log"
 )
 
 // Upstream get mbl|trade|instrument response from upstream www.btcmex.com
@@ -27,7 +27,7 @@ func Upstream(caches map[string]utils.Cache) {
 
 		err := ins.Connect(ctx)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 
 			time.Sleep(time.Second * 3)
 
@@ -72,7 +72,7 @@ func Upstream(caches map[string]utils.Cache) {
 
 		<-ins.Closed()
 
-		log.Println("Mock MBL upstream closed.")
+		log.Warn("Mock MBL upstream closed.")
 
 		cancelFn()
 
