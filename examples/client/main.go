@@ -218,11 +218,15 @@ func main() {
 		flag.Parse()
 	}
 
-	if err := normalizeTopicTable(); err != nil {
-		panic(err)
+	if dbgLevel > 1 {
+		log.SetLogLevel(log.TraceLevel)
+	} else if dbgLevel > 0 {
+		log.SetLogLevel(log.DebugLevel)
 	}
 
-	// client.SetLogLevel(dbgLevel)
+	if err := normalizeTopicTable(); err != nil {
+		log.Fatal(err)
+	}
 
 	roundCount := 1
 	failCount := 0

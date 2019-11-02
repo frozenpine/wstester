@@ -5,11 +5,10 @@ import (
 
 	"github.com/frozenpine/wstester/server"
 	"github.com/frozenpine/wstester/utils/log"
-	"go.uber.org/zap/zapcore"
 )
 
 func main() {
-	log.SetLogLevel(zapcore.DebugLevel)
+	log.SetLogLevel(log.DebugLevel)
 
 	cfg := server.NewConfig()
 

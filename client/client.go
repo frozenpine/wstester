@@ -359,10 +359,8 @@ func (c *client) heartbeatHandler() {
 					return
 				}
 
-				if log.IsTraceLevel {
-					log.Debug("<-", hb.String())
-					log.Debug("->", models.NewPong().String())
-				}
+				log.Debug("<-", hb.String())
+				log.Debug("->", models.NewPong().String())
 			} else {
 				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping")); err != nil {
 					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
@@ -371,16 +369,12 @@ func (c *client) heartbeatHandler() {
 
 				heartbeatCounter += hb.Value()
 
-				if log.IsTraceLevel {
-					log.Debug("->", hb.String())
-				}
+				log.Debug("->", hb.String())
 			}
 		case "Pong":
 			heartbeatCounter += hb.Value()
 
-			if log.IsTraceLevel {
-				log.Debug("<-", hb.String())
-			}
+			log.Debug("<-", hb.String())
 		default:
 			log.Error("Invalid heartbeat type: ", hb.String())
 
