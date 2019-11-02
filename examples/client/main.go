@@ -67,6 +67,10 @@ var (
 
 func getURL() string {
 	if urlStr != "" {
+		if !strings.HasPrefix(urlStr, "http") && !strings.HasPrefix("urlStr", "ws") {
+			urlStr = defaultScheme + "://" + urlStr
+		}
+
 		parsed, err := url.Parse(urlStr)
 		if err != nil {
 			log.Panic(err)
@@ -87,12 +91,15 @@ func getURL() string {
 			case "wss":
 				port = 443
 			default:
-				log.Panic("unsupported scheme:", scheme)
+				log.Panic("unsupported scheme: ", scheme)
 			}
 		default:
 			port, _ = strconv.Atoi(parsed.Port())
 		}
-		uriStr = parsed.Path
+
+		if parsed.Path != "" {
+			uriStr = parsed.Path
+		}
 	}
 
 	var hostString string
@@ -250,7 +257,7 @@ func main() {
 			delay := expectBackoff(failCount, maxDelayCount, reconnectDelay)
 			delay += time.Millisecond * time.Duration(rand.Intn(100))
 
-			log.Warn("Reconnect after:", delay)
+			log.Warn("Reconnect after: ", delay)
 
 			select {
 			case <-time.After(delay):

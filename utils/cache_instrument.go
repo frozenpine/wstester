@@ -47,7 +47,7 @@ func (c *InstrumentCache) handleInput(input *CacheInput) {
 			c.channelGroup[Realtime][0].PublishData(ins)
 		}
 	} else {
-		log.Error("Can not convert cache input to InstrumentResponse:", input.msg.String())
+		log.Error("Can not convert cache input to InstrumentResponse: ", input.msg.String())
 	}
 }
 
@@ -112,7 +112,7 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 			return true
 		}
 	default:
-		log.Error("Invalid action for instrument cache:", ins.Action)
+		log.Error("Invalid action for instrument cache: ", ins.Action)
 	}
 
 	return false

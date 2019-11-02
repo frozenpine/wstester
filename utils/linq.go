@@ -426,11 +426,11 @@ func parseComparison(compare *sqlparser.ComparisonExpr, table *TableDef) (func(i
 	return func(v interface{}) bool {
 		fnList, exist := operatorMapper[compare.Operator]
 		if !exist {
-			panic("unsupported operator: " + compare.Operator)
+			log.Panic("unsupported operator: ", compare.Operator)
 		}
 
 		if len(fnList) <= int(right.Type) {
-			panic("invalid value type")
+			log.Panic("invalid value type")
 		}
 
 		return fnList[right.Type](v, leftName, right)

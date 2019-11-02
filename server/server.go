@@ -301,11 +301,11 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case bytes.Contains(msg, opPattern):
 				if req, err = s.parseOperation(msg); err != nil {
-					log.Error("Fail to parse request operation:", err, string(msg))
+					log.Error("Fail to parse request operation: ", err, string(msg))
 					continue
 				}
 			default:
-				log.Error("Unknow request:", string(msg))
+				log.Error("Unknow request: ", string(msg))
 				continue
 			}
 
@@ -323,16 +323,16 @@ func (s *server) wsUpgrader(w http.ResponseWriter, r *http.Request) {
 					rspList = append(rspList, authRsp)
 				}
 			default:
-				log.Error("Unkown request operation:", req.String())
+				log.Error("Unkown request operation: ", req.String())
 				continue
 			}
 		}
 
 		if log.IsTraceLevel {
-			log.Debug("<-", clientSenssion.GetID(), req.String())
+			log.Debug("<- ", clientSenssion.GetID(), req.String())
 
 			for _, rsp := range rspList {
-				log.Debug("->", clientSenssion.GetID(), rsp.String())
+				log.Debug("-> ", clientSenssion.GetID(), rsp.String())
 			}
 		}
 	}

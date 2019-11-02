@@ -62,7 +62,7 @@ func UniPriceSearch(priceList []float64, price float64, reverse bool) (idx int) 
 	}
 
 	if idx >= originLen || priceList[idx] != price {
-		log.Debug(priceList, price, idx, reverse)
+		log.Debugf("price list: %v, search price: %f, searched idx: %d, is reverse: %v", priceList, price, idx, reverse)
 		return -1
 	}
 

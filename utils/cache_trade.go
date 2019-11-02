@@ -45,7 +45,7 @@ func (c *TradeCache) handleInput(input *CacheInput) {
 	}
 
 	if input.msg == nil {
-		log.Error("Trade notify content is empty:", input.msg.String())
+		log.Error("Trade notify content is empty: ", input.msg.String())
 		return
 	}
 
@@ -54,7 +54,7 @@ func (c *TradeCache) handleInput(input *CacheInput) {
 
 		c.channelGroup[Realtime][0].PublishData(td)
 	} else {
-		log.Error("Can not convert cache input to TradeResponse:", input.msg.String())
+		log.Error("Can not convert cache input to TradeResponse: ", input.msg.String())
 	}
 }
 

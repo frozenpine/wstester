@@ -166,7 +166,7 @@ func (c *client) Subscribe(topics ...string) {
 
 	for _, topic := range topics {
 		if !IsValidTopic(topic) {
-			log.Warn("Invalid topic name:", topic)
+			log.Warn("Invalid topic name: ", topic)
 			continue
 		}
 
@@ -185,12 +185,12 @@ func (c *client) Subscribe(topics ...string) {
 func (c *client) UnSubscribe(topics ...string) {
 	for _, topic := range topics {
 		if !IsValidTopic(topic) {
-			log.Warn("Invalid topic name:", topic)
+			log.Warn("Invalid topic name: ", topic)
 			continue
 		}
 
 		if !c.isSubscribed(topic) {
-			log.Warnf("Topic[%s] is not subscribed.\n", topic)
+			log.Warnf("Topic[%s] is not subscribed.", topic)
 			continue
 		}
 
@@ -239,7 +239,7 @@ func (c *client) Connect(ctx context.Context) error {
 		remote.RawQuery = "subscribe=" + strings.Join(subList, ",")
 	}
 
-	log.Info("Connecting to:", remote.String())
+	log.Info("Connecting to: ", remote.String())
 
 	conn, rsp, err := websocket.DefaultDialer.DialContext(
 		ctx, remote.String(), c.getHeader())
@@ -359,8 +359,8 @@ func (c *client) heartbeatHandler() {
 					return
 				}
 
-				log.Debug("<-", hb.String())
-				log.Debug("->", models.NewPong().String())
+				log.Debug("<- ", hb.String())
+				log.Debug("-> ", models.NewPong().String())
 			} else {
 				if err = c.ws.WriteMessage(websocket.TextMessage, []byte("ping")); err != nil {
 					c.closeHandler(-1, "Send heartbeat failed: "+hb.String())
@@ -369,12 +369,12 @@ func (c *client) heartbeatHandler() {
 
 				heartbeatCounter += hb.Value()
 
-				log.Debug("->", hb.String())
+				log.Debug("-> ", hb.String())
 			}
 		case "Pong":
 			heartbeatCounter += hb.Value()
 
-			log.Debug("<-", hb.String())
+			log.Debug("<- ", hb.String())
 		default:
 			log.Error("Invalid heartbeat type: ", hb.String())
 
@@ -431,7 +431,7 @@ func (c *client) handleInfoMsg(msg []byte) (*models.InfoResponse, error) {
 		if c.infoHandler != nil {
 			c.infoHandler(&info)
 		} else {
-			log.Info("Info:", info.String())
+			log.Info("Info: ", info.String())
 		}
 	}()
 
@@ -450,7 +450,7 @@ func (c *client) handleAuthMsg(msg []byte) (*models.AuthResponse, error) {
 			c.authencated = true
 		}
 
-		log.Info("Auth:", auth.String())
+		log.Info("Auth: ", auth.String())
 	}()
 
 	return &auth, nil
@@ -475,7 +475,7 @@ func (c *client) handlSubMsg(msg []byte) (*models.SubscribeResponse, error) {
 		if c.subHandler != nil {
 			c.subHandler(&sub)
 		} else {
-			log.Info("Subscribe:", sub.String())
+			log.Info("Subscribe: ", sub.String())
 		}
 	}()
 
@@ -581,30 +581,30 @@ func (c *client) messageHandler() {
 			switch {
 			case models.InfoPattern.Match(msg):
 				if rsp, err = c.handleInfoMsg(msg); err != nil {
-					log.Error("Fail to parse info msg:", err, string(msg))
+					log.Errorf("Fail to parse info msg: %s, %s", err.Error(), string(msg))
 				}
 
 				continue
 			case models.SubPattern.Match(msg):
 				if rsp, err = c.handlSubMsg(msg); err != nil {
-					log.Error("Fail to parse subscribe response:", err, string(msg))
+					log.Errorf("Fail to parse subscribe response: %s, %s", err.Error(), string(msg))
 				}
 
 				continue
 			case models.ErrPattern.Match(msg):
 				if rsp, err = c.handleErrMsg(msg); err != nil {
-					log.Error("Fail to parse error response:", err, string(msg))
+					log.Errorf("Fail to parse error response: %s, %s", err.Error(), string(msg))
 				}
 
 				continue
 			case models.AuthPattern.Match(msg):
 				if rsp, err = c.handleAuthMsg(msg); err != nil {
-					log.Error("Fail to parse authentication response:", err, string(msg))
+					log.Errorf("Fail to parse authentication response: %s, %s", err.Error(), string(msg))
 					continue
 				}
 			case models.InstrumentPattern.Match(msg):
 				if rsp, err = c.handleInsMsg(msg); err != nil {
-					log.Error("Fail to parse instrument response:", err, string(msg))
+					log.Errorf("Fail to parse instrument response: %s, %s", err.Error(), string(msg))
 					continue
 				}
 			case models.MBLPattern.Match(msg):
@@ -623,7 +623,7 @@ func (c *client) messageHandler() {
 			}
 
 			if log.IsTraceLevel {
-				log.Debug("<-", rsp.String())
+				log.Debug("<- ", rsp.String())
 			}
 		}
 	}
