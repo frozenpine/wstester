@@ -30,25 +30,25 @@
 ```bash
 $ cd examples/client
 $ go run *.go --help
-Usage of /tmp/go-build247188547/b001/exe/filter:
-      --append              Wether append topic list to default subscrib.
-  -d, --deadline duration   Deadline duration, -1 means infinity. (default -1ns)
-      --delay int           Delay seconds per binary expect backoff algorithm's delay slot. (default 3)
-      --fail int            Heartbeat fail count. (default 3)
-      --heartbeat int       Heartbeat interval in seconds. (default 15)
-  -H, --host string         Host addreses to connect. (default "www.btcmex.com")
-      --key string          API Key for authentication request.
-      --max-count int       Max slot count in binary expect backoff algorithm. (default 6)
-      --max-retry int       Max reconnect count, -1 means infinity. (default -1)
-      --output string       SQL for output.
-  -p, --port int            Host port to connect. (default 443)
-      --scheme string       Websocket scheme. (default "wss")
-      --secret string       API Secret for authentication request.
-      --symbol string       Symbol name. (default "XBTUSD")
-      --topics strings      Topic names for subscribe. (default [trade,orderBookL2,instrument])
-      --uri string          URI for realtime push data. (default "/realtime")
-      --url string          Connection URL.
-  -v, --verbose count       Debug level, turn on for detail info.
+Usage of /tmp/go-build937307377/b001/exe/filter:
+      --append               Wether append topic list to default subscrib.
+  -d, --deadline duration    Deadline duration, must be positive to take effect.
+      --delay int            Delay seconds per binary expect backoff algorithm's delay slot. (default 3)
+      --fail int             Heartbeat fail count. (default 3)
+      --heartbeat duration   Heartbeat interval. (default 15s)
+  -H, --host string          Host addreses to connect. (default "www.btcmex.com")
+      --key string           API Key for authentication request.
+      --max-count int        Max slot count in binary expect backoff algorithm. (default 6)
+      --max-retry int        Max reconnect count, -1 means infinity. (default -1)
+      --output string        SQL for output.
+  -p, --port int             Host port to connect. (default 443)
+      --scheme string        Websocket scheme. (default "wss")
+      --secret string        API Secret for authentication request.
+      --symbol string        Symbol name. (default "XBTUSD")
+      --topics strings       Topic names for subscribe. (default [trade,orderBookL2,instrument])
+      --uri string           URI for realtime push data. (default "/realtime")
+      --url string           Connection URL.
+  -v, --verbose count        Debug level, turn on for detail info.
 pflag: help requested
 exit status 2
 ```
