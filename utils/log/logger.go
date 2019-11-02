@@ -10,6 +10,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+// TODO: 检查全部模块的log输出，以新的zap框架封装代替原log输出
 var (
 	errorLogger *zap.SugaredLogger
 	atom        zap.AtomicLevel

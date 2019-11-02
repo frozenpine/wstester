@@ -228,6 +228,7 @@ func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 			return
 		}
 
+		// TODO： 更好的检测目标chan关闭的机制
 		select {
 		case dest <- data.rsp:
 			writeTimeout.Reset(time.Second * dispatchTimeout)
