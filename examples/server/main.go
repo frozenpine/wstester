@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"log"
 
 	"github.com/frozenpine/wstester/server"
+	"github.com/frozenpine/wstester/utils/log"
+	"go.uber.org/zap/zapcore"
 )
 
 func main() {
-	log.SetFlags(log.Lmicroseconds | log.Ldate)
+	log.SetLogLevel(zapcore.DebugLevel)
 
 	cfg := server.NewConfig()
 

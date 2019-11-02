@@ -1,9 +1,10 @@
 package utils
 
 import (
-	"log"
 	"math"
 	"sort"
+
+	"github.com/frozenpine/wstester/utils/log"
 )
 
 // MaxInt return max int
@@ -61,8 +62,7 @@ func UniPriceSearch(priceList []float64, price float64, reverse bool) (idx int) 
 	}
 
 	if idx >= originLen || priceList[idx] != price {
-		// TODO: debug output
-		log.Println(priceList, price, idx, reverse)
+		log.Debug(priceList, price, idx, reverse)
 		return -1
 	}
 
