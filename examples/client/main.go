@@ -25,7 +25,7 @@ const (
 	defaultPort   = 443
 	defaultURI    = "/realtime"
 
-	defaultHBInterval  = 15
+	defaultHBInterval  = time.Second * 15
 	defaultHBFailCount = 3
 
 	// delay in second
@@ -50,7 +50,7 @@ var (
 
 	dbgLevel int
 
-	hbInterval  int
+	hbInterval  time.Duration
 	hbFailCount int
 
 	reconnectDelay    int
@@ -150,9 +150,9 @@ func init() {
 		&dbgLevel, "verbose", "v",
 		"Debug level, turn on for detail info.")
 
-	flag.IntVar(
+	flag.DurationVar(
 		&hbInterval, "heartbeat", defaultHBInterval,
-		"Heartbeat interval in seconds.")
+		"Heartbeat interval.")
 	flag.IntVar(
 		&hbFailCount, "fail", defaultHBFailCount,
 		"Heartbeat fail count.")

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type contextKey string
@@ -34,7 +35,7 @@ type Config struct {
 	Host               string
 	Port               int
 	BaseURI            string
-	HeartbeatInterval  int
+	HeartbeatInterval  time.Duration
 	ReversHeartbeat    bool
 	HeartbeatFailCount int
 	disableCache       bool

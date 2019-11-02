@@ -329,13 +329,13 @@ func (c *client) heartbeatHandler() {
 				select {
 				case <-c.ctx.Done():
 					return
-				case <-time.NewTicker(time.Second * time.Duration(c.cfg.HeartbeatInterval)).C:
+				case <-time.NewTicker(c.cfg.HeartbeatInterval).C:
 					c.heartbeatChan <- models.NewPing()
 				}
 			}
 		}()
 	} else {
-		c.heartbeatTimer = time.NewTimer(time.Second * time.Duration(c.cfg.HeartbeatInterval*c.cfg.HeartbeatFailCount))
+		c.heartbeatTimer = time.NewTimer(c.cfg.HeartbeatInterval * time.Duration(c.cfg.HeartbeatFailCount))
 
 		go func() {
 			for {
@@ -404,7 +404,7 @@ HEARTBEAT:
 		}
 
 		if c.heartbeatTimer != nil {
-			c.heartbeatTimer.Reset(time.Second * time.Duration(c.cfg.HeartbeatInterval*c.cfg.HeartbeatFailCount))
+			c.heartbeatTimer.Reset(c.cfg.HeartbeatInterval * time.Duration(c.cfg.HeartbeatFailCount))
 		}
 
 		switch {
