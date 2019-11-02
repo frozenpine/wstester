@@ -33,7 +33,7 @@ const (
 	defaultMaxReconnectCount = -1
 	defaultMaxDelayCount     = 6
 
-	defaultRunningDuration = time.Duration(-1)
+	defaultRunningDuration = time.Duration(0)
 )
 
 var (
@@ -169,7 +169,7 @@ func init() {
 
 	flag.DurationVarP(
 		&deadline, "deadline", "d", defaultRunningDuration,
-		"Deadline duration, -1 means infinity.")
+		"Deadline duration, must be positive to take effect.")
 
 	flag.StringVar(&apiKey, "key", "", "API Key for authentication request.")
 	flag.StringVar(&apiSecret, "secret", "", "API Secret for authentication request.")
