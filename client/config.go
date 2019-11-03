@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	defaultHeartbeatInterval  time.Duration = time.Second * 15
+	defaultHeartbeatFailCount int           = 3
+)
+
 type contextKey string
 
 var (
@@ -87,9 +92,9 @@ func NewConfig() *Config {
 		Scheme:             "wss",
 		Host:               "www.btcmex.com",
 		BaseURI:            "/realtime",
-		HeartbeatInterval:  15,
+		HeartbeatInterval:  defaultHeartbeatInterval,
 		ReversHeartbeat:    false,
-		HeartbeatFailCount: 3,
+		HeartbeatFailCount: defaultHeartbeatFailCount,
 		disableCache:       false,
 	}
 
