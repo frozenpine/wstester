@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -176,14 +177,15 @@ func (s *server) handleAuth(req models.Request, client Session) models.Response 
 
 func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
 	var (
-		rspList []models.Response
-		cache   utils.Cache
-		exist   bool
-		// topicDepthRegex = regexp.MustCompile(`.+(?:L2_?)?(\d+)?$`)
+		rspList              []models.Response
+		cache                utils.Cache
+		exist                bool
+		mblLevelDepthPattern = regexp.MustCompile(`(?:L2_)(\d+)`)
 	)
 
 	for _, topicStr := range req.GetArgs() {
 		parsed := strings.Split(topicStr, ":")
+		// TODO: handle symbol
 		topicName := parsed[0]
 
 		waitRsp := make(chan bool, 0)
@@ -194,9 +196,10 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 			depth := 0
 
-			// TODO: parse topic depth from topic name
-			if topicName == "orderBookL2_25" {
-				depth = 25
+			if strings.HasPrefix(topicName, "orderBook") {
+				match := mblLevelDepthPattern.FindStringSubmatch(topicName[9:])
+
+				depth, _ = strconv.Atoi(match[1])
 			}
 
 			go func(cache utils.Cache, chType utils.ChannelType, depth int) {
