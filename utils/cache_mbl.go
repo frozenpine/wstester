@@ -245,6 +245,7 @@ func (c *MBLCache) applyData(data *models.MBLResponse) (map[int][2]*models.MBLRe
 				return nil, err
 			}
 
+			// TODO: 压缩合并两次L2_25更新，以减少更新数量
 			for limit, rspList := range limitRspMap {
 				if depth <= limit {
 					rspList[0].Data = append(rspList[0].Data, ord)
