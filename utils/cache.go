@@ -41,7 +41,7 @@ type Cache interface {
 	// publish means wether publish snapshot in channel,
 	// this is an async to sync operation, snapshot operation queued in cache pipeline and
 	// return util queued operation finished.
-	TakeSnapshot(depth int, publish Channel, idx int) models.TableResponse
+	TakeSnapshot(depth int, publish Channel, session string) models.TableResponse
 
 	// Append append data to cache
 	// this is an async operation if cache pipeline not full.
@@ -56,32 +56,32 @@ type Cache interface {
 
 // CacheInput wrapper structure for table response
 type CacheInput struct {
-	pubChannel     Channel
-	dstIdx         int
 	breakpointFunc func() models.TableResponse
 	msg            models.TableResponse
 }
 
-// IsBreakPoint to check input is a breakpoint message
+// IsBreakPoint to check if input is a breakpoint message
 func (in *CacheInput) IsBreakPoint() bool {
 	return in.breakpointFunc != nil
+}
+
+// GetData get input data
+func (in *CacheInput) GetData() models.TableResponse {
+	return in.msg
 }
 
 // NewCacheInput make a new cache input
 func NewCacheInput(msg models.TableResponse) *CacheInput {
 	input := CacheInput{
-		dstIdx: -1,
-		msg:    msg,
+		msg: msg,
 	}
 
 	return &input
 }
 
 // NewBreakpoint make a new cache breakpoint
-func NewBreakpoint(breakpointFn func() models.TableResponse, publish Channel, idx int) *CacheInput {
+func NewBreakpoint(breakpointFn func() models.TableResponse) *CacheInput {
 	input := CacheInput{
-		pubChannel:     publish,
-		dstIdx:         idx,
 		breakpointFunc: breakpointFn,
 	}
 
@@ -108,11 +108,7 @@ func (c *tableCache) handleBreakpoint(in *CacheInput) bool {
 		return false
 	}
 
-	rsp := in.breakpointFunc()
-
-	if rsp != nil && in.pubChannel != nil {
-		in.pubChannel.PublishDataToDestination(rsp, in.dstIdx)
-	}
+	in.breakpointFunc()
 
 	return true
 }
@@ -146,7 +142,11 @@ func (c *tableCache) Start() error {
 			select {
 			case <-c.ctx.Done():
 				return
-			case obj := <-c.pipeline:
+			case obj, ok := <-c.pipeline:
+				if !ok {
+					return
+				}
+
 				if obj == nil {
 					continue
 				}
@@ -193,7 +193,7 @@ func (c *tableCache) Ready() <-chan struct{} {
 	return c.ready
 }
 
-func (c *tableCache) TakeSnapshot(depth int, publish Channel, idx int) models.TableResponse {
+func (c *tableCache) TakeSnapshot(depth int, publish Channel, session string) models.TableResponse {
 	ch := make(chan models.TableResponse, 1)
 
 	snapFn := func() models.TableResponse {
@@ -203,13 +203,19 @@ func (c *tableCache) TakeSnapshot(depth int, publish Channel, idx int) models.Ta
 
 		snap := c.snapshotFn(depth)
 
+		if publish != nil {
+			if err := publish.PublishDataToDestination(snap, session); err != nil {
+				log.Error(err)
+			}
+		}
+
 		ch <- snap
 		close(ch)
 
 		return snap
 	}
 
-	c.pipeline <- NewBreakpoint(snapFn, publish, idx)
+	c.pipeline <- NewBreakpoint(snapFn)
 
 	return <-ch
 }

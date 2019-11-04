@@ -4,21 +4,56 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/frozenpine/wstester/models"
 	"github.com/frozenpine/wstester/utils/log"
+	uuid "github.com/satori/go.uuid"
 )
 
 const (
 	dispatchTimeout = 3
 )
 
+// Input cache & channel input
+type Input interface {
+	IsBreakpoint() bool
+	GetData() models.TableResponse
+}
+
 // ChannelInput channel input structure
 type ChannelInput struct {
-	dstIdx, childChanIdx int
-	rsp                  models.TableResponse
+	breakpointFunc             func()
+	dstSession, subChanSession string
+	rsp                        models.TableResponse
+}
+
+// IsBreakpoint to check if input is a breakpoint message
+func (in *ChannelInput) IsBreakpoint() bool {
+	return in.breakpointFunc != nil
+}
+
+// GetData get input data
+func (in *ChannelInput) GetData() models.TableResponse {
+	return in.rsp
+}
+
+// NewChannelInput make a new channel input
+func NewChannelInput(rsp models.TableResponse) *ChannelInput {
+	input := ChannelInput{
+		rsp: rsp,
+	}
+
+	return &input
+}
+
+// NewChannelBreakpoint make a new channel breakpoint
+func NewChannelBreakpoint(fn func()) *ChannelInput {
+	input := ChannelInput{
+		breakpointFunc: fn,
+	}
+
+	return &input
 }
 
 // Channel message channel
@@ -30,7 +65,7 @@ type Channel interface {
 	Close() error
 
 	// Connect connect child channel, child channel will get dispatched data from current channel
-	Connect(subChan Channel) (int, error)
+	Connect(subChan Channel) (string, error)
 
 	// TODO: Disconnect sub channel
 	// Disconnect(subChan Channel) error
@@ -39,24 +74,22 @@ type Channel interface {
 	PublishData(rsp models.TableResponse) error
 
 	// PublishDataToDestination publish data to specified destination
-	PublishDataToDestination(rsp models.TableResponse, idx int) error
+	PublishDataToDestination(rsp models.TableResponse, session string) error
 
 	// PublishDataToSubChan publish data to specified sub channel
-	PublishDataToSubChan(rsp models.TableResponse, idx int) error
+	PublishDataToSubChan(rsp models.TableResponse, session string) error
 
 	// RetriveData to get an chan to retrive data in current channel
-	RetriveData() (int, <-chan models.TableResponse)
+	RetriveData() (string, <-chan models.TableResponse)
+
+	ShutdownRetrive(session string) error
 }
 
 type rspChannel struct {
 	source chan *ChannelInput
 
-	destinations     []chan<- models.TableResponse
-	newDestinations  []chan<- models.TableResponse
-	childChannels    []Channel
-	newChildChannels []Channel
-	retriveLock      sync.Mutex
-	connectLock      sync.Mutex
+	destinations  map[string]chan<- models.TableResponse
+	childChannels map[string]Channel
 
 	ctx      context.Context
 	IsReady  bool
@@ -69,74 +102,90 @@ func (c *rspChannel) PublishData(data models.TableResponse) error {
 	}
 
 	c.source <- &ChannelInput{
-		dstIdx:       -1,
-		childChanIdx: -1,
-		rsp:          data,
+		rsp: data,
 	}
 
 	return nil
 }
 
-func (c *rspChannel) PublishDataToDestination(data models.TableResponse, idx int) error {
+func (c *rspChannel) PublishDataToDestination(data models.TableResponse, session string) error {
 	if c.IsClosed {
 		return fmt.Errorf("channel is already closed")
 	}
 
 	c.source <- &ChannelInput{
-		dstIdx:       idx,
-		childChanIdx: -1,
-		rsp:          data,
+		dstSession: session,
+		rsp:        data,
 	}
 
 	return nil
 }
 
-func (c *rspChannel) PublishDataToSubChan(data models.TableResponse, idx int) error {
+func (c *rspChannel) PublishDataToSubChan(data models.TableResponse, session string) error {
 	if c.IsClosed {
 		return fmt.Errorf("channel is already closed")
 	}
 
 	c.source <- &ChannelInput{
-		dstIdx:       -1,
-		childChanIdx: idx,
-		rsp:          data,
+		subChanSession: session,
+		rsp:            data,
 	}
 
 	return nil
 }
 
-func (c *rspChannel) RetriveData() (int, <-chan models.TableResponse) {
+func (c *rspChannel) RetriveData() (string, <-chan models.TableResponse) {
 	if c.IsClosed {
-		return -1, nil
+		return "", nil
 	}
 
 	ch := make(chan models.TableResponse, 1000)
+	session := uuid.NewV4().String()
 
-	c.retriveLock.Lock()
-	c.newDestinations = append(c.newDestinations, ch)
-	idx := len(c.newDestinations) - 1 + len(c.destinations)
-	c.retriveLock.Unlock()
+	c.source <- NewChannelBreakpoint(func() {
+		c.destinations[session] = ch
+	})
 
-	return idx, ch
+	return session, ch
 }
 
-func (c *rspChannel) Connect(child Channel) (int, error) {
+func (c *rspChannel) ShutdownRetrive(session string) error {
 	if c.IsClosed {
-		return -1, fmt.Errorf("channel is already closed")
+		return nil
+	}
+
+	ch := make(chan error, 1)
+
+	c.source <- NewChannelBreakpoint(func() {
+		if dst, exist := c.destinations[session]; exist {
+			close(dst)
+			ch <- nil
+		} else {
+			ch <- fmt.Errorf("destination session[%s] not exists", session)
+		}
+
+		close(ch)
+	})
+
+	return <-ch
+}
+
+func (c *rspChannel) Connect(child Channel) (string, error) {
+	if c.IsClosed {
+		return "", fmt.Errorf("channel is already closed")
 	}
 
 	if !c.IsReady {
 		c.Start()
 	}
 
-	c.connectLock.Lock()
-	c.newChildChannels = append(c.newChildChannels, child)
-	idx := len(c.newChildChannels) - 1 + len(c.childChannels)
-	c.connectLock.Unlock()
+	session := uuid.NewV4().String()
 
-	child.Start()
+	c.source <- NewChannelBreakpoint(func() {
+		c.childChannels[session] = child
+	})
 
-	return idx, nil
+	return session, nil
 }
 
 func (c *rspChannel) Start() error {
@@ -167,6 +216,11 @@ func (c *rspChannel) Start() error {
 				}
 
 				if input == nil {
+					continue
+				}
+
+				if input.IsBreakpoint() {
+					input.breakpointFunc()
 					continue
 				}
 
@@ -203,27 +257,12 @@ func (c *rspChannel) Close() error {
 	return nil
 }
 
-func (c *rspChannel) mergeNewDestinations() {
-	if len(c.newDestinations) < 1 {
-		return
-	}
-
-	c.retriveLock.Lock()
-
-	c.destinations = append(c.destinations, c.newDestinations...)
-	c.newDestinations = []chan<- models.TableResponse{}
-
-	c.retriveLock.Unlock()
-}
-
 func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
-	var invalidDest []int
+	var invalidDest []string
 
-	c.mergeNewDestinations()
-
-	handleInput := func(idx int, dest chan<- models.TableResponse, writeTimeout *time.Timer) {
+	handleInput := func(session string, dest chan<- models.TableResponse, writeTimeout *time.Timer) {
 		if dest == nil {
-			invalidDest = append(invalidDest, idx)
+			invalidDest = append(invalidDest, session)
 			log.Error("Destination channel is nil")
 			return
 		}
@@ -234,95 +273,59 @@ func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 			writeTimeout.Reset(time.Second * dispatchTimeout)
 		case <-writeTimeout.C:
 			close(dest)
-			invalidDest = append(invalidDest, idx)
+			invalidDest = append(invalidDest, session)
 			writeTimeout = time.NewTimer(time.Second * dispatchTimeout)
 			log.Warn("Dispatch data to client timeout.")
 		}
 	}
 
 	writeTimeout := time.NewTimer(time.Second * dispatchTimeout)
-	if data.dstIdx < 0 {
-		for idx, dest := range c.destinations {
-			handleInput(idx, dest, writeTimeout)
+	if data.dstSession == "" {
+		for session, dest := range c.destinations {
+			handleInput(session, dest, writeTimeout)
 		}
 	} else {
-		if data.dstIdx < len(c.destinations) {
-			handleInput(data.dstIdx, c.destinations[data.dstIdx], writeTimeout)
+		if dst, exist := c.destinations[data.dstSession]; exist {
+			handleInput(data.dstSession, dst, writeTimeout)
 		} else {
-			log.Errorf("Invalid destination index[%d] specified, max index is %d", data.dstIdx, len(c.destinations)-1)
+			log.Errorf("Invalid destination session[%s] specified", data.dstSession)
 		}
 	}
 	writeTimeout.Stop()
 
 	if len(invalidDest) > 0 {
-		tmpSlice := make([]interface{}, len(c.destinations))
-
-		for idx, ele := range c.destinations {
-			tmpSlice[idx] = ele
-		}
-
-		tmpSlice = RangeSlice(tmpSlice, invalidDest)
-
-		c.destinations = make([]chan<- models.TableResponse, len(tmpSlice))
-
-		for idx, ele := range tmpSlice {
-			c.destinations[idx] = ele.(chan<- models.TableResponse)
+		for _, invalid := range invalidDest {
+			delete(c.destinations, invalid)
 		}
 	}
-}
-
-func (c *rspChannel) mergeNewSubChannel() {
-	if len(c.newChildChannels) < 1 {
-		return
-	}
-
-	c.connectLock.Lock()
-
-	c.childChannels = append(c.childChannels, c.newChildChannels...)
-	c.newChildChannels = []Channel{}
-
-	c.connectLock.Unlock()
 }
 
 func (c *rspChannel) dispatchSubChannels(data *ChannelInput) {
-	var invalidSub []int
+	var invalidSub []string
 
-	c.mergeNewSubChannel()
-
-	handleInput := func(idx int, subChan Channel) {
+	handleInput := func(session string, subChan Channel) {
 		if err := subChan.PublishData(data.rsp); err != nil {
 			subChan.Close()
-			invalidSub = append(invalidSub, idx)
+			invalidSub = append(invalidSub, session)
 			log.Error(err)
 		}
 	}
 
-	if data.childChanIdx < 0 {
-		for idx, subChan := range c.childChannels {
-			handleInput(idx, subChan)
+	if data.subChanSession == "" {
+		for session, subChan := range c.childChannels {
+			handleInput(session, subChan)
 		}
 	} else {
-		if data.childChanIdx < len(c.childChannels) {
-			handleInput(data.childChanIdx, c.childChannels[data.childChanIdx])
+		if sub, exist := c.childChannels[data.subChanSession]; exist {
+			handleInput(data.subChanSession, sub)
 		} else {
-			log.Errorf("Invalid sub channel index[%d] specified, max index is %d\n",
-				data.dstIdx, len(c.childChannels)-1)
+			log.Errorf("Invalid sub channel session[%s]", data.dstSession)
 		}
 	}
 
 	if len(invalidSub) > 0 {
-		tmpSlice := make([]interface{}, len(c.childChannels))
-
-		for idx, ele := range c.childChannels {
-			tmpSlice[idx] = ele
-		}
-
-		tmpSlice = RangeSlice(tmpSlice, invalidSub)
-
-		c.childChannels = make([]Channel, len(tmpSlice))
-
-		for idx, ele := range tmpSlice {
-			c.childChannels[idx] = ele.(Channel)
+		for _, invalid := range invalidSub {
+			delete(c.childChannels, invalid)
 		}
 	}
 }

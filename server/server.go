@@ -203,6 +203,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 				<-waitRsp
 
 				rspChan := cache.GetRspChannel(chType, depth)
+
 				if rspChan == nil {
 					err := models.ErrResponse{
 						Error: fmt.Sprintf("Fail to get response Channel for %s on depth %d", topicName, depth),
@@ -216,23 +217,26 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 					return
 				}
 
-				idx, dataChan := rspChan.RetriveData()
+				session, dataChan := rspChan.RetriveData()
+				defer func() {
+					rspChan.ShutdownRetrive(session)
 
-				cache.TakeSnapshot(depth, rspChan, idx)
+					client.WriteJSONMessage(&models.ErrResponse{
+						Error: "Upstream data channel closed.",
+						Request: models.OperationRequest{
+							Operation: req.GetOperation(),
+							Args:      req.GetArgs(),
+						},
+					}, false)
+
+					client.Close(-1, "Upstream data channel closed.")
+				}()
+
+				cache.TakeSnapshot(depth, rspChan, session)
 
 				for data := range dataChan {
 					client.WriteJSONMessage(data, false)
 				}
-
-				client.WriteJSONMessage(&models.ErrResponse{
-					Error: "Upstream data channel closed.",
-					Request: models.OperationRequest{
-						Operation: req.GetOperation(),
-						Args:      req.GetArgs(),
-					},
-				}, false)
-
-				client.Close(-1, "Upstream data channel closed.")
 			}(cache, utils.Realtime, depth)
 		}
 

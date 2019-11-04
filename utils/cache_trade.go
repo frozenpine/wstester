@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"sync"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
@@ -80,7 +79,11 @@ func NewTradeCache(ctx context.Context, symbol string) Cache {
 	td.pipeline = make(chan *CacheInput, 1000)
 	td.ready = make(chan struct{})
 	td.channelGroup[Realtime] = map[int]Channel{
-		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
+		0: &rspChannel{
+			ctx:           ctx,
+			destinations:  map[string]chan<- models.TableResponse{},
+			childChannels: map[string]Channel{},
+		},
 	}
 
 	if err := td.Start(); err != nil {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
@@ -551,7 +550,11 @@ func (c *MBLCache) handleUpdate(ord *ngerest.OrderBookL2) (int, error) {
 
 // NewDepthChannel create an new depth channel in cache
 func (c *MBLCache) NewDepthChannel(depth int) error {
-	c.channelGroup[Realtime][depth] = &rspChannel{ctx: c.ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}}
+	c.channelGroup[Realtime][depth] = &rspChannel{
+		destinations:  map[string]chan<- models.TableResponse{},
+		childChannels: map[string]Channel{},
+		ctx:           c.ctx,
+	}
 
 	if err := c.channelGroup[Realtime][25].Start(); err != nil {
 		return err
@@ -574,7 +577,11 @@ func NewMBLCache(ctx context.Context, symbol string) Cache {
 	mbl.pipeline = make(chan *CacheInput, 1000)
 	mbl.ready = make(chan struct{})
 	mbl.channelGroup[Realtime] = map[int]Channel{
-		0: &rspChannel{ctx: ctx, retriveLock: sync.Mutex{}, connectLock: sync.Mutex{}},
+		0: &rspChannel{
+			ctx:           ctx,
+			destinations:  map[string]chan<- models.TableResponse{},
+			childChannels: map[string]Channel{},
+		},
 	}
 
 	if err := mbl.Start(); err != nil {
