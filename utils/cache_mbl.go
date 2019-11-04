@@ -328,9 +328,11 @@ func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 		c.askQuote.bestPrice = c.askPrices[len(c.askPrices)-1]
 		c.askQuote.bestSize = c.l2Cache[c.askQuote.bestPrice].Size
 
-		snap := c.snapshot(0).GetData()
-		result, _ := json.Marshal(snap)
+		snap := c.snapshot(0)
 
+		c.channelGroup[Realtime][0].PublishData(snap)
+
+		result, _ := json.Marshal(snap.GetData())
 		log.Debug("MBL partial: ", string(result))
 
 		return
