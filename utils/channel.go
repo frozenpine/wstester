@@ -67,8 +67,8 @@ type Channel interface {
 	// Connect connect child channel, child channel will get dispatched data from current channel
 	Connect(subChan Channel) (string, error)
 
-	// TODO: Disconnect sub channel
-	// Disconnect(subChan Channel) error
+	// Disconnect disconnect child channel
+	Disconnect(session string) error
 
 	// PublishData publish data to current channel
 	PublishData(rsp models.TableResponse) error
@@ -82,6 +82,7 @@ type Channel interface {
 	// RetriveData to get an chan to retrive data in current channel
 	RetriveData() (string, <-chan models.TableResponse)
 
+	// ShutdownRetrive shutdown data chan specified by session
 	ShutdownRetrive(session string) error
 }
 
@@ -188,6 +189,26 @@ func (c *rspChannel) Connect(child Channel) (string, error) {
 	return session, nil
 }
 
+func (c *rspChannel) Disconnect(session string) error {
+	if c.IsClosed {
+		return nil
+	}
+
+	ch := make(chan error, 1)
+
+	c.source <- NewChannelBreakpoint(func() {
+		if _, exist := c.childChannels[session]; exist {
+			delete(c.childChannels, session)
+			ch <- nil
+		} else {
+			ch <- fmt.Errorf("invalid sub channel session[%s]", session)
+		}
+		close(ch)
+	})
+
+	return <-ch
+}
+
 func (c *rspChannel) Start() error {
 	if c.IsReady {
 		return errors.New("channel is already started")
@@ -267,7 +288,6 @@ func (c *rspChannel) dispatchDistinations(data *ChannelInput) {
 			return
 		}
 
-		// TODO： 更好的检测目标chan关闭的机制
 		select {
 		case dest <- data.rsp:
 			writeTimeout.Reset(time.Second * dispatchTimeout)
