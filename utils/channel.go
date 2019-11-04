@@ -17,6 +17,7 @@ const (
 
 // Input cache & channel input
 type Input interface {
+	// TODO: 这种使用Breakpoint数据结构的调用函数将返回一个Promise结构用于封装异步调用的结果、错误
 	IsBreakpoint() bool
 	GetData() models.TableResponse
 }
