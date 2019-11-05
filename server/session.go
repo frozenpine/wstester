@@ -44,6 +44,9 @@ type Session interface {
 	WriteTextMessage(msg string, isSync bool) error
 	// WriteJSONMessage send json object to client
 	WriteJSONMessage(obj interface{}, isSync bool) error
+
+	// SetCleanup set clean up function, this func will be called when session close.
+	SetCleanup(func())
 }
 
 type message struct {
@@ -66,6 +69,8 @@ type clientSession struct {
 	closeOnce sync.Once
 	ctx       context.Context
 	cancelFn  context.CancelFunc
+
+	cleanupFn func()
 
 	hbChan         chan *models.HeartBeat
 	heartbeatTimer *time.Timer
@@ -104,6 +109,11 @@ func (c *clientSession) Close(code int, reason string) error {
 	c.closeOnce.Do(func() {
 		c.isClosed = true
 		c.cancelFn()
+
+		if c.cleanupFn != nil {
+			c.cleanupFn()
+		}
+
 		c.conn.Close()
 	})
 
@@ -119,6 +129,10 @@ func (c *clientSession) Authorize(clientID, accountID string) {
 
 func (c *clientSession) IsAuthorized() bool {
 	return c.clientID != "" && c.accountID != ""
+}
+
+func (c *clientSession) SetCleanup(fn func()) {
+	c.cleanupFn = fn
 }
 
 func (c *clientSession) heartbeatLoop() {

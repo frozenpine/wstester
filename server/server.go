@@ -227,19 +227,7 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 				}
 
 				session, dataChan := rspChan.RetriveData()
-				defer func() {
-					rspChan.ShutdownRetrive(session)
-
-					client.WriteJSONMessage(&models.ErrResponse{
-						Error: "Upstream data channel closed.",
-						Request: models.OperationRequest{
-							Operation: req.GetOperation(),
-							Args:      req.GetArgs(),
-						},
-					}, false)
-
-					client.Close(-1, "Upstream data channel closed.")
-				}()
+				client.SetCleanup(func() { rspChan.ShutdownRetrive(session) })
 
 				cache.TakeSnapshot(depth, rspChan, session)
 
