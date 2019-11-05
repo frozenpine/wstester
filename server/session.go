@@ -283,8 +283,15 @@ func (c *clientSession) sendMessageLoop() {
 // NewSession create client session from webosocket conn
 func NewSession(ctx context.Context, conn *websocket.Conn, req *http.Request) Session {
 	cfg := ctx.Value(SvrConfigKey).(*Config)
+
+	var ip string
 	// TODO: get real addr x-forwared-for from upgrade request.
-	sessionID := uuid.NewV3(cfg.GetNS(), conn.RemoteAddr().String())
+	if xForwared, exist := req.Header["x-forwared-for"]; exist {
+		ip = xForwared[0]
+	} else {
+		ip = conn.RemoteAddr().String()
+	}
+	sessionID := uuid.NewV3(cfg.GetNS(), ip)
 
 	if ctx == nil {
 		ctx = context.Background()
