@@ -285,7 +285,6 @@ func NewSession(ctx context.Context, conn *websocket.Conn, req *http.Request) Se
 	cfg := ctx.Value(SvrConfigKey).(*Config)
 
 	var ip string
-	// TODO: get real addr x-forwared-for from upgrade request.
 	if xForwared, exist := req.Header["x-forwared-for"]; exist {
 		ip = xForwared[0]
 	} else {

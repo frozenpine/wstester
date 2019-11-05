@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -366,6 +367,7 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
 	svr := server{
 		cfg: cfg,
 		upgrader: &websocket.Upgrader{
@@ -373,7 +375,13 @@ func NewServer(ctx context.Context, cfg *Config) Server {
 			WriteBufferSize:   4096,
 			EnableCompression: true,
 			CheckOrigin: func(r *http.Request) bool {
-				// TODO: websocket origin check policy
+				originURL, _ := url.Parse(r.Header.Get("origin"))
+
+				if r.URL.Hostname() != originURL.Hostname() {
+					r.Header.Del("Cookie")
+					log.Warnf("CORS cookies deleted, site url: %s, origin url: %s", r.URL.String(), originURL.String())
+				}
+
 				return true
 			},
 		},
