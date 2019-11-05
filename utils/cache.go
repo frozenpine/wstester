@@ -237,8 +237,12 @@ func (c *tableCache) Append(in *CacheInput) {
 }
 
 func (c *tableCache) GetDefaultChannel() Channel {
-	if !c.IsReady || c.IsClosed {
+	if c.IsClosed {
 		return nil
+	}
+
+	if !c.IsReady {
+		<-c.Ready()
 	}
 
 	return c.channelGroup[Realtime][0]
