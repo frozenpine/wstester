@@ -177,10 +177,11 @@ func (s *server) handleAuth(req models.Request, client Session) models.Response 
 
 func (s *server) handleSubscribe(req models.Request, client Session) []models.Response {
 	var (
-		rspList              []models.Response
-		cache                utils.Cache
-		exist                bool
-		mblLevelDepthPattern = regexp.MustCompile(`(?:L2_)(\d+)`)
+		rspList      []models.Response
+		cache        utils.Cache
+		exist        bool
+		depthPattern = regexp.MustCompile(`(?:L2_)(\d+)`)
+		depthTopic   = []string{"orderBook"}
 	)
 
 	for _, topicStr := range req.GetArgs() {
@@ -196,10 +197,14 @@ func (s *server) handleSubscribe(req models.Request, client Session) []models.Re
 
 			depth := 0
 
-			if strings.HasPrefix(topicName, "orderBook") {
-				match := mblLevelDepthPattern.FindStringSubmatch(topicName[9:])
+			for _, topic := range depthTopic {
+				if strings.HasPrefix(topicName, topic) {
+					match := depthPattern.FindStringSubmatch(topicName[len(topic):])
 
-				depth, _ = strconv.Atoi(match[1])
+					if len(match) > 0 {
+						depth, _ = strconv.Atoi(match[1])
+					}
+				}
 			}
 
 			go func(cache utils.Cache, chType utils.ChannelType, depth int) {
