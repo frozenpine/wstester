@@ -418,6 +418,7 @@ func parseComparison(compare *sqlparser.ComparisonExpr, table *TableDef) (func(i
 
 	leftName := colDef.GetName()
 
+	// TODO: 右值支持字段比较及更复杂的组合条件
 	right, ok := compare.Right.(*sqlparser.SQLVal)
 	if !ok {
 		return nil, errors.New("right side must be a literal value")
