@@ -139,7 +139,7 @@ func (c *MBLCache) handleInput(input *CacheInput) {
 	}
 
 	if input.msg == nil {
-		log.DPanic("MBL notify content is empty: ", input.msg.String())
+		log.Error("MBL notify content is empty")
 		return
 	}
 
@@ -149,13 +149,13 @@ func (c *MBLCache) handleInput(input *CacheInput) {
 		limitRsp, err := c.applyData(mbl)
 
 		if err != nil {
-			log.DPanicf("apply data failed: %s, data: %s", err.Error(), input.msg.String())
+			log.Errorf("apply data failed: %s, data: %s", err.Error(), input.msg.String())
 			return
 		}
 
 		c.dispatchRsp(mbl, limitRsp)
 	} else {
-		log.DPanic("Can not convert cache input to MBLResponse: ", input.msg.String())
+		log.Error("Can not convert cache input to MBLResponse: ", input.msg.String())
 	}
 }
 
@@ -167,7 +167,7 @@ func (c *MBLCache) GetDepth(side string) int {
 	case "Sell":
 		return len(c.askPrices)
 	default:
-		log.DPanic("invalid side in GetDepth: ", side)
+		log.Error("invalid side in GetDepth: ", side)
 		return -1
 	}
 }
@@ -194,7 +194,7 @@ func (c *MBLCache) GetOrderOnDepth(side string, depth int) *ngerest.OrderBookL2 
 
 		depthPrice = c.askPrices[askLength-depth]
 	default:
-		log.DPanic("invalid side in makeup: ", side)
+		log.Error("invalid side in makeup: ", side)
 		return nil
 	}
 
@@ -315,7 +315,7 @@ func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 			case "Sell":
 				c.askPrices = append(c.askPrices, mbl.Price)
 			default:
-				log.DPanic("invalid mbl side: ", mbl.Side)
+				log.Error("invalid mbl side: ", mbl.Side)
 				continue
 			}
 
@@ -383,7 +383,7 @@ func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 	if len(deleteRsp.Data) > 0 {
 		limitRsp, err := c.applyData(&deleteRsp)
 		if err != nil {
-			log.DPanic("Merge new partial delete failed: ", err)
+			log.Error("Merge new partial delete failed: ", err)
 		} else {
 			c.dispatchRsp(&deleteRsp, limitRsp)
 			log.Info("New parital delete merged: ", deleteRsp.String())
@@ -404,7 +404,7 @@ func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 	if len(insertRsp.Data) > 0 {
 		limitRsp, err := c.applyData(&insertRsp)
 		if err != nil {
-			log.DPanic("Merge new partial insert failed: ", err)
+			log.Error("Merge new partial insert failed: ", err)
 		} else {
 			c.dispatchRsp(&insertRsp, limitRsp)
 			log.Info("New parital insert merged: ", insertRsp.String())
@@ -414,7 +414,7 @@ func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 	if len(updateRsp.Data) > 0 {
 		limitRsp, err := c.applyData(&updateRsp)
 		if err != nil {
-			log.DPanic("Merge new partial update failed: ", err)
+			log.Error("Merge new partial update failed: ", err)
 		} else {
 			c.dispatchRsp(&updateRsp, limitRsp)
 			log.Info("New parital update merged: ", updateRsp.String())
@@ -426,7 +426,7 @@ func (c *MBLCache) handleDelete(ord *ngerest.OrderBookL2) (int, error) {
 	if origin, exist := c.l2Cache[ord.Price]; !exist {
 		return 0, fmt.Errorf("%s order[%.1f] delete on %s side not exist", ord.Symbol, ord.Price, ord.Side)
 	} else if ord.ID != origin.ID {
-		log.DPanic("order id miss-match with cache: ", ord.ID, origin.ID)
+		log.Errorf("order id miss-match with cache: order[%d], origin[%d]", ord.ID, origin.ID)
 	}
 
 	var (
