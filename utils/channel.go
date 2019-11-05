@@ -160,6 +160,7 @@ func (c *rspChannel) ShutdownRetrive(session string) error {
 
 	c.source <- NewChannelBreakpoint(func() {
 		if dst, exist := c.destinations[session]; exist {
+			delete(c.destinations, session)
 			close(dst)
 			ch <- nil
 		} else {
