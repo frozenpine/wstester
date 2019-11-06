@@ -4,7 +4,7 @@ package ngerest
 type UserPreferences struct {
 	AlertOnLiquidations     bool         `json:"alertOnLiquidations,omitempty"`
 	AnimationsEnabled       bool         `json:"animationsEnabled,omitempty"`
-	AnnouncementsLastSeen   NGETime      `json:"announcementsLastSeen,omitempty"`
+	AnnouncementsLastSeen   *NGETime     `json:"announcementsLastSeen,omitempty"`
 	ChatChannelID           float64      `json:"chatChannelID,omitempty"`
 	ColorTheme              string       `json:"colorTheme,omitempty"`
 	Currency                string       `json:"currency,omitempty"`

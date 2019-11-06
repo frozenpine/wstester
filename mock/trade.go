@@ -79,10 +79,11 @@ func Trade(cache utils.Cache) {
 				Side:          sides[choice%2],
 				Size:          size,
 				Price:         price,
-				Timestamp:     ngerest.NGETime(time.Now()),
 				TickDirection: tickDirection,
 				TrdMatchID:    uuid.NewV4().String(),
 			}
+			ts := ngerest.NGETime(time.Now())
+			td.Timestamp = &ts
 
 			lastPrice = td.Price
 
