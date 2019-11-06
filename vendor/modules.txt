@@ -4,7 +4,7 @@ github.com/BurntSushi/toml
 github.com/ahmetb/go-linq
 # github.com/antihax/optional v1.0.0
 github.com/antihax/optional
-# github.com/frozenpine/ngerest v0.0.0-20191106044946-47fe5c0b542a
+# github.com/frozenpine/ngerest v0.0.0-20191106053539-ba2100fcec34
 github.com/frozenpine/ngerest
 # github.com/frozenpine/pkcs8 v0.0.0-20190413084423-a8374dc8920d
 github.com/frozenpine/pkcs8

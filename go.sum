@@ -41,6 +41,14 @@ github.com/frozenpine/ngerest v0.0.0-20191030054745-6e9097c2311f h1:ZTi2KGfIUXBE
 github.com/frozenpine/ngerest v0.0.0-20191030054745-6e9097c2311f/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
 github.com/frozenpine/ngerest v0.0.0-20191106044946-47fe5c0b542a h1:hj1H8rHbsinv70Cs8pbNgVYCu6TTG+CV/T03WOCEhYc=
 github.com/frozenpine/ngerest v0.0.0-20191106044946-47fe5c0b542a/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191106052554-d5b0644f8278 h1:lb5AABxnAp0mMOfvjV5/xgaMvMgEZMU9Bie2b/gg/+Y=
+github.com/frozenpine/ngerest v0.0.0-20191106052554-d5b0644f8278/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191106052742-d139b0557861 h1:+knKNL1i1rVweq9l/2loSxOBYRdYqZF6bJTBI5A1iVA=
+github.com/frozenpine/ngerest v0.0.0-20191106052742-d139b0557861/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191106053348-753694a4e4cc h1:gW9VbXqm8U8JGA0sJh0NGC7GygeGE9c4oiLvQqwFv7A=
+github.com/frozenpine/ngerest v0.0.0-20191106053348-753694a4e4cc/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
+github.com/frozenpine/ngerest v0.0.0-20191106053539-ba2100fcec34 h1:1QEnkK2tzS3BU1ZBjM/qVBL67WkLzl56iDnIE+CpHpY=
+github.com/frozenpine/ngerest v0.0.0-20191106053539-ba2100fcec34/go.mod h1:EMDN1A0e5YFyHWFMVNRPSCWp6nzBojbFjyPcbAs2wxc=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47 h1:tWqgWN6j76sCw1oPdQ1BdHfR4YYEK0kgLNC89dx3bNY=
 github.com/frozenpine/pkcs8 v0.0.0-20190315015347-de9534b11e47/go.mod h1:2bwRXM6GR9VZwJ5m0aSFo/7HHMnJLuvCoUk2cEZTt54=
 github.com/frozenpine/pkcs8 v0.0.0-20190413084423-a8374dc8920d h1:FDLukDoNCbo/cLcJ2YumDWbs72gOZCS7MmkbpBVOxzM=

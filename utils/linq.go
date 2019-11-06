@@ -270,12 +270,48 @@ func (tbl *TableDef) GetFilter() LinqFilter {
 		query.Select(func(v interface{}) interface{} {
 			result := make(map[string]interface{})
 
+			selectAll := len(tbl.selected) == len(tbl.columns)
+
 			for _, col := range tbl.selected {
 				key := col.GetJSONName()
 				if col.HasAlias() {
 					key = col.GetAliasName()
 				}
-				result[key] = GetFieldValue(v, col.GetName())
+
+				value := GetFieldValue(v, col.GetName())
+
+				if selectAll {
+					switch col.GetType().Kind() {
+					case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+						if reflect.ValueOf(value).Int() == 0 {
+							continue
+						}
+					case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+						if reflect.ValueOf(value).Uint() == 0 {
+							continue
+						}
+					case reflect.Float64, reflect.Float32:
+						if reflect.ValueOf(value).Float() == 0 {
+							continue
+						}
+					case reflect.String:
+						if reflect.ValueOf(value).String() == "" {
+							continue
+						}
+					case reflect.Interface:
+						fallthrough
+					case reflect.Map:
+						fallthrough
+					case reflect.Slice:
+						fallthrough
+					case reflect.Ptr:
+						if reflect.ValueOf(value).IsNil() {
+							continue
+						}
+					}
+				}
+
+				result[key] = value
 			}
 
 			return result
