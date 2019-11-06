@@ -70,6 +70,9 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 
 	switch ins.Action {
 	case models.PartialAction:
+		if c.instrument == nil {
+			changed = true
+		}
 		c.instrument = data
 	case models.UpdateAction:
 		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
