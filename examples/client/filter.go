@@ -30,6 +30,8 @@ var (
 
 func init() {
 	flag.StringVar(&sql, "output", "", "SQL for output.")
+
+	log.SetFlags(log.Ldate | log.Lmicroseconds)
 }
 
 func filter(ctx context.Context, table string, ch <-chan models.TableResponse) error {
