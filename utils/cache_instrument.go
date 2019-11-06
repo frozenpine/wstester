@@ -66,20 +66,19 @@ func (c *InstrumentCache) applyInsPrice(indPrice, markPrice float64) {
 func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 	data := ins.Data[0]
 
+	changed := false
+
 	switch ins.Action {
 	case models.PartialAction:
 		c.instrument = data
 	case models.UpdateAction:
-		// TODO: check if there have missing columns in instrument table
 		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
 			c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
 
-			return true
+			changed = true
 		}
 
 		if data.BidPrice > 0 {
-			changed := false
-
 			if c.instrument.BidPrice != data.BidPrice {
 				c.instrument.BidPrice = data.BidPrice
 
@@ -91,8 +90,6 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 
 				changed = true
 			}
-
-			return changed
 		}
 
 		if data.LastPrice > 0 {
@@ -108,13 +105,20 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 			c.instrument.TotalTurnover = data.TotalTurnover
 			c.instrument.PrevTotalTurnover = data.PrevTotalTurnover
 
-			return true
+			changed = true
+		}
+
+		if data.FundingRate > 0 {
+			c.instrument.FundingRate = data.FundingRate
+			c.instrument.FundingTimestamp = data.FundingTimestamp
+
+			changed = true
 		}
 	default:
 		log.Error("Invalid action for instrument cache: ", ins.Action)
 	}
 
-	return false
+	return changed
 }
 
 // NewInstrumentCache make a new instrument cache.
