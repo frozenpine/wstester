@@ -49,20 +49,38 @@ func (c *TradeCache) handleInput(input *CacheInput) {
 	}
 
 	if td, ok := input.msg.(*models.TradeResponse); ok {
-		c.applyData(td)
-
-		c.channelGroup[Realtime][0].PublishData(td)
+		if c.applyData(td) {
+			c.channelGroup[Realtime][0].PublishData(td)
+		}
 	} else {
 		log.Error("Can not convert cache input to TradeResponse: ", input.msg.String())
 	}
 }
 
-func (c *TradeCache) applyData(data *models.TradeResponse) {
-	c.historyTrade = append(c.historyTrade, data.Data...)
+func (c *TradeCache) applyData(data *models.TradeResponse) bool {
+	publish := false
 
-	if hisLen := len(c.historyTrade); hisLen > maxTradeLen*maxMultiple {
-		c.historyTrade = c.historyTrade[hisLen-maxTradeLen*maxMultiple/2:]
+	switch data.Action {
+	case models.PartialAction:
+		if len(c.historyTrade) < 1 {
+			// 防止client端使用cache时，partial数据无输出的问题
+			publish = true
+		}
+
+		c.historyTrade = data.Data
+	case models.InsertAction:
+		publish = true
+
+		c.historyTrade = append(c.historyTrade, data.Data...)
+
+		if hisLen := len(c.historyTrade); hisLen > maxTradeLen*maxMultiple {
+			c.historyTrade = c.historyTrade[hisLen-maxTradeLen*maxMultiple/2:]
+		}
+	default:
+		log.Error("Invalid action for trade cache: ", data.Action)
 	}
+
+	return publish
 }
 
 // NewTradeCache make a new trade cache.

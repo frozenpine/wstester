@@ -71,6 +71,7 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 	switch ins.Action {
 	case models.PartialAction:
 		if c.instrument == nil {
+			// 防止client端使用cache时，partial数据无输出的问题
 			changed = true
 		}
 		c.instrument = data
