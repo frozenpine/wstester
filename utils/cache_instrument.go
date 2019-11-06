@@ -75,7 +75,17 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
 			c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
 
-			changed = true
+			if c.instrument.IndicativeSettlePrice != data.IndicativeSettlePrice {
+				c.instrument.IndicativeSettlePrice = data.IndicativeSettlePrice
+
+				changed = true
+			}
+
+			if c.instrument.MarkPrice != data.MarkPrice {
+				c.instrument.MarkPrice = data.MarkPrice
+
+				changed = true
+			}
 		}
 
 		if data.BidPrice > 0 {
