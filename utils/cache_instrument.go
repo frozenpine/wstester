@@ -25,13 +25,15 @@ type InstrumentCache struct {
 	indicativePriceList []float64
 	markPriceList       []float64
 
-	instrument *ngerest.Instrument
+	insCache map[string]*ngerest.Instrument
 }
 
 func (c *InstrumentCache) snapshot(depth int) models.TableResponse {
 	rsp := models.NewInstrumentPartial()
 
-	rsp.Data = append(rsp.Data, c.instrument)
+	for _, ins := range c.insCache {
+		rsp.Data = append(rsp.Data, ins)
+	}
 
 	return rsp
 }
@@ -63,70 +65,93 @@ func (c *InstrumentCache) applyInsPrice(indPrice, markPrice float64) {
 	}
 }
 
-func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
-	data := ins.Data[0]
+func (c *InstrumentCache) initCache() {
+	c.insCache = make(map[string]*ngerest.Instrument)
+}
 
+func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 	changed := false
 
 	switch ins.Action {
 	case models.PartialAction:
-		if c.instrument == nil {
+		if c.insCache == nil {
+			c.initCache()
+
 			// 防止client端使用cache时，partial数据无输出的问题
 			changed = true
 		}
-		c.instrument = data
+
+		for _, ins := range ins.Data {
+			c.insCache[ins.Symbol] = ins
+		}
 	case models.UpdateAction:
-		if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
-			c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
+		for _, data := range ins.Data {
+			ins, exist := c.insCache[data.Symbol]
 
-			if c.instrument.IndicativeSettlePrice != data.IndicativeSettlePrice {
-				c.instrument.IndicativeSettlePrice = data.IndicativeSettlePrice
+			if !exist {
+				log.Error("Partial data missing for ", data.Symbol)
+				continue
+			}
+
+			if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
+				c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
+
+				if ins.IndicativeSettlePrice != data.IndicativeSettlePrice {
+					ins.IndicativeSettlePrice = data.IndicativeSettlePrice
+
+					changed = true
+				}
+
+				if ins.MarkPrice != data.MarkPrice {
+					ins.MarkPrice = data.MarkPrice
+
+					changed = true
+				}
+
+				ins.FairBasis = data.FairBasis
+				ins.FairPrice = data.FairPrice
+				ins.PrevMarkPrice24H = data.PrevMarkPrice24H
+			}
+
+			if data.BidPrice > 0 {
+				if ins.BidPrice != data.BidPrice {
+					ins.BidPrice = data.BidPrice
+
+					changed = true
+				}
+
+				if ins.AskPrice != data.AskPrice {
+					ins.AskPrice = data.AskPrice
+
+					changed = true
+				}
+			}
+
+			if data.LastPrice > 0 {
+				ins.LastPrice = data.LastPrice
+				ins.PrevPrice24h = data.PrevPrice24h
+				ins.LastChangePcnt = data.LastChangePcnt
+				ins.LastTickDirection = data.LastTickDirection
+
+				ins.Volume = data.Volume
+				ins.Volume24h = data.Volume24h
+				ins.TotalVolume = data.TotalVolume
+				ins.PrevTotalVolume = data.PrevTotalVolume
+
+				ins.Turnover = data.Turnover
+				ins.Turnover24h = data.Turnover24h
+				ins.TotalTurnover = data.TotalTurnover
+				ins.PrevTotalTurnover = data.PrevTotalTurnover
 
 				changed = true
 			}
 
-			if c.instrument.MarkPrice != data.MarkPrice {
-				c.instrument.MarkPrice = data.MarkPrice
+			if data.FundingRate > 0 {
+				ins.FundingRate = data.FundingRate
+				ins.FundingTimestamp = data.FundingTimestamp
 
 				changed = true
 			}
-		}
-
-		if data.BidPrice > 0 {
-			if c.instrument.BidPrice != data.BidPrice {
-				c.instrument.BidPrice = data.BidPrice
-
-				changed = true
-			}
-
-			if c.instrument.AskPrice != data.AskPrice {
-				c.instrument.AskPrice = data.AskPrice
-
-				changed = true
-			}
-		}
-
-		if data.LastPrice > 0 {
-			c.instrument.LastPrice = data.LastPrice
-
-			c.instrument.Volume = data.Volume
-			c.instrument.Volume24h = data.Volume24h
-			c.instrument.TotalVolume = data.TotalVolume
-			c.instrument.PrevTotalVolume = data.PrevTotalVolume
-
-			c.instrument.Turnover = data.Turnover
-			c.instrument.Turnover24h = data.Turnover24h
-			c.instrument.TotalTurnover = data.TotalTurnover
-			c.instrument.PrevTotalTurnover = data.PrevTotalTurnover
-
-			changed = true
-		}
-
-		if data.FundingRate > 0 {
-			c.instrument.FundingRate = data.FundingRate
-			c.instrument.FundingTimestamp = data.FundingTimestamp
-
-			changed = true
 		}
 	default:
 		log.Error("Invalid action for instrument cache: ", ins.Action)
