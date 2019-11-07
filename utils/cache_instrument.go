@@ -69,10 +69,10 @@ func (c *InstrumentCache) initCache() {
 	c.insCache = make(map[string]*ngerest.Instrument)
 }
 
-func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
+func (c *InstrumentCache) applyData(rsp *models.InstrumentResponse) bool {
 	changed := false
 
-	switch ins.Action {
+	switch rsp.Action {
 	case models.PartialAction:
 		if c.insCache == nil {
 			c.initCache()
@@ -81,11 +81,11 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 			changed = true
 		}
 
-		for _, ins := range ins.Data {
+		for _, ins := range rsp.Data {
 			c.insCache[ins.Symbol] = ins
 		}
 	case models.UpdateAction:
-		for _, data := range ins.Data {
+		for _, data := range rsp.Data {
 			ins, exist := c.insCache[data.Symbol]
 
 			if !exist {
@@ -154,7 +154,7 @@ func (c *InstrumentCache) applyData(ins *models.InstrumentResponse) bool {
 			}
 		}
 	default:
-		log.Error("Invalid action for instrument cache: ", ins.Action)
+		log.Error("Invalid action for instrument cache: ", rsp.Action)
 	}
 
 	return changed
