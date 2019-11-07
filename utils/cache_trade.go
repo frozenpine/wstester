@@ -70,9 +70,11 @@ func (c *TradeCache) applyData(data *models.TradeResponse) bool {
 
 		c.historyTrade = data.Data
 
-		result, _ := json.Marshal(data.Data)
+		if log.IsTraceLevel {
+			result, _ := json.Marshal(data.Data)
 
-		log.Info("Trade partial: ", string(result))
+			log.Debug("Trade partial: ", string(result))
+		}
 	case models.InsertAction:
 		publish = true
 

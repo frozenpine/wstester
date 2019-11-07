@@ -334,8 +334,10 @@ func (c *MBLCache) handlePartial(data []*ngerest.OrderBookL2) {
 		// 防止client端使用cache时，partial数据无输出的问题
 		c.channelGroup[Realtime][0].PublishData(snap)
 
-		result, _ := json.Marshal(snap.GetData())
-		log.Debug("MBL partial: ", string(result))
+		if log.IsTraceLevel {
+			result, _ := json.Marshal(snap.GetData())
+			log.Debug("MBL partial: ", string(result))
+		}
 
 		return
 	}

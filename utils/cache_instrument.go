@@ -85,10 +85,12 @@ func (c *InstrumentCache) handlePartial(rsp *models.InstrumentResponse) bool {
 		c.insCache[ins.Symbol] = ins
 	}
 
-	snap := c.snapshot(0)
-	result, _ := json.Marshal(snap.GetData())
+	if log.IsTraceLevel {
+		snap := c.snapshot(0)
+		result, _ := json.Marshal(snap.GetData())
 
-	log.Info("Instrument partial: ", string(result))
+		log.Debug("Instrument partial: ", string(result))
+	}
 
 	return changed
 }
