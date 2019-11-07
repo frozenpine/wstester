@@ -67,7 +67,7 @@ var (
 
 func getURL() string {
 	if urlStr != "" {
-		if !strings.HasPrefix(urlStr, "http") && !strings.HasPrefix("urlStr", "ws") {
+		if !strings.HasPrefix(urlStr, "http") && !strings.HasPrefix(urlStr, "ws") {
 			urlStr = defaultScheme + "://" + urlStr
 		}
 
