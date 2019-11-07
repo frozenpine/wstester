@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
@@ -69,88 +70,108 @@ func (c *InstrumentCache) initCache() {
 	c.insCache = make(map[string]*ngerest.Instrument)
 }
 
-func (c *InstrumentCache) applyData(rsp *models.InstrumentResponse) bool {
+func (c *InstrumentCache) handlePartial(rsp *models.InstrumentResponse) bool {
 	changed := false
 
-	switch rsp.Action {
-	case models.PartialAction:
-		if c.insCache == nil {
-			c.initCache()
+	if c.insCache == nil {
+		c.initCache()
 
-			// 防止client端使用cache时，partial数据无输出的问题
+		// 防止client端使用cache时，partial数据无输出的问题
+		changed = true
+	}
+
+	for _, ins := range rsp.Data {
+		c.insCache[ins.Symbol] = ins
+	}
+
+	return changed
+}
+
+func (c *InstrumentCache) handleUpdate(data *ngerest.Instrument) (bool, error) {
+	changed := false
+
+	ins, exist := c.insCache[data.Symbol]
+
+	if !exist {
+		return false, errors.New("Partial data missing for " + data.Symbol)
+	}
+
+	if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
+		c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
+
+		if ins.IndicativeSettlePrice != data.IndicativeSettlePrice {
+			ins.IndicativeSettlePrice = data.IndicativeSettlePrice
+
 			changed = true
 		}
 
-		for _, ins := range rsp.Data {
-			c.insCache[ins.Symbol] = ins
+		if ins.MarkPrice != data.MarkPrice {
+			ins.MarkPrice = data.MarkPrice
+
+			changed = true
 		}
+
+		ins.FairBasis = data.FairBasis
+		ins.FairPrice = data.FairPrice
+		ins.PrevMarkPrice24H = data.PrevMarkPrice24H
+	}
+
+	if data.BidPrice > 0 {
+		if ins.BidPrice != data.BidPrice {
+			ins.BidPrice = data.BidPrice
+
+			changed = true
+		}
+
+		if ins.AskPrice != data.AskPrice {
+			ins.AskPrice = data.AskPrice
+
+			changed = true
+		}
+	}
+
+	if data.LastPrice > 0 {
+		ins.LastPrice = data.LastPrice
+		ins.PrevPrice24h = data.PrevPrice24h
+		ins.LastChangePcnt = data.LastChangePcnt
+		ins.LastTickDirection = data.LastTickDirection
+
+		ins.Volume = data.Volume
+		ins.Volume24h = data.Volume24h
+		ins.TotalVolume = data.TotalVolume
+		ins.PrevTotalVolume = data.PrevTotalVolume
+
+		ins.Turnover = data.Turnover
+		ins.Turnover24h = data.Turnover24h
+		ins.TotalTurnover = data.TotalTurnover
+		ins.PrevTotalTurnover = data.PrevTotalTurnover
+
+		changed = true
+	}
+
+	if data.FundingRate > 0 {
+		ins.FundingRate = data.FundingRate
+		ins.FundingTimestamp = data.FundingTimestamp
+
+		changed = true
+	}
+
+	return changed, nil
+}
+
+func (c *InstrumentCache) applyData(rsp *models.InstrumentResponse) bool {
+	var (
+		changed = false
+		err     error
+	)
+
+	switch rsp.Action {
+	case models.PartialAction:
+		return c.handlePartial(rsp)
 	case models.UpdateAction:
 		for _, data := range rsp.Data {
-			ins, exist := c.insCache[data.Symbol]
-
-			if !exist {
-				log.Error("Partial data missing for ", data.Symbol)
-				continue
-			}
-
-			if data.IndicativeSettlePrice > 0 && data.MarkPrice > 0 {
-				c.applyInsPrice(data.IndicativeSettlePrice, data.MarkPrice)
-
-				if ins.IndicativeSettlePrice != data.IndicativeSettlePrice {
-					ins.IndicativeSettlePrice = data.IndicativeSettlePrice
-
-					changed = true
-				}
-
-				if ins.MarkPrice != data.MarkPrice {
-					ins.MarkPrice = data.MarkPrice
-
-					changed = true
-				}
-
-				ins.FairBasis = data.FairBasis
-				ins.FairPrice = data.FairPrice
-				ins.PrevMarkPrice24H = data.PrevMarkPrice24H
-			}
-
-			if data.BidPrice > 0 {
-				if ins.BidPrice != data.BidPrice {
-					ins.BidPrice = data.BidPrice
-
-					changed = true
-				}
-
-				if ins.AskPrice != data.AskPrice {
-					ins.AskPrice = data.AskPrice
-
-					changed = true
-				}
-			}
-
-			if data.LastPrice > 0 {
-				ins.LastPrice = data.LastPrice
-				ins.PrevPrice24h = data.PrevPrice24h
-				ins.LastChangePcnt = data.LastChangePcnt
-				ins.LastTickDirection = data.LastTickDirection
-
-				ins.Volume = data.Volume
-				ins.Volume24h = data.Volume24h
-				ins.TotalVolume = data.TotalVolume
-				ins.PrevTotalVolume = data.PrevTotalVolume
-
-				ins.Turnover = data.Turnover
-				ins.Turnover24h = data.Turnover24h
-				ins.TotalTurnover = data.TotalTurnover
-				ins.PrevTotalTurnover = data.PrevTotalTurnover
-
-				changed = true
-			}
-
-			if data.FundingRate > 0 {
-				ins.FundingRate = data.FundingRate
-				ins.FundingTimestamp = data.FundingTimestamp
-
-				changed = true
+			if changed, err = c.handleUpdate(data); err != nil {
+				log.Error(err)
 			}
 		}
 	default:
