@@ -134,7 +134,7 @@ func expectBackoff(c, i int, slot int) time.Duration {
 
 	N := 1<<uint(c) - 1
 
-	return time.Millisecond * time.Duration(int64(slot)*int64(N)*1000/2)
+	return time.Millisecond * time.Duration(slot*N*1000/2)
 }
 
 func init() {
