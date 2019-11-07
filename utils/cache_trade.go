@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/wstester/models"
@@ -68,6 +69,10 @@ func (c *TradeCache) applyData(data *models.TradeResponse) bool {
 		}
 
 		c.historyTrade = data.Data
+
+		result, _ := json.Marshal(data.Data)
+
+		log.Info("Trade partial: ", string(result))
 	case models.InsertAction:
 		publish = true
 

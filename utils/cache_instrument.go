@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/frozenpine/ngerest"
@@ -83,6 +84,11 @@ func (c *InstrumentCache) handlePartial(rsp *models.InstrumentResponse) bool {
 	for _, ins := range rsp.Data {
 		c.insCache[ins.Symbol] = ins
 	}
+
+	snap := c.snapshot(0)
+	result, _ := json.Marshal(snap.GetData())
+
+	log.Info("Instrument partial: ", string(result))
 
 	return changed
 }
