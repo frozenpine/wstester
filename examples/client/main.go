@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/url"
 	"os"
@@ -220,6 +221,16 @@ func normalizeTopicTable() (err error) {
 	return
 }
 
+func avgDuration(dur []time.Duration) time.Duration {
+	total := time.Duration(0)
+
+	for _, d := range dur {
+		total += d
+	}
+
+	return total / time.Duration(len(dur))
+}
+
 func main() {
 	if !flag.Parsed() {
 		flag.Parse()
@@ -244,6 +255,8 @@ func main() {
 	running := true
 
 	maxLast := time.Duration(0)
+	minLast := time.Duration(math.MaxInt64)
+	lastList := []time.Duration{}
 
 	progStart := time.Now()
 
@@ -310,12 +323,13 @@ func main() {
 		}
 
 		last := time.Now().Sub(start)
-		if last > maxLast {
-			maxLast = last
-		}
+		lastList = append(lastList, last)
+		maxLast = utils.MaxDuration(last, maxLast)
+		minLast = utils.MinDuration(last, minLast)
+
 		log.Infof(
-			"Program starts at [%v], %s round connection last %v long, max connection time in history is %v.",
-			progStart, humanReadNum(roundCount), last, maxLast,
+			"Program starts at [%v], %s round connection last %v long, max. connection time in history is %v, min. connection time in history is %v, avg. connection time is %v.",
+			progStart, humanReadNum(roundCount), last, maxLast, minLast, avgDuration(lastList),
 		)
 		roundCount++
 	}

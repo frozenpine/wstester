@@ -3,6 +3,7 @@ package utils
 import (
 	"math"
 	"sort"
+	"time"
 
 	"github.com/frozenpine/wstester/utils/log"
 )
@@ -20,6 +21,24 @@ func MinInt(i, j int) int {
 	if i <= j {
 		return i
 	}
+	return j
+}
+
+// MaxDuration return max Duration
+func MaxDuration(i, j time.Duration) time.Duration {
+	if i >= j {
+		return i
+	}
+
+	return j
+}
+
+// MinDuration return max Duration
+func MinDuration(i, j time.Duration) time.Duration {
+	if i <= j {
+		return i
+	}
+
 	return j
 }
 
