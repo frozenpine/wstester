@@ -433,7 +433,7 @@ func (c *MBLCache) handleDelete(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		idx   int = -1
+		idx   = -1
 		err   error
 		depth int
 	)
@@ -479,7 +479,7 @@ func (c *MBLCache) handleInsert(ord *ngerest.OrderBookL2) (int, error) {
 	}
 
 	var (
-		idx   int = -1
+		idx   = -1
 		err   error
 		depth int
 	)
@@ -514,7 +514,7 @@ func (c *MBLCache) handleInsert(ord *ngerest.OrderBookL2) (int, error) {
 
 func (c *MBLCache) handleUpdate(ord *ngerest.OrderBookL2) (int, error) {
 	var (
-		idx   int = -1
+		idx   = -1
 		err   error
 		depth int
 	)
